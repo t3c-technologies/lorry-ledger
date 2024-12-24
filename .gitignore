@@ -1,0 +1,64 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.sqlite3
+db.sqlite3
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.env
+*.env
+
+# Django
+*.log
+local_settings.py
+media/
+staticfiles/
+static/
+
+# PostgreSQL
+*.sql
+*.dump
+*.backup
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+dist/
+out/
+
+# Next.js
+.next/
+.next/cache/
+
+# Tailwind CSS
+*.css.map
+
+# Logs and Debugging
+logs/
+*.log
+*.out
+*.pid
+*.swp
+*.swo
+
+# Editor/IDE
+.vscode/
+.idea/
+*.iml
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Git
+*.bak
+*.orig
+*.lock
+*.swp
