@@ -6,6 +6,8 @@ import OtpInput from "../components/OtpInput";
 import Button from "../components/Button";
 import api from "../utils/api";
 
+import { notifySuccess, notifyError } from "../components/Notification";
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [mobile, setMobile] = useState("");
@@ -13,11 +15,15 @@ const Auth = () => {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [step, setStep] = useState(1);
 
+  const handleSuccess = () => notifySuccess("Welcome to Lorry Ledger!");
+  const handleError = () => notifyError("Something went wrong!");
+
   const handleSendOtp = async () => {
     try {
       const fullMobile = `${countryCode}${mobile}`; // Combine country code and mobile
-      await api.post("/send-otp", { mobile: fullMobile });
-      setStep(2);
+      // await api.post("/send-otp", { mobile: fullMobile });
+      // setStep(2);
+      handleSuccess();
     } catch (error) {
       console.error("Error sending OTP:", error);
     }
