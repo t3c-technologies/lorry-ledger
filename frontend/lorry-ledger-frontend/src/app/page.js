@@ -21,6 +21,8 @@ const Auth = () => {
   const handleError = (message) => notifyError(message);
 
   const mobileInputRef = useRef(null);
+  const firstOtpInputRef = useRef(null);
+
 
   const [countdown, setCountdown] = useState(10);
   const [canResend, setCanResend] = useState(false);
@@ -51,9 +53,16 @@ const Auth = () => {
     setStep(1);
   };
 
+  const backToLogin = () => {
+    setStep(1);
+    setIsLogin(!isLogin);
+  }
+
   useEffect(() => {
     if (step === 1) {
       mobileInputRef.current?.focus();
+    } else if (step === 2){
+      firstOtpInputRef.current?.focus();
     }
   }, [step]);
 
@@ -241,7 +250,7 @@ const Auth = () => {
                     minutes
                   </p>
                 </div>
-                <OtpInput otp={otp} setOtp={setOtp} />
+                <OtpInput otp={otp} setOtp={setOtp} firstInputRef={firstOtpInputRef}/>
 
                 <Button
                   text="Verify OTP"
@@ -264,7 +273,7 @@ const Auth = () => {
                     )}
                   </div>
                   <button
-                    onClick={() => setIsLogin(!isLogin)}
+                    onClick={backToLogin}
                     className="text-primary ml-2 hover:underline"
                   >
                     Back To Login
