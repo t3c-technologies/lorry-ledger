@@ -9,6 +9,8 @@ import { api } from '../utils/api'; // Import the API utility
 import { API_ENDPOINTS } from '../utils/endpoints'; // Import the endpoint definitions
 import { handleApiError } from '../utils/errorHandler'; // Import error handler
 
+import { useRouter } from 'next/navigation'; 
+
 import { MessageCircle } from "lucide-react";
 
 import { notifySuccess, notifyError } from "../components/Notification";
@@ -22,6 +24,8 @@ const Auth = () => {
 
   const handleSuccess = (message) => notifySuccess(message);
   const handleError = (message) => notifyError(message);
+
+  const router = useRouter(); // Initialize router
 
   const mobileInputRef = useRef(null);
   const firstOtpInputRef = useRef(null);
@@ -125,15 +129,17 @@ const Auth = () => {
     try {
       const enteredOtp = otp.join("");
       const fullMobile = `${countryCode}${mobile}`; // Combine country code and mobile
-      const response = await api.post("/verify-otp", {
-        mobile: fullMobile,
-        otp: enteredOtp,
+      // Verify OTP via API
+      const response = await api.post(API_ENDPOINTS.auth.validate, {
+        mobile_number: mobile,
+        otp: enteredOtp
       });
-      if (response.data.success) {
-        alert("OTP Verified Successfully!");
-      }
+      // Handle response
+      response.success
+        ? router.push('/dashboard')
+        : notifyError(response.message || 'Failed to send OTP.');
     } catch (error) {
-      console.error("Error verifying OTP:", error);
+      notifyError(handleApiError(error).message);
     }
   };
 

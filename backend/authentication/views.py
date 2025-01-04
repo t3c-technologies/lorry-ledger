@@ -93,26 +93,26 @@ def validate(request):
             otp_received = data.get("otp")
             mobile_number = data.get("mobile_number")
             if not mobile_number or len(mobile_number) != 10 or not mobile_number.isdigit():
-                return JsonResponse({"error": "Invalid mobile number."}, status=400)
+                return JsonResponse({"message": "Invalid mobile number."}, status=400)
             if not otp_received or len(otp_received) != 4 or not otp_received.isdigit():
-                return JsonResponse({"error": "Invalid OTP."}, status=400)
+                return JsonResponse({"message": "Invalid OTP."}, status=400)
             hashed_mobile_number = hash_mobile_number(mobile_number)
             time_threshold = now() - timedelta(minutes=5)
             session = OTPSession.objects.filter(
                 mobile_number=hashed_mobile_number, created_at__gte=time_threshold, validated=False
             ).order_by('-created_at').first()
             if not session:
-                return JsonResponse({"error": "Session expired or invalid."}, status=400)
+                return JsonResponse({"message": "Session expired or invalid."}, status=400)
             if session.otp_sent == otp_received:
                 session.validated = True
                 session.save()
                 return JsonResponse(
-                    {"message": "Validated successfully", "mobile": mobile_number},
+                    {"message": "Validated successfully", "mobile": mobile_number, "success": True},
                     status=200
                 )
             else:
-                return JsonResponse({"error": "Invalid OTP."}, status=400)
+                return JsonResponse({"message": "Invalid OTP.", "success": False}, status=400)
         except Exception as e:
             logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")
-            return JsonResponse({"error": "Internal server error."}, status=500)
-    return JsonResponse({"error": "Invalid request method."}, status=400)
+            return JsonResponse({"error": "Internal server error.", "success": False}, status=500)
+    return JsonResponse({"message": "Invalid request method.", "success": False}, status=400)
