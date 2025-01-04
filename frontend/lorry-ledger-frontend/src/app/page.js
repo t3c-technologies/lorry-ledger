@@ -194,7 +194,7 @@ const Auth = () => {
                 <div className="flex items-center justify-center mb-3">
                   <MessageCircle className="text-primary mr-2" size={20} />
                   <p className="text-lg text-textPrimary font-medium">
-                    {isLogin ? "Login " : "Signup "} with your registered mobile
+                    {isLogin ? "Login with your registered " : "Signup with your "}  mobile
                     number
                   </p>
                 </div>

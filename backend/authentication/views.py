@@ -1,17 +1,13 @@
-from django.db.models import Sum, Min
-import random
-from datetime import timedelta
-from django.utils.timezone import now
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_protect, csrf_exempt
-from .models import OTPSession
-import json
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.timezone import now
+from datetime import timedelta
 from django_ratelimit.decorators import ratelimit
-from .utils import encrypt, decrypt, hash_mobile_number
-import logging
+import json, random, logging
+from .models import OTPSession, OTPLog
+from .utils import hash_mobile_number
 
-logger = logging.getLogger(__name__)  # Initialize logger
-
+logger = logging.getLogger(__name__)
 
 @csrf_exempt  # Use CSRF protection in production
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
@@ -27,10 +23,10 @@ def generate(request):
                 return JsonResponse({"error": "Invalid mobile number."}, status=400)
 
             # Extract device details
-            ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')  # IP address
-            browser = request.META.get('HTTP_USER_AGENT', 'Unknown')  # Browser info
-            device_os = "Windows" if "Windows" in browser else "MacOS" if "Mac" in browser else "Unknown"  # OS
-            region = "NA"  # Default placeholder
+            ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+            browser = request.META.get('HTTP_USER_AGENT', 'Unknown')
+            device_os = "Windows" if "Windows" in browser else "MacOS" if "Mac" in browser else "Unknown"
+            region = "NA"
 
             # Encrypt the mobile number before searching
             hashed_mobile_number = hash_mobile_number(mobile_number)
@@ -39,47 +35,84 @@ def generate(request):
             time_threshold = now() - timedelta(minutes=5)
             session = OTPSession.objects.filter(
                 mobile_number=hashed_mobile_number, created_at__gte=time_threshold
-            ).order_by('-created_at').first()  # Latest session
+            ).order_by('-created_at').first()
 
-            # If session exists, check resend limit
+            # **Check resend limit before creating OTPLog**
+            if session and session.resend_count >= 3:
+                retry_after = int((session.expiry - now()).total_seconds() / 60)
+                retry_after = max(retry_after, 0)
+                return JsonResponse({"error": f"Too many attempts. Try again after {retry_after} minutes."}, status=429)
+
+            # Generate new OTP
+            otp_sent = str(random.randint(1000, 9999))
+
+            # Create an OTP log entry only after validating resend limits
+            otp_log = OTPLog.objects.create(
+                mobile_number=hashed_mobile_number,
+                otp_sent=otp_sent,
+                ip_address=ip_address,
+                device_os=device_os,
+                browser=browser,
+                region=region
+            )
+
             if session:
-                # Block if resend attempts exceed 3
-                if session.resend_count >= 3:
-                    # Calculate retry time based on session expiry
-                    retry_after = int((session.expiry - now()).total_seconds() / 60)
-                    retry_after = max(retry_after, 0)
-                    return JsonResponse({"error": f"Too many attempts. Try again after {retry_after} minutes."}, status=429)
-
-                # Increment resend count and update expiry
-                session.otp_sent = str(random.randint(1000, 9999))
+                # Increment resend count and update session
+                session.otp_sent = otp_sent
                 session.expiry = now() + timedelta(minutes=5)
                 session.resend_count += 1
+                session.otp_log = otp_log  # Link session to log
                 session.save()
-                otp_sent = session.otp_sent
-
             else:
                 # Create new session if no active session exists
-                otp_sent = str(random.randint(1000, 9999))
-
                 OTPSession.objects.create(
                     mobile_number=hashed_mobile_number,
                     otp_sent=otp_sent,
                     expiry=now() + timedelta(minutes=5),
                     validated=False,
-                    device_os=device_os,
-                    ip_address=ip_address,
-                    browser=browser,
-                    region=region,
-                    resend_count=1  # Set initial count
+                    resend_count=1,
+                    otp_log=otp_log  # Link session to log
                 )
-                
-            print(f"OTP Sent: {otp_sent}")
-            logger.info(f"OTP sent to {mobile_number} from IP {ip_address}")  # Log success
 
-            return JsonResponse({"message": "OTP sent successfully.", "otp": otp_sent,"mobile":mobile_number}, status=200)
+            logger.info(f"OTP sent to {mobile_number} from IP {ip_address}")
+            return JsonResponse({"message": "OTP sent successfully.", "otp": otp_sent, "mobile": mobile_number}, status=200)
 
         except Exception as e:
-            logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")  # Log errors
+            logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
 
+    return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
+@csrf_exempt  # Use CSRF protection in production
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+def validate(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            otp_received = data.get("otp")
+            mobile_number = data.get("mobile_number")
+            if not mobile_number or len(mobile_number) != 10 or not mobile_number.isdigit():
+                return JsonResponse({"error": "Invalid mobile number."}, status=400)
+            if not otp_received or len(otp_received) != 4 or not otp_received.isdigit():
+                return JsonResponse({"error": "Invalid OTP."}, status=400)
+            hashed_mobile_number = hash_mobile_number(mobile_number)
+            time_threshold = now() - timedelta(minutes=5)
+            session = OTPSession.objects.filter(
+                mobile_number=hashed_mobile_number, created_at__gte=time_threshold, validated=False
+            ).order_by('-created_at').first()
+            if not session:
+                return JsonResponse({"error": "Session expired or invalid."}, status=400)
+            if session.otp_sent == otp_received:
+                session.validated = True
+                session.save()
+                return JsonResponse(
+                    {"message": "Validated successfully", "mobile": mobile_number},
+                    status=200
+                )
+            else:
+                return JsonResponse({"error": "Invalid OTP."}, status=400)
+        except Exception as e:
+            logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")
+            return JsonResponse({"error": "Internal server error."}, status=500)
     return JsonResponse({"error": "Invalid request method."}, status=400)
