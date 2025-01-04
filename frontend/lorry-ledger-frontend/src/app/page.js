@@ -5,6 +5,8 @@ import InputField from "../components/InputField";
 import OtpInput from "../components/OtpInput";
 import Button from "../components/Button";
 
+import Cookies from 'js-cookie';
+
 import { api } from '../utils/api'; // Import the API utility
 import { API_ENDPOINTS } from '../utils/endpoints'; // Import the endpoint definitions
 import { handleApiError } from '../utils/errorHandler'; // Import error handler
@@ -30,9 +32,27 @@ const Auth = () => {
   const mobileInputRef = useRef(null);
   const firstOtpInputRef = useRef(null);
 
-
   const [countdown, setCountdown] = useState(10);
   const [canResend, setCanResend] = useState(false);
+
+  // Check session on page load
+  useEffect(() => {
+    const checkSession = async () => {
+        const savedMobileNumber = Cookies.get('mobile_number');
+        if (savedMobileNumber) {
+            setMobile(savedMobileNumber);
+            try {
+                const response = await api.post(API_ENDPOINTS.auth.checkSession, {
+                    mobile_number: savedMobileNumber,
+                });
+                response.success ? setStep(2) : setStep(1);
+            } catch (error) {
+                setStep(1);
+            }
+        }
+    };
+    checkSession();
+  }, []); 
 
   useEffect(() => {
     let timer;
@@ -117,8 +137,9 @@ const Auth = () => {
         mobile_number: mobile,
       });
       // Handle response
+      const in5Minutes = new Date(new Date().getTime() + 5 * 60 * 1000); 
       response.success
-        ? (notifySuccess('OTP sent successfully!'), setStep(2)) // Proceed to next step
+        ? (notifySuccess('OTP sent successfully!'), setStep(2), Cookies.set('mobile_number', mobile, { expires: in5Minutes }))
         : notifyError(response.message || 'Failed to send OTP.');
     } catch (error) {
       notifyError(handleApiError(error).message);
@@ -130,12 +151,10 @@ const Auth = () => {
     try {
       const enteredOtp = otp.join("");
       const fullMobile = `${countryCode}${mobile}`; // Combine country code and mobile
-      // Verify OTP via API
       const response = await api.post(API_ENDPOINTS.auth.validate, {
         mobile_number: mobile,
         otp: enteredOtp
       });
-      // Handle response
       response.success
         ? router.push('/dashboard')
         : notifyError(response.message || 'Failed to send OTP.');

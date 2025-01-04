@@ -116,3 +116,27 @@ def validate(request):
             logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")
             return JsonResponse({"error": "Internal server error.", "success": False}, status=500)
     return JsonResponse({"message": "Invalid request method.", "success": False}, status=400)
+
+# View to check if there is existing session & to redirect the user to enter opt
+@csrf_exempt  # Use CSRF protection in production
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+def check_session(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            mobile_number = data.get("mobile_number")
+            if not mobile_number or len(mobile_number) != 10 or not mobile_number.isdigit():
+                return JsonResponse({"message": "Invalid mobile number.","success": False}, status=400)
+            hashed_mobile_number = hash_mobile_number(mobile_number)
+            time_threshold = now() - timedelta(minutes=5)
+            session = OTPSession.objects.filter(
+                mobile_number=hashed_mobile_number, created_at__gte=time_threshold, validated=False
+            ).order_by('-created_at').first()
+            if session:
+                return JsonResponse({"message": "Session exists.", "session_id": session.id, "success": True}, status=200)
+            else:
+                return JsonResponse({"message": "No active session found.", "success": False}, status=404)
+        except Exception as e:
+            logger.error(f"Error checking session for {mobile_number}: {str(e)}")
+            return JsonResponse({"message": "Internal server error.", "success": False}, status=500)
+    return JsonResponse({"message": "Invalid request method.", "success": False}, status=400)

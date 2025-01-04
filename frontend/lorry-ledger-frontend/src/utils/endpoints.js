@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
     validate: `auth/validate/`,
     logout: `auth/logout/`,
     refresh: `auth/refresh/`,
+    checkSession: `auth/checkSession/`,
   },
   user: {
     profile: `user/profile/`,
