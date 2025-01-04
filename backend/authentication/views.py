@@ -41,7 +41,7 @@ def generate(request):
             if session and session.resend_count >= 3:
                 retry_after = int((session.expiry - now()).total_seconds() / 60)
                 retry_after = max(retry_after, 0)
-                return JsonResponse({"error": f"Too many attempts. Try again after {retry_after} minutes."}, status=429)
+                return JsonResponse({"message": f"Too many attempts. Try again after {retry_after} minutes.", "success": False}, status=429)
 
             # Generate new OTP
             otp_sent = str(random.randint(1000, 9999))
@@ -79,9 +79,9 @@ def generate(request):
 
         except Exception as e:
             logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")
-            return JsonResponse({"error": str(e)}, status=500)
+            return JsonResponse({"message": str(e), "success": False}, status=500)
 
-    return JsonResponse({"error": "Invalid request method."}, status=400)
+    return JsonResponse({"message": "Invalid request method.", "success": False}, status=400)
 
 
 @csrf_exempt  # Use CSRF protection in production
