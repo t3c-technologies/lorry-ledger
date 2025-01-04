@@ -75,7 +75,7 @@ def generate(request):
                 )
 
             logger.info(f"OTP sent to {mobile_number} from IP {ip_address}")
-            return JsonResponse({"message": "OTP sent successfully.", "otp": otp_sent, "mobile": mobile_number}, status=200)
+            return JsonResponse({"message": "OTP sent successfully.", "otp": otp_sent, "mobile": mobile_number, "success": True}, status=200)
 
         except Exception as e:
             logger.error(f"Error processing OTP for {mobile_number}: {str(e)}")

@@ -4,7 +4,10 @@ import React, { useState, useRef, useEffect } from "react";
 import InputField from "../components/InputField";
 import OtpInput from "../components/OtpInput";
 import Button from "../components/Button";
-import api from "../utils/api";
+
+import { api } from '../utils/api'; // Import the API utility
+import { API_ENDPOINTS } from '../utils/endpoints'; // Import the endpoint definitions
+import { handleApiError } from '../utils/errorHandler'; // Import error handler
 
 import { MessageCircle } from "lucide-react";
 
@@ -12,7 +15,7 @@ import { notifySuccess, notifyError } from "../components/Notification";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [mobile, setMobile] = useState("");
+  const [mobile, setMobile] = useState("9019719989");
   const [countryCode, setCountryCode] = useState("+91"); // Default country code
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [step, setStep] = useState(1);
@@ -55,7 +58,7 @@ const Auth = () => {
 
   const backToLogin = () => {
     setStep(1);
-    setIsLogin(!isLogin);
+    // setIsLogin(!isLogin);
   }
 
   useEffect(() => {
@@ -97,19 +100,26 @@ const Auth = () => {
 
   const handleSendOtp = async () => {
     try {
-      const fullMobile = `${countryCode}${mobile}`; // Combine country code and mobile
+      // Combine country code and mobile number
+      const fullMobile = `${countryCode}${mobile}`;
+      // Validate mobile number
       const { isValid, message } = await validateMobile(mobile);
       if (!isValid) {
-        notifyError(message);
-        return;
+        return notifyError(message); // Show error and exit
       }
-      // await api.post("/send-otp", { mobile: fullMobile });
-      setStep(2);
-      // handleSuccess();
+      // Send OTP via API
+      const response = await api.post(API_ENDPOINTS.auth.generate, {
+        mobile_number: mobile,
+      });
+      // Handle response
+      response.success
+        ? (notifySuccess('OTP sent successfully!'), setStep(2)) // Proceed to next step
+        : notifyError(response.message || 'Failed to send OTP.');
     } catch (error) {
-      console.error("Error sending OTP:", error);
+      notifyError(handleApiError(error).message);
     }
   };
+  
 
   const handleVerifyOtp = async () => {
     try {

@@ -10,8 +10,8 @@ class OTPLog(models.Model):
     sent_at = models.DateTimeField(auto_now_add=True)  # Timestamp when OTP was sent
     ip_address = models.GenericIPAddressField(blank=True, null=True)  # IP address
     device_os = models.CharField(max_length=50, blank=True, null=True)  # Device OS
-    browser = models.CharField(max_length=100, blank=True, null=True)  # Browser info
-    region = models.CharField(max_length=100, blank=True, null=True)  # Region info
+    browser = models.CharField(max_length=1000, blank=True, null=True)  # Browser info
+    region = models.CharField(max_length=1000, blank=True, null=True)  # Region info
 
     def __str__(self):
         return f"OTPLog for {self.mobile_number} at {self.sent_at}"
