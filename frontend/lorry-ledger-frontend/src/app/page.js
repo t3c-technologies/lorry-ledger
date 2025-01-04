@@ -51,6 +51,7 @@ const Auth = () => {
 
   const handleResendOTP = () => {
     if (canResend) {
+      handleSendOtp();
       setCountdown(10);
       setCanResend(false);
     }

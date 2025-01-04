@@ -17,7 +17,7 @@ const Header = ({ userName }) => {
   const handleLogout = () => {
     // Clear local storage/cookies
     localStorage.removeItem('token');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   return (
