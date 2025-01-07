@@ -5,6 +5,10 @@
 import { useState } from 'react';
 import { Bell, User, LogOut } from 'lucide-react';
 
+import { api } from '../utils/api'; // Import the API utility
+import { API_ENDPOINTS } from '../utils/endpoints'; // Import the endpoint definitions
+import { handleApiError } from '../utils/errorHandler'; // Import error handler
+
 const Header = ({ userName }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -14,10 +18,15 @@ const Header = ({ userName }) => {
     { id: 2, message: 'Vehicle maintenance due', time: '1h ago' },
   ];
 
-  const handleLogout = () => {
-    // Clear local storage/cookies
-    localStorage.removeItem('token');
-    window.location.href = '/';
+  const handleLogout = async () => {
+    try {
+      const response = await api.post(API_ENDPOINTS.auth.logout);
+      response.success
+        ? router.push('/')
+        : notifyError(response.message || 'Something went wrong');
+    } catch (error) {
+      notifyError(handleApiError(error).message);
+    }
   };
 
   return (
