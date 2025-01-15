@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import generate, validate, check_session, logout
+from .views import generate, validate, check_session, logout, verify
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -12,7 +12,8 @@ urlpatterns = [
 
     path('generate/', generate, name='generate_otp'),
     path('validate/', validate, name='validate_otp'),
-    path('checkSession/', check_session, name='check_session'),
+    path('refreshToken/', validate, name='refresh_token'),
+    path('verify/', verify, name='verify_session'),
     path('logout/', logout, name='logout'),
     
 ]

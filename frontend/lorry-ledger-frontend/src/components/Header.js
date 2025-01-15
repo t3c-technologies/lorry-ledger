@@ -9,9 +9,16 @@ import { api } from '../utils/api'; // Import the API utility
 import { API_ENDPOINTS } from '../utils/endpoints'; // Import the endpoint definitions
 import { handleApiError } from '../utils/errorHandler'; // Import error handler
 
+import { notifySuccess, notifyError } from "../components/Notification";
+
+import { useRouter } from 'next/navigation'; 
+
 const Header = ({ userName }) => {
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+
+  const router = useRouter(); // Initialize router
 
   const notifications = [
     { id: 1, message: 'New trip assigned', time: '5m ago' },
@@ -23,7 +30,7 @@ const Header = ({ userName }) => {
       const response = await api.post(API_ENDPOINTS.auth.logout);
       response.success
         ? router.push('/')
-        : notifyError(response.message || 'Something went wrong');
+        : notifyError(response.data.message || 'Something went wrong');
     } catch (error) {
       notifyError(handleApiError(error).message);
     }

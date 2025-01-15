@@ -8,7 +8,6 @@
 import axios from 'axios';
 import { handleApiError } from './errorHandler';
 import { getApiUrl } from './endpoints';
-import { getAccessToken, setAccessToken } from './auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,16 +16,13 @@ export const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Ensure cookies are sent for HttpOnly tokens
+  withCredentials: true, // Ensure cookies are sent with requests
 });
 
 // Request Interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = getAccessToken();
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
+    // No need to set `Authorization` header as the token is in HttpOnly cookie
     return config;
   },
   (error) => Promise.reject(error)
@@ -37,16 +33,19 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Handle 401 errors and attempt token refresh
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const res = await axiosInstance.post('auth/refresh/');
-        setAccessToken(res.data.access);
-        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
-        originalRequest.headers['Authorization'] = `Bearer ${res.data.access}`;
+        // Attempt to refresh the token
+        await axiosInstance.post('auth/refresh/');
+        // Retry the original request
         return axiosInstance(originalRequest);
       } catch (err) {
         console.error('Token refresh failed', err);
+        // Redirect to login if refresh fails
+        window.location.href = '/';
       }
     }
     return Promise.reject(handleApiError(error));

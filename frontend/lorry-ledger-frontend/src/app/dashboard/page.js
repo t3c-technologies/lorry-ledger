@@ -1,29 +1,23 @@
-// pages/dashboard.js
 "use client";
 
-import { useState, useEffect } from 'react';
-import Header from '../../components/Header';
-import Sidebar from '../../components/SideBar';
-import MainCanvas from '../../components/MainCanvas';
+import { useState, useEffect } from "react";
+import Header from "../../components/Header";
+import Sidebar from "../../components/SideBar";
+import MainCanvas from "../../components/MainCanvas";
+import withAuth from "../../utils/withAuth";
+
+
 
 const Dashboard = () => {
-  const [activeItem, setActiveItem] = useState('dashboard');
-  const [userName, setUserName] = useState('');
+  const [activeItem, setActiveItem] = useState("dashboard");
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    // Get user data from local storage or API
-    // const user = JSON.parse(localStorage.getItem('user'));
-    // if (user) {
-    //   setUserName(user.name);
-    // }
-  }, []);
-
-  // Protect route
-  useEffect(() => {
-    // const token = localStorage.getItem('token');
-    // if (!token) {
-    //   window.location.href = '/login';
-    // }
+    // Fetch user details from localStorage or an API
+    const user = JSON.parse(localStorage.getItem("user")); // Replace with an API call if needed
+    if (user) {
+      setUserName(user.name);
+    }
   }, []);
 
   return (
@@ -37,4 +31,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default withAuth(Dashboard);

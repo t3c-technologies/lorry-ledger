@@ -10,6 +10,9 @@ from .utils import hash_mobile_number
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
 logger = logging.getLogger(__name__)
 
 @csrf_exempt  # Use CSRF protection in production
@@ -137,9 +140,17 @@ def validate(request):
                         "message": "Validated successfully",
                         "mobile": mobile_number,
                         "success": True,
-                        "access": access,
                     },
                     status=200,
+                )
+                # Set Access Token as HTTP-only cookie
+                response.set_cookie(
+                    key="accessToken",
+                    value=str(access),
+                    httponly=True,  # Prevent JavaScript access
+                    secure=True,  # Use HTTPS in production
+                    samesite="Strict",  # CSRF protection
+                    path="/",
                 )
                 # Set Refresh Token as HTTP-only cookie
                 response.set_cookie(
@@ -217,9 +228,16 @@ def logout(request):
 
             # Clear cookie
             response = JsonResponse({"message": "Logged out successfully.", "success": True}, status=200)
+            response.delete_cookie("accessToken")
             response.delete_cookie("refreshToken")
             return response
         except Exception as e:
             return JsonResponse({"error": "Invalid token or already logged out.", "success": False}, status=400)
 
     return JsonResponse({"message": "Invalid request method.", "success": False}, status=400)
+
+# View to check valid session
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def verify(request):
+    return JsonResponse({"message": "Authenticated"}, status=200)
