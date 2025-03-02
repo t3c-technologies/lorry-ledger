@@ -374,15 +374,15 @@ export default function Drivers() {
                       <div className="flex items-center">
                         <span
                           className={`h-3 w-3 rounded-full mr-2 ${
-                            driver.status === "Available"
+                            driver.status_display === "Available"
                               ? "bg-accent"
-                              : driver.status === "On Trip"
+                              : driver.status_display === "On Trip"
                               ? "bg-primary"
                               : "bg-danger"
                           }`}
                         ></span>
                         <span className="text-base font-medium text-gray-900">
-                          {driver.status}
+                          {driver.status_display}
                         </span>
                       </div>
                     </td>
