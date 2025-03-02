@@ -9,7 +9,7 @@ import withAuth from "../../utils/withAuth";
 
 
 const Dashboard = () => {
-  const [activeItem, setActiveItem] = useState("dashboard");
+  const [activeItem, setActiveItem] = useState("drivers");
   const [userName, setUserName] = useState("");
 
   useEffect(() => {

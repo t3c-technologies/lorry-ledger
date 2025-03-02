@@ -1,11 +1,9 @@
 // components/MainCanvas.js
 "use client";
 
-import { Main } from "next/document";
-
 import Drivers from "../app/modules/Drivers"
 
-const MainCanvas = ({ activeItem }) => {
+const MainCanvas = ({ activeItem = 'drivers' }) => {
     const renderContent = () => {
       switch (activeItem) {
         case 'dashboard':
@@ -34,4 +32,4 @@ const MainCanvas = ({ activeItem }) => {
     );
   };
 
-  export default MainCanvas;
+export default MainCanvas;
