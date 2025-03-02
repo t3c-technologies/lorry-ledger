@@ -17,17 +17,12 @@ export const API_ENDPOINTS = {
     profile: `user/profile/`,
     updateProfile: `user/update/`,
   },
-  vehicles: {
-    list: `vehicles/list/`,
-    create: `vehicles/create/`,
-    update: `vehicles/update/`,
-    delete: `vehicles/delete/`,
-  },
   drivers: {
-    list: `drivers/list/`,
-    create: `drivers/create/`,
-    update: `drivers/update/`,
-    delete: `drivers/delete/`,
+    list: `drivers/`,                  
+    create: `drivers/create/`,         
+    detail: (id) => `drivers/${id}/`,  
+    update: (id) => `drivers/${id}/update/`, 
+    delete: (id) => `drivers/${id}/delete/`,
   },
 };
 

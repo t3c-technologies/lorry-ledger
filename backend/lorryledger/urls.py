@@ -16,8 +16,22 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from .views import (
+    DriverCreateView,
+    DriverListView,
+    DriverDetailView,
+    DriverUpdateView,
+    DriverDeleteView
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('authentication.urls')),
+    
+    # Drivers
+    path('api/drivers/', DriverListView.as_view(), name='driver_list'),
+    path('api/drivers/create/', DriverCreateView.as_view(), name='driver_create'),
+    path('api/drivers/<int:id>/', DriverDetailView.as_view(), name='driver_detail'),
+    path('api/drivers/<int:id>/update/', DriverUpdateView.as_view(), name='driver_update'),
+    path('api/drivers/<int:id>/delete/', DriverDeleteView.as_view(), name='driver_delete'),
 ]
