@@ -2,10 +2,10 @@ from django.db import models
 from django.core.validators import RegexValidator
 
 def driver_photo_upload_path(instance, filename):
-    return f"drivers/{instance.phone_number}/photo/{filename}"
+    return f"drivers/{instance.aadhar_number}/photo/{filename}"
 
 def driver_document_upload_path(instance, filename):
-    return f"drivers/{instance.phone_number}/documents/{filename}"
+    return f"drivers/{instance.aadhar_number}/documents/{filename}"
 
 class Driver(models.Model):
     STATUS_CHOICES = [

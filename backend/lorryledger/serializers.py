@@ -5,6 +5,8 @@ from .models import Driver
 
 class DriverSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+    photo = serializers.SerializerMethodField()
 
     class Meta:
         model = Driver
@@ -17,3 +19,13 @@ class DriverSerializer(serializers.ModelSerializer):
 
     def get_status_display(self, obj):
         return obj.get_status_display()
+
+    def get_photo(self, obj):
+        if obj.photo:
+            return obj.photo.url  # Returns relative URL
+        return None
+
+    def get_documents(self, obj):
+        if obj.documents:
+            return obj.documents.url  # Returns relative URL
+        return None

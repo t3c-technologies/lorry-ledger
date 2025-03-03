@@ -202,3 +202,5 @@ SIMPLE_JWT = {
 AUTH_USER_MODEL = 'authentication.User'
 
 
+
+
