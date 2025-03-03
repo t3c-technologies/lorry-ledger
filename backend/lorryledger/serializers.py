@@ -8,7 +8,11 @@ class DriverSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Driver
-        fields = ['id', 'name', 'phone_number', 'status', 'status_display', 'created_at', 'updated_at']
+        fields = [
+            'id', 'name', 'phone_number', 'photo',
+            'aadhar_number', 'license_number', 'license_expiry_date',
+            'documents', 'status', 'status_display', 'created_at', 'updated_at'
+        ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'status_display']
 
     def get_status_display(self, obj):
