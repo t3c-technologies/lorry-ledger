@@ -174,35 +174,48 @@ export default function Drivers() {
   };
 
   // Handle edit driver form submission
-  const handleEditDriver = async (e) => {
+  // Handle edit driver form submission - works for both regular edit and view-edit modes
+  const handleEditDriver = async (e, fromViewModal = false) => {
     if (e) e.preventDefault();
     if (!currentDriver) return;
 
     try {
       await api.put(API_ENDPOINTS.drivers.update(currentDriver.id), newDriver);
       notifyInfo("Driver updated successfully");
-      fetchDrivers();
+      await fetchDrivers();
 
-      // Update current driver data and exit edit mode
-      setIsEditMode(false);
-      setCurrentDriver({ ...currentDriver, ...newDriver });
-    } catch {
+      if (fromViewModal) {
+        // If coming from view modal, just exit edit mode
+        setIsEditMode(false);
+      } else {
+        // If coming from regular edit modal, close it
+        setIsEditDriverModalOpen(false);
+        setCurrentDriver(null);
+        setNewDriver({ name: "", phone_number: "", status: "Available" });
+      }
+    } catch (error) {
+      console.error("Error updating driver:", error);
       notifyError("Error updating driver");
     }
   };
 
   const toggleEditMode = () => {
     if (isEditMode) {
-      // If in edit mode, save changes
-      handleEditDriver();
+      // If in edit mode, call the shared edit handler with fromViewModal=true
+      handleEditDriver(null, true);
     } else {
-      // If in view mode, switch to edit mode
+      // If in view mode, close the view modal and open the edit modal instead
+      setIsViewDriverModalOpen(false); // Close view modal
+
+      // Open edit modal with current driver data
       setNewDriver({
         name: currentDriver.name,
         phone_number: currentDriver.phone_number,
         status: currentDriver.status,
       });
-      setIsEditMode(true);
+
+      // Open the regular edit modal
+      setIsEditDriverModalOpen(true);
     }
   };
 
@@ -866,11 +879,9 @@ export default function Drivers() {
               <button
                 type="button"
                 onClick={toggleEditMode}
-                className={`px-4 py-2 ${
-                  isEditMode ? "bg-accent" : "bg-primary"
-                } text-white rounded-md hover:bg-opacity-90 transition-colors`}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
               >
-                {isEditMode ? "Save" : "Edit"}
+                Edit
               </button>
             </div>
           </div>
