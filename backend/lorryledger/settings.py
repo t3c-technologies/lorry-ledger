@@ -132,7 +132,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'lorryledger',
         'USER': 'postgres',
-        'PASSWORD': 'hodCMS4',
+        'PASSWORD': 'dwell889',
         'HOST': 'localhost',
         'PORT': '5432',
     }

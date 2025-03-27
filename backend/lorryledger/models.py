@@ -46,3 +46,20 @@ class Driver(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.phone_number}"
+    
+class Transactions(models.Model):
+    types = [
+        ('Debit', 'Debit'),
+        ('Credit', 'Credit'),
+    ]
+    amount = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Amount should contain only number")]
+    )
+
+    amountType = models.CharField(max_length=20, choices=types, default='Credit')
+
+    reason = models.CharField(max_length=35)
+
+    date = models.DateField(default="2025-01-01")
+
+    driverId = models.CharField()

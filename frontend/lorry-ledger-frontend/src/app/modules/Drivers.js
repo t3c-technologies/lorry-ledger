@@ -1,5 +1,6 @@
 // src/pages/drivers.js
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Filter } from "lucide-react";
 import axios from "axios";
 import {
   notifyError,
@@ -26,6 +27,22 @@ export default function Drivers() {
 
   const [isViewDriverModalOpen, setIsViewDriverModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+
+  const [transactions, setTransactions] = useState([]);
+
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    amount: "",
+    amountType: "Credit",
+    reason: "",
+    date: new Date().toISOString().split("T")[0],
+  });
+
+  const [showEditTransactionModal, setShowEditTransactionModal] =
+    useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   const handleRowClick = (driver) => {
     setCurrentDriver(driver);
@@ -41,6 +58,18 @@ export default function Drivers() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState({
+    driverName: true,
+    licenseNumber: false,
+    phoneNumber: false,
+    status: false,
+    aadharNumber: false,
+  });
+
+  const [showDriverFilterDropdown, setShowDriverFilterDropdown] =
+    useState(false);
 
   const [newDriver, setNewDriver] = useState({
     name: "",
@@ -75,6 +104,40 @@ export default function Drivers() {
       setDrivers(response.data);
     } catch (error) {
       notifyError("Error fetching drivers");
+    }
+  };
+
+  const toggleFilterDropdown = () => {
+    setShowFilterDropdown(!showFilterDropdown);
+  };
+
+  const toggleDriverFilterDropdown = () => {
+    setShowDriverFilterDropdown(!showDriverFilterDropdown);
+  };
+
+  const handleFilterChange = (filterName) => {
+    setSelectedFilters((prev) => ({
+      ...prev,
+      [filterName]: !prev[filterName],
+    }));
+    console.log(selectedFilters);
+  };
+
+  const fetchTransactions = async (driver) => {
+    try {
+      console.log(driver);
+
+      const response = await api.get(
+        API_ENDPOINTS.drivers.transactions(driver.id),
+        {
+          page: currentPage,
+          page_size: itemsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
+        }
+      );
+      setTransactions(response.data);
+    } catch (error) {
+      console.log(error);
+      notifyError("Error fetching Transactions");
     }
   };
 
@@ -188,6 +251,130 @@ export default function Drivers() {
     setIsEditDriverModalOpen(true);
   };
 
+  const handleTransactionClick = (driver) => {
+    setSelectedDriver(driver);
+    console.log(selectedDriver);
+    setShowTransactionsModal(true);
+    fetchTransactions(driver);
+  };
+
+  // Function to close the modal
+  const closeModal = () => {
+    setShowTransactionsModal(false);
+    setCurrentDriver(null);
+  };
+
+  // Function to open add transaction modal
+  const openAddTransactionModal = () => {
+    setShowAddTransactionModal(true);
+  };
+
+  // Function to close add transaction modal
+  const closeAddTransactionModal = () => {
+    setShowAddTransactionModal(false);
+    setNewTransaction({
+      amount: "",
+      amountType: "Credit",
+      date: new Date().toISOString().split("T")[0],
+    });
+  };
+
+  // Function to handle input change in add transaction form
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewTransaction((prev) => ({ ...prev, [name]: value }));
+    console.log(newTransaction);
+  };
+
+  // Function to add a new transaction
+  const handleAddTransaction = async (e) => {
+    e.preventDefault();
+
+    const transaction = {
+      driverId: selectedDriver.id,
+      amount: parseFloat(newTransaction.amount),
+      reason: newTransaction.reason,
+      amountType: newTransaction.type,
+      date: newTransaction.date,
+    };
+    try {
+      await api.post(
+        API_ENDPOINTS.drivers.transactionsCreate(selectedDriver.id),
+        transaction,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      console.log(selectedDriver);
+      notifySuccess("Transaction added successfully");
+      fetchTransactions(selectedDriver);
+      closeAddTransactionModal();
+    } catch (error) {
+      notifyError("Error adding driver");
+    }
+  };
+  const openEditTransactionModal = (transaction) => {
+    setEditingTransaction({
+      ...transaction,
+      amount: transaction.amount.toString(),
+    });
+    setShowEditTransactionModal(true);
+  };
+
+  // Function to close edit transaction modal
+  const closeEditTransactionModal = () => {
+    setShowEditTransactionModal(false);
+    setEditingTransaction(null);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setEditingTransaction({
+      ...editingTransaction,
+      [name]: value,
+    });
+    console.log(editingTransaction);
+  };
+
+  const handleUpdateTransaction = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(
+        API_ENDPOINTS.drivers.transactionsUpdate(editingTransaction.id),
+        editingTransaction,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      fetchTransactions(selectedDriver);
+      notifySuccess("Transaction edited successfully");
+      closeAddTransactionModal();
+    } catch (error) {
+      notifyError("Error adding driver");
+    }
+    closeEditTransactionModal();
+  };
+  // Function to edit a transaction
+
+  // Function to delete a transaction
+  const handleDeleteTransaction = async (id) => {
+    if (window.confirm("Are you sure you want to delete this transaction?")) {
+      try {
+        await api.delete(API_ENDPOINTS.drivers.transactionsDelete(id));
+        notifyInfo("Trnsaction deleted successfully");
+        fetchTransactions(selectedDriver);
+        setIsDeleteConfirmOpen(false);
+        setCurrentDriver(null);
+      } catch {
+        notifyError("Error deleting transaction");
+      }
+    }
+  };
   // Open delete confirmation
   const handleDeleteClick = (driver) => {
     setCurrentDriver(driver);
@@ -198,6 +385,7 @@ export default function Drivers() {
   const handleDriverChange = (e) => {
     const { name, value } = e.target;
     setNewDriver((prev) => ({ ...prev, [name]: value }));
+    console.log(newDriver);
   };
 
   // Handle file input changes
@@ -223,6 +411,15 @@ export default function Drivers() {
       }
     }
   };
+
+  const totalAmount = useMemo(() => {
+    return transactions.reduce((total, transaction) => {
+      const amount = parseFloat(transaction.amount);
+      return transaction.amountType === "Credit"
+        ? total + amount
+        : total - amount;
+    }, 0);
+  });
 
   // Handle add driver form submission
   const handleAddDriver = async (e) => {
@@ -396,7 +593,7 @@ export default function Drivers() {
         <div className="bg-white rounded-md shadow-md p-6">
           {/* Search Input */}
           <div className="mb-6 flex flex-wrap justify-between items-center">
-            <div className="relative w-full md:w-80">
+            <div className="flex items-center relative w-full md:w-80">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg
                   className="h-5 w-5 text-gray-400"
@@ -416,9 +613,63 @@ export default function Drivers() {
                 placeholder="Search Drivers"
                 value={searchTerm}
                 onChange={handleSearch}
-                className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
               />
+              <button
+                onClick={toggleFilterDropdown}
+                className="px-3 py-2 hover:bg-gray-100 focus:outline-none"
+              >
+                <Filter size={20} className="text-gray-500" />
+              </button>
             </div>
+            {showFilterDropdown && (
+              <div className="absolute z-10 mt-1 w-1/3 left-1/3 bg-white border border-gray-300 rounded-md shadow-lg">
+                <div className="p-3">
+                  <div className="flex justify-between">
+                    <h4 className="block mb-2 font-medium text-gray-700">
+                      Search In
+                    </h4>
+                    <button
+                      onClick={toggleFilterDropdown}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  {Object.entries(selectedFilters).map(
+                    ([filterName, isSelected]) => (
+                      <label
+                        key={filterName}
+                        className="flex items-center space-x-2 py-1 mb-2 font-medium text-gray-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleFilterChange(filterName)}
+                          className="form-checkbox h-4 w-4 text-blue-600"
+                        />
+                        <span className="text-sm capitalize">
+                          {filterName.replace(/([A-Z])/g, " $1").trim()}
+                        </span>
+                      </label>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 md:mt-0 flex items-center">
               <label className="mr-2 text-sm text-gray-600">
@@ -427,8 +678,9 @@ export default function Drivers() {
               <select
                 value={recordsPerPage}
                 onChange={handleRecordsPerPageChange}
-                className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
               >
+                <option value={1}>1</option>
                 <option value={5}>5</option>
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -442,15 +694,67 @@ export default function Drivers() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr className="bg-gray-100">
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("name")}
-                  >
-                    <div className="flex items-center space-x-1">
+                  <th className="flex px-6 py-3 text-left cursor-pointer">
+                    <div
+                      className="flex items-center space-x-1"
+                      onClick={() => requestSort("name")}
+                    >
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         Driver Name
                       </span>
                       {getSortDirectionIcon("name")}
+                    </div>
+                    <div className="relative">
+                      <button
+                        onClick={toggleDriverFilterDropdown}
+                        className="px-3 py-2 hover:bg-gray-100 focus:outline-none"
+                      >
+                        <Filter size={20} className="text-gray-500" />
+                      </button>
+                      {showDriverFilterDropdown && (
+                        <div className="fixed mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                          <div className="p-3">
+                            <div className="flex justify-between">
+                              <h4 className="block mb-2 font-medium text-gray-700">
+                                Search In
+                              </h4>
+                              <button
+                                onClick={toggleDriverFilterDropdown}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-6 w-6"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                            {sortedAndFilteredDrivers.map((e) => (
+                              <label
+                                key={e.name}
+                                className="flex items-center space-x-2 py-1 mb-2 font-medium text-gray-700"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="form-checkbox h-4 w-4 text-blue-600"
+                                />
+                                <span className="text-sm capitalize">
+                                  {e.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </th>
                   <th
@@ -487,7 +791,7 @@ export default function Drivers() {
                   <tr
                     key={driver.id}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => handleRowClick(driver)}
+                    onClick={() => handleTransactionClick(driver)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-base font-medium text-gray-900">
@@ -517,6 +821,25 @@ export default function Drivers() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row click
+                            handleRowClick(driver);
+                          }}
+                          className="text-primary hover:text-blue-700 transition-colors"
+                          title="View Transactions"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="bi bi-eye h-5 w-5"
+                            fill="currentColor"
+                            stroke="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
+                          </svg>
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent row click
@@ -581,6 +904,340 @@ export default function Drivers() {
             )}
           </div>
 
+          {showTransactionsModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg w-[90%] max-w-[900px] max-h-[80vh] overflow-auto p-6 shadow-xl">
+                <div className="flex justify-between items-center border-b pb-4 mb-6">
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    Transactions for {selectedDriver.name}
+                  </h2>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="flex justify-end mb-4">
+                  <button
+                    onClick={openAddTransactionModal}
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    + Add Transaction
+                  </button>
+                </div>
+
+                <div className="overflow-hidden rounded-lg shadow-sm border">
+                  <table className="w-full">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          AMOUNT
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          TYPE
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          REASON
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          DATE
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          ACTIONS
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {transactions.map((transaction) => (
+                        <tr key={transaction.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-black">
+                            ${transaction.amount}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-block px-2 py-1 rounded-full font-medium ${
+                                transaction.amountType === "Credit"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {transaction.amountType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-black">
+                            {transaction.reason}
+                          </td>
+                          <td className="px-4 py-3 text-black">
+                            {transaction.date}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() =>
+                                openEditTransactionModal(transaction)
+                              }
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDeleteTransaction(transaction.id)
+                              }
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {transactions.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan="5"
+                            className="px-4 py-3 text-center text-gray-500"
+                          >
+                            No transactions found for this driver.
+                          </td>
+                        </tr>
+                      )}
+                      {transactions.length > 0 && (
+                        <tr className="bg-gray-50 font-bold">
+                          <td className="px-4 py-3 text-black" colSpan="1">
+                            Total: ${Math.abs(totalAmount).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3" colSpan="2">
+                            <span
+                              className={`inline-block px-2 py-1 rounded-full font-medium ${
+                                totalAmount >= 0
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {totalAmount >= 0 ? "Net Credit" : "Net Debit"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3" colSpan="2"></td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showAddTransactionModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg w-[400px] p-6 shadow-xl">
+                <div className="flex justify-between items-center border-b pb-4 mb-6">
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    Add New Transaction
+                  </h3>
+                  <button
+                    onClick={closeAddTransactionModal}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddTransaction}>
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={newTransaction.amount}
+                      onChange={handleInputChange}
+                      placeholder="Enter amount"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Type
+                    </label>
+                    <select
+                      name="amountType"
+                      value={newTransaction.amountType}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Credit">Credit</option>
+                      <option value="Debit">Debit</option>
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Reason
+                    </label>
+                    <input
+                      type="text"
+                      name="reason"
+                      value={newTransaction.reason}
+                      onChange={handleInputChange}
+                      placeholder="Enter reason"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={newTransaction.date}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={closeAddTransactionModal}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#243b6c] text-white rounded-md hover:bg-blue-700"
+                    >
+                      Add Transaction
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Transaction Modal */}
+          {showEditTransactionModal && editingTransaction && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-[1100] flex justify-center items-center">
+              <div className="bg-white rounded-lg w-[400px] p-5 relative">
+                {/* Modal Header */}
+                <div className="flex justify-between items-center mb-5 pb-2.5 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    Edit Transaction
+                  </h3>
+                  <button
+                    onClick={closeEditTransactionModal}
+                    className="text-2xl text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleUpdateTransaction}>
+                  {/* Amount Input */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={editingTransaction.amount}
+                      onChange={handleEditInputChange}
+                      placeholder="Enter amount"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Type Select */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Type
+                    </label>
+                    <select
+                      name="amountType"
+                      value={editingTransaction.amountType}
+                      onChange={handleEditInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Credit">Credit</option>
+                      <option value="Debit">Debit</option>
+                    </select>
+                  </div>
+
+                  {/* Reason Input */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Reason
+                    </label>
+                    <input
+                      type="text"
+                      name="reason"
+                      value={editingTransaction.reason}
+                      onChange={handleEditInputChange}
+                      placeholder="Enter reason"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Date Input */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={editingTransaction.date}
+                      onChange={handleEditInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2.5 mt-5">
+                    <button
+                      type="button"
+                      onClick={closeEditTransactionModal}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#243b6c] text-white rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Update Transaction
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
           {/* Pagination */}
           {sortedAndFilteredDrivers.length > 0 && (
             <div className="flex items-center justify-between mt-4 px-2">
@@ -702,7 +1359,7 @@ export default function Drivers() {
                       name="name"
                       value={newDriver.name}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
@@ -715,7 +1372,7 @@ export default function Drivers() {
                       name="phone_number"
                       value={newDriver.phone_number}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
@@ -727,7 +1384,7 @@ export default function Drivers() {
                       name="status"
                       value={newDriver.status}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
                     >
                       <option value="available">Available</option>
                       <option value="on_trip">On Trip</option>
@@ -743,7 +1400,7 @@ export default function Drivers() {
                       name="aadhar_number"
                       value={newDriver.aadhar_number}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
@@ -760,7 +1417,7 @@ export default function Drivers() {
                       name="license_number"
                       value={newDriver.license_number}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
@@ -773,10 +1430,10 @@ export default function Drivers() {
                       name="license_expiry_date"
                       value={newDriver.license_expiry_date}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                     />
                   </div>
-                  <div className="mb-4">
+                  {/* <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Photo
                     </label>
@@ -860,7 +1517,7 @@ export default function Drivers() {
                         </label>
                       )}
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
@@ -925,7 +1582,7 @@ export default function Drivers() {
                       name="name"
                       value={newDriver.name}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
@@ -938,7 +1595,7 @@ export default function Drivers() {
                       name="phone_number"
                       value={newDriver.phone_number}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
@@ -950,13 +1607,17 @@ export default function Drivers() {
                       name="status"
                       value={newDriver.status}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
                     >
                       <option value="available">Available</option>
                       <option value="on_trip">On Trip</option>
                       <option value="off_duty">Off Duty</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Right column */}
+                <div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Aadhar Number
@@ -966,14 +1627,10 @@ export default function Drivers() {
                       name="aadhar_number"
                       value={newDriver.aadhar_number}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
-                </div>
-
-                {/* Right column */}
-                <div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       License Number
@@ -983,10 +1640,11 @@ export default function Drivers() {
                       name="license_number"
                       value={newDriver.license_number}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
                   </div>
+
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       License Expiry Date
@@ -996,10 +1654,10 @@ export default function Drivers() {
                       name="license_expiry_date"
                       value={newDriver.license_expiry_date}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                     />
                   </div>
-                  <div className="mb-4">
+                  {/* <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Photo
                     </label>
@@ -1055,8 +1713,8 @@ export default function Drivers() {
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="mb-4">
+                  </div> */}
+                  {/* <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Documents
                     </label>
@@ -1111,7 +1769,7 @@ export default function Drivers() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 

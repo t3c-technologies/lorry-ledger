@@ -5,13 +5,13 @@ import InputField from "../components/InputField";
 import OtpInput from "../components/OtpInput";
 import Button from "../components/Button";
 
-import Cookies from 'js-cookie';
+import Cookies from "js-cookie";
 
-import { api } from '../utils/api'; // Import the API utility
-import { API_ENDPOINTS } from '../utils/endpoints'; // Import the endpoint definitions
-import { handleApiError } from '../utils/errorHandler'; // Import error handler
+import { api } from "../utils/api"; // Import the API utility
+import { API_ENDPOINTS } from "../utils/endpoints"; // Import the endpoint definitions
+import { handleApiError } from "../utils/errorHandler"; // Import error handler
 
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from "next/navigation";
 
 import { MessageCircle } from "lucide-react";
 
@@ -38,21 +38,21 @@ const Auth = () => {
   // Check session on page load
   useEffect(() => {
     const checkSession = async () => {
-        const savedMobileNumber = Cookies.get('mobile_number');
-        if (savedMobileNumber) {
-            setMobile(savedMobileNumber);
-            try {
-                const response = await api.post(API_ENDPOINTS.auth.checkSession, {
-                    mobile_number: savedMobileNumber,
-                });
-                response.success ? setStep(2) : setStep(1);
-            } catch (error) {
-                setStep(1);
-            }
+      const savedMobileNumber = Cookies.get("mobile_number");
+      if (savedMobileNumber) {
+        setMobile(savedMobileNumber);
+        try {
+          const response = await api.post(API_ENDPOINTS.auth.checkSession, {
+            mobile_number: savedMobileNumber,
+          });
+          response.success ? setStep(2) : setStep(1);
+        } catch (error) {
+          setStep(1);
         }
+      }
     };
     checkSession();
-  }, []); 
+  }, []);
 
   useEffect(() => {
     let timer;
@@ -84,12 +84,12 @@ const Auth = () => {
   const backToLogin = () => {
     setStep(1);
     // setIsLogin(!isLogin);
-  }
+  };
 
   useEffect(() => {
     if (step === 1) {
       mobileInputRef.current?.focus();
-    } else if (step === 2){
+    } else if (step === 2) {
       firstOtpInputRef.current?.focus();
     }
   }, [step]);
@@ -136,16 +136,19 @@ const Auth = () => {
       const response = await api.post(API_ENDPOINTS.auth.generate, {
         mobile_number: mobile,
       });
+      console.log(response);
+
       // Handle response
-      const in5Minutes = new Date(new Date().getTime() + 5 * 60 * 1000); 
+      const in5Minutes = new Date(new Date().getTime() + 5 * 60 * 1000);
       response.success
-        ? (notifySuccess('OTP sent successfully!'), setStep(2), Cookies.set('mobile_number', mobile, { expires: in5Minutes }))
-        : notifyError(response.message || 'Failed to send OTP.');
+        ? (notifySuccess("OTP sent successfully!"),
+          setStep(2),
+          Cookies.set("mobile_number", mobile, { expires: in5Minutes }))
+        : notifyError(response.message || "Failed to send OTP.");
     } catch (error) {
       notifyError(handleApiError(error).message);
     }
   };
-  
 
   const handleVerifyOtp = async () => {
     try {
@@ -153,11 +156,11 @@ const Auth = () => {
       const fullMobile = `${countryCode}${mobile}`; // Combine country code and mobile
       const response = await api.post(API_ENDPOINTS.auth.validate, {
         mobile_number: mobile,
-        otp: enteredOtp
+        otp: enteredOtp,
       });
       response.success
-        ? router.push('/dashboard')
-        : notifyError(response.message || 'Failed to send OTP.');
+        ? router.push("/dashboard")
+        : notifyError(response.message || "Failed to send OTP.");
     } catch (error) {
       notifyError(handleApiError(error).message);
     }
@@ -230,8 +233,10 @@ const Auth = () => {
                 <div className="flex items-center justify-center mb-3">
                   <MessageCircle className="text-primary mr-2" size={20} />
                   <p className="text-lg text-textPrimary font-medium">
-                    {isLogin ? "Login with your registered " : "Signup with your "}  mobile
-                    number
+                    {isLogin
+                      ? "Login with your registered "
+                      : "Signup with your "}{" "}
+                    mobile number
                   </p>
                 </div>
                 <p className="text-sm text-textSecondary">
@@ -286,7 +291,11 @@ const Auth = () => {
                     minutes
                   </p>
                 </div>
-                <OtpInput otp={otp} setOtp={setOtp} firstInputRef={firstOtpInputRef}/>
+                <OtpInput
+                  otp={otp}
+                  setOtp={setOtp}
+                  firstInputRef={firstOtpInputRef}
+                />
 
                 <Button
                   text="Verify OTP"
