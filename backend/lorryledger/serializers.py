@@ -1,7 +1,7 @@
 # drivers/serializers.py
 
 from rest_framework import serializers
-from .models import Driver
+from .models import Driver, Transactions
 
 class DriverSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
@@ -29,3 +29,11 @@ class DriverSerializer(serializers.ModelSerializer):
         if obj.documents:
             return obj.documents.url  # Returns relative URL
         return None
+
+class TransactionsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transactions
+        fields = [
+            'id', 'amount', 'amountType', 'reason', 'date', 'driverId'
+        ]
+        read_only_fields = ['id']
