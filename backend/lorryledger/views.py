@@ -1,8 +1,10 @@
 # drivers/views.py
 
 from rest_framework import generics, status
+import json
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
 
 from .models import Driver, Transactions
 from .serializers import DriverSerializer, TransactionsSerializer
@@ -32,10 +34,45 @@ class DriverCreateView(generics.CreateAPIView):
 
 # LIST (Paginated)
 class DriverListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+
     queryset = Driver.objects.all().order_by('name')
     serializer_class = DriverSerializer
     pagination_class = CustomPagination
+
+    def get_queryset(self):
+        queryset = Driver.objects.all().order_by('name')
+        
+        # Get filters from query params
+        filters_json = self.request.query_params.get('filters', '[]')
+
+        try:
+            # Parse JSON string into Python list
+            filters = json.loads(filters_json)
+
+            if filters:
+                main_query = Q()
+                
+                # Group filters by key
+                grouped_filters = {}
+                for f in filters:
+                    for key, value in f.items():
+                        if key not in grouped_filters:
+                            grouped_filters[key] = []
+                        grouped_filters[key].append(value)
+                
+                # OR filtering within same key
+                for key, values in grouped_filters.items():
+                    key_query = Q()
+                    for value in values:
+                        key_query |= Q(**{key: value})
+                    main_query &= key_query
+
+                queryset = queryset.filter(main_query)
+
+        except json.JSONDecodeError:
+            pass
+        
+        return queryset
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
