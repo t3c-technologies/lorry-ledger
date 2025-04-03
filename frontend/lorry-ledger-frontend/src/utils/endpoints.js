@@ -28,6 +28,13 @@ export const API_ENDPOINTS = {
     transactionsUpdate: (id) => `drivers/transactions/${id}/update`,
     transactionsDelete: (id) => `drivers/transactions/${id}/delete`,
   },
+  trucks: {
+    list: `trucks/`,
+    create: `trucks/create/`,
+    detail: (id) => `trucks/${id}/`,
+    update: (id) => `trucks/${id}/update/`,
+    delete: (id) => `trucks/${id}/delete/`,
+  },
 };
 
 export const getApiUrl = (endpoint) => {

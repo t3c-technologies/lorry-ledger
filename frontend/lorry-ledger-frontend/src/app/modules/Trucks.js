@@ -1,5 +1,6 @@
-// src/pages/drivers.js
-import { useState, useEffect } from "react";
+// src/pages/trucks.js
+import { useState, useEffect, useMemo } from "react";
+import { Filter, FilterX, X, Calendar, ChevronDown } from "lucide-react";
 import axios from "axios";
 import {
   notifyError,
@@ -12,19 +13,23 @@ import FilePreview from "@/components/FilePreview";
 import { api } from "../../utils/api";
 import { API_ENDPOINTS } from "../../utils/endpoints";
 
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = 1;
 
 export default function Trucks() {
   const [drivers, setDrivers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
-  const [isEditDriverModalOpen, setIsEditDriverModalOpen] = useState(false);
+  const [driverFilters, setDriverFilters] = useState([]);
+  const [columnFilteredDrivers, setColumnFilteredDrivers] = useState([]);
+  const [sortedAndFilteredDrivers, setSortedAndFilteredDrivers] = useState([]);
+  const [isAddTruckModalOpen, setIsAddTruckModalOpen] = useState(false);
+  const [isEditTruckModalOpen, setIsEditTruckModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [currentDriver, setCurrentDriver] = useState(null);
 
   const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const [isViewDriverModalOpen, setIsViewDriverModalOpen] = useState(false);
+  const [IsViewTruckModalOpen, setIsViewTruckModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
@@ -34,7 +39,7 @@ export default function Trucks() {
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
     amount: "",
-    type: "Credit",
+    amountType: "Credit",
     reason: "",
     date: new Date().toISOString().split("T")[0],
   });
@@ -42,10 +47,14 @@ export default function Trucks() {
   const [showEditTransactionModal, setShowEditTransactionModal] =
     useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [currentTransaction, setCurrentTransaction] = useState(null);
+
+  const [showDeleteTransactionModal, setShowDeleteTransactionModal] =
+    useState(false);
 
   const handleRowClick = (driver) => {
     setCurrentDriver(driver);
-    setIsViewDriverModalOpen(true);
+    setIsViewTruckModalOpen(true);
     setIsEditMode(false);
   };
 
@@ -57,41 +66,103 @@ export default function Trucks() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [nextPage, setNextPage] = useState(null);
+  const [prevPage, setPrevPage] = useState(null);
+
+  const [showDriverNameFilterDropdown, setShowDriverNameFilterDropdown] =
+    useState(false);
+
+  const [showDriverStatusFilterDropdown, setShowDriverStatusFilterDropdown] =
+    useState(false);
 
   const [newDriver, setNewDriver] = useState({
-    name: "",
-    phone_number: "9894512345",
-    status: "available",
-    aadhar_number: "123456789011",
-    license_number: "12345",
-    license_expiry_date: "",
-    photo: null, // important
-    documents: null, // important
+    truckNo: "",
+    truckType: "",
+    ownership: "",
+    truckStatus: "available",
   });
 
   const resetNewDriverForm = () => {
     setNewDriver({
-      name: "",
-      phone_number: "",
-      status: "available",
-      aadhar_number: "",
-      license_number: "",
-      license_expiry_date: "",
-      photo: null,
-      documents: null,
+      truckNo: "",
+      truckType: "",
+      ownership: "",
+      truckStatus: "available",
     });
   };
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState(null);
+
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [billingType, setBillingType] = useState("Fixed");
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+
+  const openModal = (type) => {
+    setModalType(type);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setModalType(null);
+  };
+  const extractNextPage = (fullUrl) => {
+    if (!fullUrl) return null; // Handle undefined or null cases
+
+    const baseUrl = "http://localhost:8000/api/";
+    const index = fullUrl.indexOf(baseUrl);
+
+    if (index !== -1) {
+      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+    }
+
+    return fullUrl; // Return original if base URL is missing
+  };
+  const [errors, setErrors] = useState({
+    truckNo: "",
+  });
 
   const fetchDrivers = async () => {
     try {
-      const response = await api.get(API_ENDPOINTS.drivers.list, {
+      const response = await api.get(API_ENDPOINTS.trucks.list, {
         page: currentPage,
-        page_size: itemsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
+        search: searchTerm,
+        page_size: recordsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
       });
       setDrivers(response.data);
+      setTotalPages(response.total_pages);
+      setPrevPage(extractNextPage(response.previous));
+      setNextPage(extractNextPage(response.next));
+      console.log(response.total_pages);
     } catch (error) {
       notifyError("Error fetching drivers");
     }
+  };
+  const openTripSidebar = () => {
+    setShowSidebar(true);
+  };
+
+  const closeTripSidebar = () => {
+    setShowSidebar(false);
+  };
+  const billingOptions = [
+    "Fixed",
+    "Per Tonne",
+    "Per Kg",
+    "Per Km",
+    "Per Trip",
+    "Per Day",
+    "Per Hour",
+    "Per Litre",
+    "Per Bag",
+  ];
+
+  const toggleDriverNameFilterDropdown = () => {
+    setShowDriverNameFilterDropdown(!showDriverNameFilterDropdown);
+  };
+
+  const toggleDriverStatusFilterDropdown = () => {
+    setShowDriverStatusFilterDropdown(!showDriverStatusFilterDropdown);
   };
 
   const fetchTransactions = async (driver) => {
@@ -102,7 +173,7 @@ export default function Trucks() {
         API_ENDPOINTS.drivers.transactions(driver.id),
         {
           page: currentPage,
-          page_size: itemsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
+          page_size: recordsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
         }
       );
       setTransactions(response.data);
@@ -112,27 +183,90 @@ export default function Trucks() {
     }
   };
 
+  const getSortedAndFilteredDrivers = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.trucks.list, {
+        page: currentPage,
+        search: searchTerm,
+        page_size: recordsPerPage,
+        filters: JSON.stringify(driverFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      if (driverFilters.length === 0) {
+        setSortedAndFilteredDrivers(response.data);
+      }
+      setColumnFilteredDrivers(response.data);
+      setTotalPages(response.total_pages);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
     const handleEscapeKey = (e) => {
       if (e.key === "Escape") {
+        console.log("Transaction modal states changed:", {
+          showAddTransactionModal,
+          showEditTransactionModal,
+          showTransactionsModal,
+        });
+
+        if (showAddTransactionModal) {
+          setShowAddTransactionModal(false);
+          setNewTransaction({
+            amount: "",
+            amountType: "Credit",
+            date: new Date().toISOString().split("T")[0],
+          });
+          return; // Exit the function to prevent other modals from closing
+        }
+
+        // If edit transaction modal is open from transaction sidebar
+        if (showEditTransactionModal) {
+          setShowEditTransactionModal(false);
+          setEditingTransaction(null);
+          return; // Exit the function to prevent other modals from closing
+        }
+
         // Close all modals
-        setIsAddDriverModalOpen(false);
-        setIsEditDriverModalOpen(false);
-        setIsViewDriverModalOpen(false);
+        setIsAddTruckModalOpen(false);
+        setIsEditTruckModalOpen(false);
+        setIsViewTruckModalOpen(false);
         setIsDeleteConfirmOpen(false);
+        setShowTransactionsModal(false);
+        setShowDriverNameFilterDropdown(false);
+        setShowDriverStatusFilterDropdown(false);
         // Reset states if needed
         setNewDriver({ name: "", phone_number: "", status: "available" });
         setCurrentDriver(null);
         setIsEditMode(false);
       }
     };
+
     // Add event listener
     document.addEventListener("keydown", handleEscapeKey);
+
     // Cleanup function
     return () => {
       document.removeEventListener("keydown", handleEscapeKey);
     };
-  }, []);
+  }, [
+    showAddTransactionModal,
+    showEditTransactionModal,
+    showTransactionsModal,
+    setShowAddTransactionModal,
+    setShowEditTransactionModal,
+    setNewTransaction,
+    setIsAddTruckModalOpen,
+    setIsEditTruckModalOpen,
+    setIsViewTruckModalOpen,
+    setIsDeleteConfirmOpen,
+    setShowDriverNameFilterDropdown,
+    setShowDriverStatusFilterDropdown,
+    setNewDriver,
+    setCurrentDriver,
+    setIsEditMode,
+  ]);
 
   useEffect(() => {
     fetchDrivers();
@@ -149,55 +283,154 @@ export default function Trucks() {
 
   // Get sorted data
   const getSortedData = (data) => {
-    if (!sortConfig.key) return data;
+    return data;
+  };
 
-    return [...data].sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === "ascending" ? -1 : 1;
+  useEffect(() => {
+    getSortedAndFilteredDrivers();
+  }, [recordsPerPage]);
+  useEffect(() => {
+    getSortedAndFilteredDrivers();
+  }, [sortConfig]);
+  useEffect(() => {
+    getSortedAndFilteredDrivers();
+  }, [searchTerm]);
+  useEffect(() => {
+    getSortedAndFilteredDrivers();
+  }, [driverFilters]); // ✅ API call will trigger when driverFilters changes
+
+  const handleFilterChange = (event, filterType) => {
+    const value = event.target.value; // Get the value from the checkbox
+    const isChecked = event.target.checked;
+
+    setDriverFilters((prevFilters) => {
+      if (isChecked) {
+        // ✅ Add new filter
+        return [...prevFilters, { [filterType]: value }];
+      } else {
+        // ✅ Remove filter
+        return prevFilters.filter((filter) => filter[filterType] !== value);
       }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === "ascending" ? 1 : -1;
-      }
-      return 0;
     });
   };
 
   // Filter drivers based on search term
-  const filteredDrivers = drivers.filter(
-    (driver) =>
-      driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.phone_number.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredDrivers = columnFilteredDrivers.filter(
+    (truck) =>
+      truck.truckNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      truck.truckType.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const getFilteredData = (data) => {
+    if (driverFilters.length === 0) {
+      return data;
+    }
+    const newData = data.filter((driver) =>
+      driverFilters.some((contact) => {
+        console.log(driver.name);
+
+        // Check name match if the contact object has a name property
+        if (contact.name) {
+          return driver.name.toLowerCase() === contact.name.toLowerCase();
+        }
+
+        // Check phone number match if the contact object has a phone property
+        if (contact.status) {
+          return driver.status === contact.status;
+        }
+
+        // Return false if the contact object doesn't have name or phone
+        return false;
+      })
+    );
+    console.log(newData);
+    console.log(driverFilters);
+
+    return newData;
+  };
+
   // Get sorted and filtered drivers
-  const sortedAndFilteredDrivers = getSortedData(filteredDrivers);
+  const outDrivers = getSortedData(filteredDrivers);
 
   // Calculate pagination
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = sortedAndFilteredDrivers.slice(
-    indexOfFirstRecord,
-    indexOfLastRecord
-  );
-  const totalPages = Math.ceil(
-    sortedAndFilteredDrivers.length / recordsPerPage
-  );
+  const currentRecords = outDrivers;
 
   // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  // Previous page
-  const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+  const paginate = async (page) => {
+    const pageUrl = `${API_ENDPOINTS.trucks.list}?page=${page}&page_size=${recordsPerPage}`;
+    try {
+      const response = await api.get(pageUrl, {
+        search: searchTerm,
+        page_size: recordsPerPage,
+        filters: JSON.stringify(driverFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      if (driverFilters.length === 0) {
+        setSortedAndFilteredDrivers(response.data);
+      }
+      setColumnFilteredDrivers(response.data);
+      setNextPage(extractNextPage(response.next)); // Store next page URL
+      setPrevPage(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPages(response.total_pages);
+      setCurrentPage(page);
+      console.log(currentPage);
+      // Extract current page from URL
+    } catch (error) {
+      console.log(error);
     }
   };
 
-  // Next page
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+  // Previous page
+  const prevPageClick = async () => {
+    try {
+      const response = await api.get(prevPage, {
+        page: currentPage - 1,
+        search: searchTerm,
+        page_size: recordsPerPage,
+        filters: JSON.stringify(driverFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      if (driverFilters.length === 0) {
+        setSortedAndFilteredDrivers(response.data);
+      }
+      setColumnFilteredDrivers(response.data);
+      setNextPage(extractNextPage(response.next)); // Store next page URL
+      setPrevPage(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPages(response.total_pages);
+      setCurrentPage((prev) => prev - 1);
+    } catch (error) {
+      console.log(error);
     }
+  };
+  useEffect(() => {
+    console.log("Updated nextPage:", nextPage);
+  }, [nextPage]);
+  // Next page
+  const nextPageClick = async () => {
+    console.log(currentPage);
+
+    try {
+      const response = await api.get(nextPage, {
+        search: searchTerm,
+        page: currentPage + 1,
+        page_size: recordsPerPage,
+        filters: JSON.stringify(driverFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      if (driverFilters.length === 0) {
+        setSortedAndFilteredDrivers(response.data);
+      }
+      setColumnFilteredDrivers(response.data);
+      setNextPage(extractNextPage(response.next)); // Store next page URL
+      setPrevPage(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPages(response.total_pages);
+      setCurrentPage((prev) => prev + 1);
+    } catch (error) {
+      console.log(error);
+    }
+    console.log(nextPage);
   };
 
   // Handle driver search
@@ -207,19 +440,20 @@ export default function Trucks() {
   };
 
   // Open "Add Driver" modal
-  const handleAddDriverClick = () => {
-    setIsAddDriverModalOpen(true);
+  const handleAddTruckClick = () => {
+    setIsAddTruckModalOpen(true);
   };
 
   // Open "Edit Driver" modal
-  const handleEditClick = (driver) => {
-    setCurrentDriver(driver);
+  const handleEditClick = (truck) => {
+    setCurrentDriver(truck);
     setNewDriver({
-      name: driver.name,
-      phone_number: driver.phone_number,
-      status: driver.status,
+      truckNo: truck.truckNo,
+      truckType: truck.truckType,
+      ownership: truck.ownership,
+      truckStatus: truck.truckStatus,
     });
-    setIsEditDriverModalOpen(true);
+    setIsEditTruckModalOpen(true);
   };
 
   const handleTransactionClick = (driver) => {
@@ -230,7 +464,7 @@ export default function Trucks() {
   };
 
   // Function to close the modal
-  const closeModal = () => {
+  const closeTransactionModal = () => {
     setShowTransactionsModal(false);
     setCurrentDriver(null);
   };
@@ -245,20 +479,21 @@ export default function Trucks() {
     setShowAddTransactionModal(false);
     setNewTransaction({
       amount: "",
-      type: "Credit",
+      amountType: "Credit",
       date: new Date().toISOString().split("T")[0],
     });
   };
 
   // Function to handle input change in add transaction form
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewTransaction({
-      ...newTransaction,
-      [name]: value,
+    setNewTransaction((prev) => {
+      const updatedTransaction = { ...prev, [name]: value };
+      return updatedTransaction;
     });
+    console.log(showAddTransactionModal);
   };
-
   // Function to add a new transaction
   const handleAddTransaction = async (e) => {
     e.preventDefault();
@@ -267,9 +502,10 @@ export default function Trucks() {
       driverId: selectedDriver.id,
       amount: parseFloat(newTransaction.amount),
       reason: newTransaction.reason,
-      amountType: newTransaction.type,
+      amountType: newTransaction.amountType,
       date: newTransaction.date,
     };
+
     try {
       await api.post(
         API_ENDPOINTS.drivers.transactionsCreate(selectedDriver.id),
@@ -304,6 +540,7 @@ export default function Trucks() {
 
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
+
     setEditingTransaction({
       ...editingTransaction,
       [name]: value,
@@ -324,7 +561,6 @@ export default function Trucks() {
       );
       fetchTransactions(selectedDriver);
       notifySuccess("Transaction edited successfully");
-      closeAddTransactionModal();
     } catch (error) {
       notifyError("Error adding driver");
     }
@@ -333,17 +569,22 @@ export default function Trucks() {
   // Function to edit a transaction
 
   // Function to delete a transaction
-  const handleDeleteTransaction = async (id) => {
-    if (window.confirm("Are you sure you want to delete this transaction?")) {
-      try {
-        await api.delete(API_ENDPOINTS.drivers.transactionsDelete(id));
-        notifyInfo("Trnsaction deleted successfully");
-        fetchTransactions(selectedDriver);
-        setIsDeleteConfirmOpen(false);
-        setCurrentDriver(null);
-      } catch {
-        notifyError("Error deleting transaction");
-      }
+  const handleDeleteTransactionClick = (transaction) => {
+    setShowDeleteTransactionModal(true);
+    setCurrentTransaction(transaction);
+  };
+
+  const handleDeleteTransactionModal = async () => {
+    try {
+      await api.delete(
+        API_ENDPOINTS.drivers.transactionsDelete(currentTransaction.id)
+      );
+      notifyInfo("Trnsaction deleted successfully");
+      fetchTransactions(selectedDriver);
+      setShowDeleteTransactionModal(false);
+      setCurrentTransaction(null);
+    } catch {
+      notifyError("Error deleting transaction");
     }
   };
   // Open delete confirmation
@@ -351,66 +592,76 @@ export default function Trucks() {
     setCurrentDriver(driver);
     setIsDeleteConfirmOpen(true);
   };
+  const handleDriverInputChange = (e) => {
+    const { name, value } = e.target;
 
+    // Allow only numeric input and restrict the length
+    if (name === "aadhar_number" && /^\d{0,12}$/.test(value)) {
+      setErrors((prev) => ({ ...prev, aadhar: "" }));
+      handleDriverChange(e);
+    }
+
+    if (name === "phone_number" && /^\d{0,10}$/.test(value)) {
+      setErrors((prev) => ({ ...prev, phone: "" }));
+      handleDriverChange(e);
+    }
+  };
+
+  const validateTruckForm = () => {
+    let valid = true;
+    let newErrors = { truckNo: "" };
+
+    if (newDriver.truckNo.length !== 10) {
+      newErrors.truckNo = "Truck No must be exactly 10 digits.";
+      valid = false;
+    }
+
+    setErrors(newErrors);
+    return valid;
+  };
+
+  const handleAddTruckFormSubmit = (e) => {
+    e.preventDefault(); // Prevent form submission if invalid
+    if (validateTruckForm()) {
+      handleAddTruck(e); // Call parent submit function if valid
+    }
+  };
   // Handle input changes for driver form
   const handleDriverChange = (e) => {
     const { name, value } = e.target;
     setNewDriver((prev) => ({ ...prev, [name]: value }));
+    console.log(newDriver);
   };
 
-  // Handle file input changes
-  const handleDriverFileChange = (e) => {
-    const { name, files } = e.target;
-
-    if (files.length > 0) {
-      const file = files[0];
-
-      if (name === "photo") {
-        // For images, you might want to create a preview
-        const previewUrl = URL.createObjectURL(file);
-        setNewDriver((prev) => ({
-          ...prev,
-          photoFile: file,
-          photoPreview: previewUrl,
-        }));
-      } else if (name === "documents") {
-        setNewDriver((prev) => ({
-          ...prev,
-          documentsFile: file,
-        }));
-      }
-    }
-  };
+  const totalAmount = useMemo(() => {
+    return transactions.reduce((total, transaction) => {
+      const amount = parseFloat(transaction.amount);
+      return transaction.amountType === "Credit"
+        ? total + amount
+        : total - amount;
+    }, 0);
+  });
 
   // Handle add driver form submission
-  const handleAddDriver = async (e) => {
+  const handleAddTruck = async (e) => {
     e.preventDefault();
 
     const formData = new FormData();
-    formData.append("name", newDriver.name);
-    formData.append("phone_number", newDriver.phone_number);
-    formData.append("status", newDriver.status);
-    formData.append("aadhar_number", newDriver.aadhar_number); // Add more fields if needed
-    formData.append("license_number", newDriver.license_number);
-    formData.append("license_expiry_date", newDriver.license_expiry_date);
-
-    // Append files only if they exist
-    if (newDriver.photo) {
-      formData.append("photo", newDriver.photo);
-    }
-    if (newDriver.documents) {
-      formData.append("documents", newDriver.documents);
-    }
+    formData.append("truckNo", newDriver.truckNo);
+    formData.append("truckType", newDriver.truckType);
+    formData.append("ownership", newDriver.ownership);
+    formData.append("truckStatus", newDriver.truckStatus); // Add more fields if needed
 
     try {
-      await api.post(API_ENDPOINTS.drivers.create, formData, {
+      await api.post(API_ENDPOINTS.trucks.create, formData, {
         headers: {
           "Content-Type": "multipart/form-data", // Explicitly set header
         },
       });
-      notifySuccess("Driver added successfully");
+      notifySuccess("Truck added successfully");
       fetchDrivers();
-      setIsAddDriverModalOpen(false);
+      getSortedAndFilteredDrivers();
+      setIsAddTruckModalOpen(false);
       resetNewDriverForm();
     } catch (error) {
       notifyError("Error adding driver");
@@ -419,57 +670,73 @@ export default function Trucks() {
 
   // Handle edit driver form submission
   // Handle edit driver form submission - works for both regular edit and view-edit modes
-  const handleEditDriver = async (e, fromViewModal = false) => {
+  const handleEditTruck = async (e, fromViewModal = false) => {
     if (e) e.preventDefault();
     if (!currentDriver) return;
 
     try {
-      await api.put(API_ENDPOINTS.drivers.update(currentDriver.id), newDriver);
-      notifyInfo("Driver updated successfully");
+      await api.put(API_ENDPOINTS.trucks.update(currentDriver.id), newDriver);
+      notifyInfo("Truck updated successfully");
       await fetchDrivers();
+      await getSortedAndFilteredDrivers();
 
       if (fromViewModal) {
         // If coming from view modal, just exit edit mode
         setIsEditMode(false);
       } else {
         // If coming from regular edit modal, close it
-        setIsEditDriverModalOpen(false);
+        setIsEditTruckModalOpen(false);
         setCurrentDriver(null);
-        setNewDriver({ name: "", phone_number: "", status: "Available" });
+        setNewDriver({
+          truckNo: "",
+          truckType: "",
+          ownership: "",
+          truckStatus: "available",
+        });
       }
     } catch (error) {
       console.error("Error updating driver:", error);
       notifyError("Error updating driver");
     }
   };
+  const handleEditTruckFormSubmit = async (e, fromViewModal = false) => {
+    if (e) e.preventDefault();
+    if (validateTruckForm()) {
+      handleEditTruck(e, fromViewModal); // Call parent submit function if valid
+    }
+  };
 
   const toggleEditMode = () => {
     if (isEditMode) {
       // If in edit mode, call the shared edit handler with fromViewModal=true
-      handleEditDriver(null, true);
+      handleEditTruckFormSubmit(null, true);
     } else {
       // If in view mode, close the view modal and open the edit modal instead
-      setIsViewDriverModalOpen(false); // Close view modal
+      setIsViewTruckModalOpen(false); // Close view modal
 
       // Open edit modal with current driver data
       setNewDriver({
         name: currentDriver.name,
         phone_number: currentDriver.phone_number,
         status: currentDriver.status,
+        aadhar_number: currentDriver.aadhar_number,
+        license_number: currentDriver.license_number,
+        license_expiry_date: currentDriver.license_expiry_date,
       });
 
       // Open the regular edit modal
-      setIsEditDriverModalOpen(true);
+      setIsEditTruckModalOpen(true);
     }
   };
 
   // Handle delete driver
-  const handleDeleteDriver = async () => {
+  const handleDeleteTruck = async () => {
     if (!currentDriver) return;
     try {
-      await api.delete(API_ENDPOINTS.drivers.delete(currentDriver.id));
+      await api.delete(API_ENDPOINTS.trucks.delete(currentDriver.id));
       notifyInfo("Driver deleted successfully");
       fetchDrivers();
+      getSortedAndFilteredDrivers();
       setIsDeleteConfirmOpen(false);
       setCurrentDriver(null);
     } catch {
@@ -544,7 +811,7 @@ export default function Trucks() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-semibold text-gray-800">Trucks</h1>
           <button
-            onClick={handleAddDriverClick}
+            onClick={handleAddTruckClick}
             className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm transition-colors hover:bg-opacity-90"
           >
             <span className="mr-1">+</span> Add Truck
@@ -553,8 +820,8 @@ export default function Trucks() {
 
         <div className="bg-white rounded-md shadow-md p-6">
           {/* Search Input */}
-          <div className="mb-6 flex flex-wrap justify-between items-center">
-            <div className="relative w-full md:w-80">
+          <div className="mb-6 flex flex-wrap justify-end items-center">
+            <div className="flex items-center relative w-full md:w-80 mx-3">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg
                   className="h-5 w-5 text-gray-400"
@@ -574,8 +841,16 @@ export default function Trucks() {
                 placeholder="Search Trucks"
                 value={searchTerm}
                 onChange={handleSearch}
-                className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
               />
+              {driverFilters.length > 0 && (
+                <button
+                  onClick={() => setDriverFilters([])}
+                  className="flex items-center justify-center whitespace-nowrap px-4 py-2 mx-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-md transition-colors duration-200 text-sm"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
 
             <div className="mt-4 md:mt-0 flex items-center">
@@ -585,8 +860,9 @@ export default function Trucks() {
               <select
                 value={recordsPerPage}
                 onChange={handleRecordsPerPageChange}
-                className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
               >
+                <option value={1}>1</option>
                 <option value={5}>5</option>
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -602,35 +878,35 @@ export default function Trucks() {
                 <tr className="bg-gray-100">
                   <th
                     className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("name")}
+                    onClick={() => requestSort("truckNo")}
                   >
                     <div className="flex items-center space-x-1">
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         Truck Number
                       </span>
-                      {getSortDirectionIcon("name")}
+                      {getSortDirectionIcon("truckNo")}
                     </div>
                   </th>
                   <th
                     className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("phone_number")}
+                    onClick={() => requestSort("truckType")}
                   >
                     <div className="flex items-center space-x-1">
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         Truck Type
                       </span>
-                      {getSortDirectionIcon("phone_number")}
+                      {getSortDirectionIcon("truckType")}
                     </div>
                   </th>
                   <th
                     className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("phone_number")}
+                    onClick={() => requestSort("ownership")}
                   >
                     <div className="flex items-center space-x-1">
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         Ownership
                       </span>
-                      {getSortDirectionIcon("phone_number")}
+                      {getSortDirectionIcon("ownership")}
                     </div>
                   </th>
                   <th
@@ -652,35 +928,40 @@ export default function Trucks() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentRecords.map((driver) => (
+                {currentRecords.map((truck) => (
                   <tr
-                    key={driver.id}
+                    key={truck.id}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => handleRowClick(driver)}
+                    onClick={() => handleTransactionClick(truck)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-base font-medium text-gray-900">
-                        {driver.name}
+                        {truck.truckNo}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-base text-gray-900">
-                        {driver.phone_number}
+                        {truck.truckType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-base text-gray-900">
+                        {truck.ownership}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <span
                           className={`h-3 w-3 rounded-full mr-2 ${
-                            driver.status_display === "Available"
+                            truck.truckStatus_display === "Available"
                               ? "bg-accent"
-                              : driver.status_display === "On Trip"
+                              : truck.truckStatus_display === "On Trip"
                               ? "bg-primary"
                               : "bg-danger"
                           }`}
                         ></span>
                         <span className="text-base font-medium text-gray-900">
-                          {driver.status_display}
+                          {truck.truckStatus_display}
                         </span>
                       </div>
                     </td>
@@ -689,17 +970,25 @@ export default function Trucks() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent row click
-                            handleTransactionClick(driver);
+                            handleRowClick(truck);
                           }}
                           className="text-primary hover:text-blue-700 transition-colors"
-                          title="View Transactions"
                         >
-                          View Transactions
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="bi bi-eye h-5 w-5"
+                            fill="currentColor"
+                            stroke="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
+                          </svg>
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent row click
-                            handleEditClick(driver);
+                            handleEditClick(truck);
                           }}
                           className="text-primary hover:text-blue-700 transition-colors"
                           title="Edit Driver"
@@ -722,7 +1011,7 @@ export default function Trucks() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent row click
-                            handleDeleteClick(driver);
+                            handleDeleteClick(truck);
                           }}
                           className="text-danger hover:text-red-600 transition-colors"
                           title="Delete Driver"
@@ -760,18 +1049,1049 @@ export default function Trucks() {
             )}
           </div>
 
+          {showTransactionsModal && (
+            <div className="fixed inset-y-0 right-0 z-30 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
+              <div className="flex justify-between items-center border-b p-6 pb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Transactions for {selectedDriver.name} -{" "}
+                  {selectedDriver.phone_number}
+                </h2>
+                <button
+                  onClick={closeTransactionModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Summary Section */}
+              <div className="bg-gray-100 p-4 flex justify-between items-center">
+                <div>
+                  <span className="text-sm text-gray-600 mr-2">
+                    Total Amount:
+                  </span>
+                  <span
+                    className={`text-lg font-bold flex ${
+                      totalAmount >= 0 ? "text-green-700" : "text-red-700"
+                    }`}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                    >
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
+                      <path d="M7 9l11 0" />
+                    </svg>
+                    {Math.abs(totalAmount).toFixed(2)}
+                  </span>
+                </div>
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                    totalAmount >= 0
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {totalAmount >= 0 ? "Net Credit" : "Net Debit"}
+                </span>
+                <div>
+                  <button
+                    onClick={openAddTransactionModal}
+                    className="px-4 py-2 mx-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    + Add Expense
+                  </button>
+                  <button
+                    onClick={openTripSidebar}
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    + Add Trip
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-grow overflow-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-100 border-b sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        AMOUNT
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        TYPE
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        REASON
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        DATE
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ACTIONS
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {transactions.map((transaction) => (
+                      <tr
+                        key={transaction.id}
+                        className="hover:bg-gray-50"
+                        onClick={() => openEditTransactionModal(transaction)}
+                      >
+                        <td className="px-4 py-3 text-black flex">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                          >
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                            <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
+                            <path d="M7 9l11 0" />
+                          </svg>
+                          {transaction.amount}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block px-2 py-1 rounded-full font-medium ${
+                              transaction.amountType === "Credit"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {transaction.amountType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-black">
+                          {transaction.reason}
+                        </td>
+                        <td className="px-4 py-3 text-black">
+                          {transaction.date}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() =>
+                              openEditTransactionModal(transaction)
+                            }
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTransactionClick(transaction);
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          className="px-4 py-3 text-center text-gray-500"
+                        >
+                          No transactions found for this driver.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {showAddTransactionModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Expenses
+                  </h2>
+                  <button
+                    onClick={closeAddTransactionModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-6 flex justify-center space-x-8">
+                  <div
+                    onClick={() => openModal("fuel")}
+                    className="flex flex-col items-center cursor-pointer"
+                  >
+                    <div className="text-blue-600 mb-2">
+                      <svg
+                        width="40"
+                        height="40"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12H3V8z" />
+                        <path d="M11 14h3a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-3v6z" />
+                        <path d="M13 5v3" />
+                        <path d="M8 5v3" />
+                      </svg>
+                    </div>
+                    <div className="text-center text-black">
+                      <div className="font-medium">Fuel</div>
+                      <div>Expense</div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => openModal("maintenance")}
+                    className="flex flex-col items-center cursor-pointer"
+                  >
+                    <div className="text-blue-600 mb-2">
+                      <svg
+                        width="40"
+                        height="40"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                      </svg>
+                    </div>
+                    <div className="text-center text-black">
+                      <div className="font-medium">Maintenance</div>
+                      <div>Expense</div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => openModal("driver")}
+                    className="flex flex-col items-center cursor-pointer"
+                  >
+                    <div className="text-blue-600 mb-2">
+                      <svg
+                        width="40"
+                        height="40"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <circle cx="12" cy="12" r="4" />
+                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+                      </svg>
+                    </div>
+                    <div className="text-center text-black">
+                      <div className="font-medium ">Driver/Other</div>
+                      <div>Expense</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {showModal && modalType === "fuel" && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Fuel Expense
+                  </h2>
+                  <button
+                    onClick={closeModal}
+                    className="text-black hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Amount*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Enter Amount"
+                        className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex mb-4 gap-4">
+                    <div className="flex-1">
+                      <label className="block text-black mb-1">
+                        Fuel Quantity
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Fuel Quantity"
+                          className="w-full border rounded-md p-2 pl-3 pr-8"
+                        />
+                        <span className="absolute right-3 top-2.5 text-black">
+                          L
+                        </span>
+                      </div>
+                      <div className="text-sm mt-1 text-black">Optional</div>
+                    </div>
+
+                    <div className="flex-1">
+                      <label className="block text-black mb-1">
+                        Rate per litre
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Rate per litre"
+                          className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                        />
+                        <span className="absolute right-3 top-2.5 text-black">
+                          ₹
+                        </span>
+                      </div>
+                      <div className="text-black text-sm mt-1">Optional</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex items-center">
+                    <span className="mr-2 text-black">
+                      I have filled full tank
+                    </span>
+                    <div className="w-10 h-6 bg-gray-300 rounded-full relative">
+                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Current KM Reading
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Current KM Reading"
+                        className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        KMs
+                      </span>
+                    </div>
+                    <div className="text-black text-sm mt-1">Optional</div>
+                  </div>
+
+                  <div className="mb-4">
+                    <button className="bg-blue-100 text-blue-500 p-2 rounded-md">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Payment Mode*
+                    </label>
+                    {/* Add payment mode options here */}
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-4 border-t">
+                  <button
+                    onClick={closeModal}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button className="bg-gray-300 text-black px-4 py-2 rounded-md">
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* General Expense Modal */}
+          {showModal && modalType === "maintenance" && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Expense / Purchase
+                  </h2>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Type*
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Expense Type"
+                      className="w-full border rounded-md p-2"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Amount Paid*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Amount Paid"
+                        className="w-full border rounded-md p-2 pl-3 pr-8"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        defaultValue="03-04-2025"
+                        className="w-full border rounded-md p-2 pr-10"
+                      />
+                      <Calendar
+                        size={20}
+                        className="absolute right-3 top-2.5 text-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Payment Mode*
+                    </label>
+                    <div className="flex gap-2">
+                      <button className="bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm">
+                        Cash
+                      </button>
+                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
+                        Credit
+                      </button>
+                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
+                        Paid By Driver
+                      </button>
+                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
+                        Online
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Current KM Reading
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Current KM Reading"
+                        className="w-full border rounded-md p-2 pl-3 pr-12"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        KMs
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-4 border-t">
+                  <button
+                    onClick={closeModal}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button className="bg-gray-300 text-black px-4 py-2 rounded-md">
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Driver/Other Expense Modal */}
+          {showModal && modalType === "driver" && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Driver / Other Expense
+                  </h2>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Type*
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Expense Type"
+                      className="w-full border rounded-md p-2"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Amount Paid*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Amount Paid"
+                        className="w-full border rounded-md p-2 pl-3 pr-8"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        defaultValue="03-04-2025"
+                        className="w-full border rounded-md p-2 pr-10"
+                      />
+                      <Calendar
+                        size={20}
+                        className="absolute right-3 top-2.5 text-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Payment Mode*
+                    </label>
+                    <div className="flex gap-2">
+                      <button className="bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm">
+                        Cash
+                      </button>
+                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
+                        Credit
+                      </button>
+                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
+                        Paid By Driver
+                      </button>
+                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
+                        Online
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Notes</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-black">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <line x1="21" y1="6" x2="3" y2="6" />
+                          <line x1="21" y1="12" x2="3" y2="12" />
+                          <line x1="21" y1="18" x2="3" y2="18" />
+                        </svg>
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Notes"
+                        className="w-full border rounded-md p-2 pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-4 border-t">
+                  <button
+                    onClick={closeModal}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button className="bg-gray-300 text-black px-4 py-2 rounded-md">
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showSidebar && (
+            <div className="fixed inset-0 bg-black bg-opacity-30 z-40">
+              <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-lg shadow-lg z-60 flex flex-col">
+                {/* Header - Fixed */}
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-semibold text-black">Add Trip</h2>
+                  <button
+                    onClick={closeTripSidebar}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {/* Content - Scrollable */}
+                <div className="flex-1 overflow-y-auto">
+                  {/* Trip Details Section */}
+                  <div className="p-4 border-b">
+                    <h3 className="text-lg font-semibold mb-4 text-black">
+                      Trip Details
+                    </h3>
+
+                    <div className="mb-4">
+                      <label className="block text-black mb-1">
+                        Select Party *
+                      </label>
+                      <div className="relative">
+                        <select className="w-full border rounded-md p-2 appearance-none bg-white text-black">
+                          <option>Arjun Reddy</option>
+                        </select>
+                        <ChevronDown
+                          size={20}
+                          className="absolute right-3 top-2.5 text-gray-500 pointer-events-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-black mb-1">
+                          Truck Registration No.*
+                        </label>
+                        <div className="relative">
+                          <select className="w-full border rounded-md p-2 appearance-none bg-white text-black">
+                            <option>TN22CR3044</option>
+                          </select>
+                          <ChevronDown
+                            size={20}
+                            className="absolute right-3 top-2.5 text-black pointer-events-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-black mb-1">
+                          Driver Name*
+                        </label>
+                        <div className="relative">
+                          <select className="w-full border rounded-md p-2 appearance-none bg-white text-black">
+                            <option>Preetam</option>
+                          </select>
+                          <ChevronDown
+                            size={20}
+                            className="absolute right-3 top-2.5 text-black pointer-events-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Route Section */}
+                  <div className="p-4 border-b">
+                    <h3 className="text-lg font-semibold mb-4 text-black">
+                      Route
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-black mb-1">Origin*</label>
+                        <div className="relative">
+                          <select className="w-full border rounded-md p-2 appearance-none bg-white text-black">
+                            <option>Bangalore</option>
+                          </select>
+                          <ChevronDown
+                            size={20}
+                            className="absolute right-3 top-2.5 text-black pointer-events-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-black mb-1">
+                          Destination*
+                        </label>
+                        <div className="relative">
+                          <select className="w-full border rounded-md p-2 appearance-none bg-white text-black">
+                            <option>Eg: Delhi</option>
+                          </select>
+                          <ChevronDown
+                            size={20}
+                            className="absolute right-3 top-2.5 text-black pointer-events-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Billing Information Section */}
+                  <div className="p-4 border-b">
+                    <h3 className="text-lg font-semibold mb-4 text-black">
+                      Billing Information
+                    </h3>
+
+                    <div className="mb-4">
+                      <label className="block text-black mb-1">
+                        Party Billing Type *
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {billingOptions.map((option) => (
+                          <button
+                            key={option}
+                            className={`px-4 py-2 rounded-md text-sm ${
+                              billingType === option
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                            onClick={() => setBillingType(option)}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-black mb-1">
+                        Party Freight Amount*
+                      </label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-2.5 text-black">
+                          ₹
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Eg: 45,000"
+                          className="w-full border rounded-md p-2 pl-7 text-black"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-black mb-1">
+                          Start Date*
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            defaultValue="03-04-2025"
+                            className="w-full border rounded-md p-2 pr-10 text-black"
+                          />
+                          <Calendar
+                            size={20}
+                            className="absolute right-3 top-2.5 text-black"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-black mb-1">
+                          Start Kms Reading
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Start readings"
+                            className="w-full border rounded-md p-2 pr-12 text-black"
+                          />
+                          <span className="absolute right-3 top-2.5 text-black">
+                            KMs
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <button
+                        onClick={() => setShowMoreDetails((prev) => !prev)}
+                        className="text-blue-600 border border-blue-600 px-4 py-2 rounded-md"
+                      >
+                        Add More Details
+                      </button>
+                    </div>
+
+                    {showMoreDetails && (
+                      <div className="border-t pt-4 mb-4">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-black mb-1">
+                              Additional Field 1
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full border rounded-md p-2 text-black"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-black mb-1">
+                              Additional Field 2
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full border rounded-md p-2 text-black"
+                            />
+                          </div>
+                        </div>
+                        {/* Adding more fields to demonstrate scrolling */}
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-black mb-1">
+                              Notes
+                            </label>
+                            <textarea
+                              className="w-full border rounded-md p-2 text-black"
+                              rows={3}
+                            ></textarea>
+                          </div>
+                          <div>
+                            <label className="block text-black mb-1">
+                              Reference Number
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full border rounded-md p-2 text-black"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-black mb-1">
+                              Expected End Date
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                className="w-full border rounded-md p-2 pr-10 text-black"
+                              />
+                              <Calendar
+                                size={20}
+                                className="absolute right-3 top-2.5 text-black"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-black mb-1">
+                              Contact Person
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full border rounded-md p-2 text-black"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Adding extra padding at the bottom to ensure content doesn't get hidden behind the footer */}
+                  <div className="pb-16"></div>
+                </div>
+
+                {/* Footer - Fixed */}
+                <div className="border-t bg-white p-4 flex justify-end mt-auto">
+                  <button
+                    onClick={closeTripSidebar}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
+                    Save Trip
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Transaction Modal */}
+          {showEditTransactionModal && editingTransaction && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-[1100] flex justify-center items-center">
+              <div className="bg-white rounded-lg w-[400px] p-5 relative">
+                {/* Modal Header */}
+                <div className="flex justify-between items-center mb-5 pb-2.5 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    Edit Transaction
+                  </h3>
+                  <button
+                    onClick={closeEditTransactionModal}
+                    className="text-2xl text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleUpdateTransaction}>
+                  {/* Amount Input */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={editingTransaction.amount}
+                      onChange={handleEditInputChange}
+                      placeholder="Enter amount"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    />
+                  </div>
+
+                  {/* Type Select */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Type
+                    </label>
+                    <select
+                      name="amountType"
+                      value={editingTransaction.amountType}
+                      onChange={handleEditInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    >
+                      <option value="Credit">Credit</option>
+                      <option value="Debit">Debit</option>
+                    </select>
+                  </div>
+
+                  {/* Reason Input */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Reason
+                    </label>
+                    <input
+                      type="text"
+                      name="reason"
+                      value={editingTransaction.reason}
+                      onChange={handleEditInputChange}
+                      placeholder="Enter reason"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    />
+                  </div>
+
+                  {/* Date Input */}
+                  <div className="mb-4">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={editingTransaction.date}
+                      onChange={handleEditInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2.5 mt-5">
+                    <button
+                      type="button"
+                      onClick={closeEditTransactionModal}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#243b6c] text-white rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Update Transaction
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
           {/* Pagination */}
-          {sortedAndFilteredDrivers.length > 0 && (
+          {outDrivers.length > 0 && (
             <div className="flex items-center justify-between mt-4 px-2">
               <div className="text-sm text-gray-600">
                 Showing {indexOfFirstRecord + 1} to{" "}
-                {Math.min(indexOfLastRecord, sortedAndFilteredDrivers.length)}{" "}
-                of {sortedAndFilteredDrivers.length} entries
+                {Math.min(indexOfLastRecord, outDrivers.length)} of{" "}
+                {outDrivers.length} entries
               </div>
 
               <nav className="flex items-center">
                 <button
-                  onClick={prevPage}
+                  onClick={prevPageClick}
                   disabled={currentPage === 1}
                   className={`px-3 py-1 rounded-md mx-1 ${
                     currentPage === 1
@@ -824,7 +2144,7 @@ export default function Trucks() {
                   })}
 
                 <button
-                  onClick={nextPage}
+                  onClick={nextPageClick}
                   disabled={currentPage === totalPages}
                   className={`px-3 py-1 rounded-md mx-1 ${
                     currentPage === totalPages
@@ -840,8 +2160,8 @@ export default function Trucks() {
         </div>
       </div>
 
-      {/* Add Driver Modal */}
-      {isAddDriverModalOpen && (
+      {/* Add Truck Modal */}
+      {isAddTruckModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-xl">
             <div className="flex justify-between items-center mb-6">
@@ -849,7 +2169,7 @@ export default function Trucks() {
                 Add New Truck
               </h2>
               <button
-                onClick={() => setIsAddDriverModalOpen(false)}
+                onClick={() => setIsAddTruckModalOpen(false)}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -868,7 +2188,7 @@ export default function Trucks() {
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleAddDriver}>
+            <form onSubmit={handleAddTruckFormSubmit}>
               <div className="gap-x-6 gap-y-4">
                 {/* Left column */}
                 <div>
@@ -878,40 +2198,51 @@ export default function Trucks() {
                     </label>
                     <input
                       type="text"
-                      name="truckNumber"
-                      value={newDriver.name}
+                      name="truckNo"
+                      value={newDriver.truckNo}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
+                    {errors.truckNo && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.truckNo}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Truck Type
                     </label>
                     <select
-                      name="status"
-                      value={newDriver.status}
+                      name="truckType"
+                      value={newDriver.truckType}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
                     >
-                      <option value="available">Available</option>
-                      <option value="on_trip">On Trip</option>
-                      <option value="off_duty">Off Duty</option>
+                      <option value="Mini Truck / LCV">Mini Truck / LCV</option>
+                      <option value="Open Body Truck">Open Body Truck</option>
+                      <option value="Closed Container">Closed Container</option>
+                      <option value="Trailer">Trailer</option>
+                      <option value="Tanker">Tanker</option>
+                      <option value="Tipper">Tipper</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Ownership
                     </label>
-                    <input
-                      type="text"
-                      name="aadhar_number"
-                      value={newDriver.aadhar_number}
+                    <select
+                      name="ownership"
+                      value={newDriver.ownership}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
-                    />
+                    >
+                      <option value="Market Truck">Market Truck</option>
+                      <option value="My Truck">My Truck</option>
+                    </select>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -919,9 +2250,9 @@ export default function Trucks() {
                     </label>
                     <select
                       name="status"
-                      value={newDriver.status}
+                      value={newDriver.truckStatus}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
                     >
                       <option value="available">Available</option>
                       <option value="on_trip">On Trip</option>
@@ -936,7 +2267,7 @@ export default function Trucks() {
               <div className="flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
-                  onClick={() => setIsAddDriverModalOpen(false)}
+                  onClick={() => setIsAddTruckModalOpen(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Cancel
@@ -954,15 +2285,15 @@ export default function Trucks() {
       )}
 
       {/* Edit Driver Modal */}
-      {isEditDriverModalOpen && (
+      {isEditTruckModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-800">
-                Edit Driver
+                Edit Truck
               </h2>
               <button
-                onClick={() => setIsEditDriverModalOpen(false)}
+                onClick={() => setIsEditTruckModalOpen(false)}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -981,35 +2312,61 @@ export default function Trucks() {
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleEditDriver}>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <form onSubmit={handleEditTruckFormSubmit}>
+              <div className="gap-x-6 gap-y-4">
                 {/* Left column */}
                 <div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Driver Name
+                      Truck Number
                     </label>
                     <input
                       type="text"
-                      name="name"
-                      value={newDriver.name}
+                      name="truckNo"
+                      value={newDriver.truckNo}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
                     />
+                    {errors.truckNo && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.truckNo}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number
+                      Truck Type
                     </label>
-                    <input
-                      type="text"
-                      name="phone_number"
-                      value={newDriver.phone_number}
+                    <select
+                      name="truckType"
+                      value={newDriver.truckType}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
+                    >
+                      <option value="Mini Truck / LCV">Mini Truck / LCV</option>
+                      <option value="Open Body Truck">Open Body Truck</option>
+                      <option value="Closed Container">Closed Container</option>
+                      <option value="Trailer">Trailer</option>
+                      <option value="Tanker">Tanker</option>
+                      <option value="Tipper">Tipper</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Ownership
+                    </label>
+                    <select
+                      name="ownership"
+                      value={newDriver.ownership}
+                      onChange={handleDriverChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
                       required
-                    />
+                    >
+                      <option value="Market Truck">Market Truck</option>
+                      <option value="My Truck">My Truck</option>
+                    </select>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1017,171 +2374,18 @@ export default function Trucks() {
                     </label>
                     <select
                       name="status"
-                      value={newDriver.status}
+                      value={newDriver.truckStatus}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
                     >
                       <option value="available">Available</option>
                       <option value="on_trip">On Trip</option>
                       <option value="off_duty">Off Duty</option>
                     </select>
                   </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Aadhar Number
-                    </label>
-                    <input
-                      type="text"
-                      name="aadhar_number"
-                      value={newDriver.aadhar_number}
-                      onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                      required
-                    />
-                  </div>
                 </div>
 
                 {/* Right column */}
-                <div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      License Number
-                    </label>
-                    <input
-                      type="text"
-                      name="license_number"
-                      value={newDriver.license_number}
-                      onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                      required
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      License Expiry Date
-                    </label>
-                    <input
-                      type="date"
-                      name="license_expiry_date"
-                      value={newDriver.license_expiry_date}
-                      onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Photo
-                    </label>
-                    <div className="w-full border border-gray-300 rounded-md overflow-hidden">
-                      {newDriver.photoFile ? (
-                        <div className="flex items-center justify-between p-2">
-                          <span className="text-sm text-gray-700 truncate max-w-xs">
-                            {newDriver.photoFile.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewDriver({
-                                ...newDriver,
-                                photoFile: null,
-                                photoPreview: null,
-                              });
-                            }}
-                            className="text-primary hover:text-primary-dark text-sm font-medium"
-                          >
-                            Change
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="file"
-                              name="photo"
-                              onChange={handleDriverFileChange}
-                              className="sr-only"
-                              accept="image/*"
-                            />
-                            <span className="px-4 py-2 bg-gray-100 text-gray-700">
-                              Choose file
-                            </span>
-                            <span className="px-4 py-2 text-gray-500">
-                              {newDriver.photo
-                                ? "Current file"
-                                : "No file chosen"}
-                            </span>
-                          </label>
-                          {newDriver.photo && (
-                            <a
-                              href={newDriver.photo}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:text-primary-dark text-sm font-medium mr-4"
-                            >
-                              View
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Documents
-                    </label>
-                    <div className="w-full border border-gray-300 rounded-md overflow-hidden">
-                      {newDriver.documentsFile ? (
-                        <div className="flex items-center justify-between p-2">
-                          <span className="text-sm text-gray-700 truncate max-w-xs">
-                            {newDriver.documentsFile.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewDriver({
-                                ...newDriver,
-                                documentsFile: null,
-                              });
-                            }}
-                            className="text-primary hover:text-primary-dark text-sm font-medium"
-                          >
-                            Change
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="file"
-                              name="documents"
-                              onChange={handleDriverFileChange}
-                              className="sr-only"
-                              accept=".pdf,.doc,.docx"
-                            />
-                            <span className="px-4 py-2 bg-gray-100 text-gray-700">
-                              Choose file
-                            </span>
-                            <span className="px-4 py-2 text-gray-500">
-                              {newDriver.documents
-                                ? "Current file"
-                                : "No file chosen"}
-                            </span>
-                          </label>
-                          {newDriver.documents && (
-                            <a
-                              href={newDriver.documents}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:text-primary-dark text-sm font-medium mr-4"
-                            >
-                              View
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="flex justify-end space-x-3 mt-8">
@@ -1199,7 +2403,7 @@ export default function Trucks() {
                       photoPreview: null,
                       documentsFile: null,
                     });
-                    setIsEditDriverModalOpen(false);
+                    setIsEditTruckModalOpen(false);
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
@@ -1218,7 +2422,7 @@ export default function Trucks() {
       )}
 
       {/* View Driver Modal */}
-      {isViewDriverModalOpen && (
+      {IsViewTruckModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl">
             <div className="flex justify-between items-center mb-6">
@@ -1226,7 +2430,7 @@ export default function Trucks() {
                 {isEditMode ? "Edit Driver" : "Driver Details"}
               </h2>
               <button
-                onClick={() => setIsViewDriverModalOpen(false)}
+                onClick={() => setIsViewTruckModalOpen(false)}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -1250,23 +2454,35 @@ export default function Trucks() {
               /* View Mode */
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {/* Left column */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">
-                      Driver Name
+                      Truck No
                     </h3>
                     <p className="text-base font-medium text-gray-900">
-                      {currentDriver?.name}
+                      {currentDriver?.truckNo}
                     </p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">
-                      Phone Number
+                      Truck Type
                     </h3>
                     <p className="text-base text-gray-900">
-                      {currentDriver?.phone_number}
+                      {currentDriver?.truckType}
                     </p>
                   </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">
+                      Ownership
+                    </h3>
+                    <p className="text-base text-gray-900">
+                      {currentDriver?.ownership}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right column */}
+                <div className="space-y-8">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">
                       Status
@@ -1274,30 +2490,20 @@ export default function Trucks() {
                     <div className="flex items-center">
                       <span
                         className={`h-3 w-3 rounded-full mr-2 ${
-                          currentDriver?.status === "available"
+                          currentDriver?.truckStatus === "available"
                             ? "bg-accent"
-                            : currentDriver?.status === "on_trip"
+                            : currentDriver?.truckStatus === "on_trip"
                             ? "bg-primary"
                             : "bg-danger"
                         }`}
                       ></span>
                       <span className="text-base font-medium text-gray-900">
-                        {currentDriver?.status_display}
+                        {currentDriver?.truckStatus_display}
                       </span>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">
-                      Aadhar Number
-                    </h3>
-                    <p className="text-base text-gray-900">
-                      {currentDriver?.aadhar_number}
-                    </p>
-                  </div>
                 </div>
-
-                {/* Right column */}
-                <div className="space-y-4">
+                {/* <div className="space-y-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">
                       License Number
@@ -1317,7 +2523,7 @@ export default function Trucks() {
                         ).toLocaleDateString()}
                     </p>
                   </div>
-                  <div>
+                  {/* <div>
                     <h3 className="text-sm font-medium text-gray-500">Photo</h3>
                     <FilePreview
                       fileUrl={currentDriver?.photo}
@@ -1337,7 +2543,7 @@ export default function Trucks() {
                       className="mt-1"
                     />
                   </div>
-                </div>
+                </div> */}
               </div>
             ) : (
               /* Edit Mode - Form Fields */
@@ -1350,7 +2556,7 @@ export default function Trucks() {
             <div className="flex justify-end space-x-3 mt-8">
               <button
                 type="button"
-                onClick={() => setIsViewDriverModalOpen(false)}
+                onClick={() => setIsViewTruckModalOpen(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
                 Close
@@ -1366,7 +2572,7 @@ export default function Trucks() {
               ) : (
                 <button
                   type="button"
-                  onClick={handleEditDriver}
+                  onClick={handleEditTruckFormSubmit}
                   className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
                 >
                   Save
@@ -1407,8 +2613,8 @@ export default function Trucks() {
             </div>
             <div className="mb-6">
               <p className="text-gray-600">
-                Are you sure you want to delete driver{" "}
-                <span className="font-semibold">{currentDriver?.name}</span>?
+                Are you sure you want to delete truck{" "}
+                <span className="font-semibold">{currentDriver?.truckNo}</span>?
                 This action cannot be undone.
               </p>
             </div>
@@ -1420,7 +2626,60 @@ export default function Trucks() {
                 Cancel
               </button>
               <button
-                onClick={handleDeleteDriver}
+                onClick={handleDeleteTruck}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteTransactionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setShowDeleteTransactionModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete Transaction{" "}
+                <span className="font-semibold">{currentDriver?.name}</span>?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowDeleteTransactionModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTransactionModal}
                 className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
               >
                 Delete
