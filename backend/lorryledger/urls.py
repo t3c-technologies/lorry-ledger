@@ -26,6 +26,11 @@ from .views import (
     TransactionCreateView,
     TransactionUpdateView,
     TransactionDeleteView,
+    TruckListView,
+    TruckCreateView,
+    TruckDetailView,
+    TruckUpdateView,
+    TruckDeleteView
 )
 
 urlpatterns = [
@@ -45,4 +50,11 @@ urlpatterns = [
     path('api/drivers/<int:driverId>/transactions/create', TransactionCreateView.as_view(), name='transaction_create'),
     path('api/drivers/transactions/<int:id>/update', TransactionUpdateView.as_view(), name='transaction_update'),
     path('api/drivers/transactions/<int:id>/delete', TransactionDeleteView.as_view(), name='transaction_delete'),
+
+    #Trucks
+    path('api/trucks/', TruckListView.as_view(), name='truck_list'),
+    path('api/trucks/create/', TruckCreateView.as_view(), name='truck_create'),
+    path('api/trucks/<int:id>/', TruckDetailView.as_view(), name='truck_detail'),
+    path('api/trucks/<int:id>/update/', TruckUpdateView.as_view(), name='truck_update'),
+    path('api/trucks/<int:id>/delete/', TruckDeleteView.as_view(), name='truck_delete'),
 ]

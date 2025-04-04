@@ -63,3 +63,29 @@ class Transactions(models.Model):
     date = models.DateField(default="2025-01-01")
 
     driverId = models.CharField()
+
+class Truck(models.Model):
+    truckChoices = [('Mini Truck / LCV','Mini Truck / LCV'),
+                    ('Open Body Truck', 'Open Body Truck'),
+                    ('Closed Container', 'Closed Container'),
+                    ('Trailer', 'Trailer'),
+                    ('Tanker', 'Tanker'),
+                    ('Tipper', 'Tipper'),
+                    ('Other', 'Other')]
+    
+    ownershipChoices = [('Market Truck', 'Market Truck'),
+                        ('My Truck', 'My Truck')]
+
+    STATUS_CHOICES = [
+            ('available', 'Available'),
+            ('on_trip', 'On Trip'),
+            ('off_duty', 'Off Duty'),
+        ]
+
+    truckNo = models.CharField(max_length=10)
+
+    truckType = models.CharField(choices=truckChoices, default='Tanker')
+
+    ownership = models.CharField(choices=ownershipChoices, default='My Truck')
+
+    truckStatus = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')

@@ -1,7 +1,7 @@
 # drivers/serializers.py
 
 from rest_framework import serializers
-from .models import Driver, Transactions
+from .models import Driver, Transactions, Truck
 
 class DriverSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
@@ -37,3 +37,15 @@ class TransactionsSerializer(serializers.ModelSerializer):
             'id', 'amount', 'amountType', 'reason', 'date', 'driverId'
         ]
         read_only_fields = ['id']
+
+class TruckSerializer(serializers.ModelSerializer):
+    truckStatus_display = serializers.SerializerMethodField()
+    
+    
+    class Meta:
+        model = Truck
+        fields = ['id', 'truckNo', 'truckType', 'ownership', 'truckStatus', 'truckStatus_display']
+        read_only_fields = ['id', 'truckStatus_display']
+    
+    def get_truckStatus_display(self, obj):
+        return obj.get_truckStatus_display()
