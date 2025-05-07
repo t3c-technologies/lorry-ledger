@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import RegexValidator
+from django.core.validators import MinLengthValidator
 
 def driver_photo_upload_path(instance, filename):
     return f"drivers/{instance.aadhar_number}/photo/{filename}"
@@ -89,3 +90,197 @@ class Truck(models.Model):
     ownership = models.CharField(choices=ownershipChoices, default='My Truck')
 
     truckStatus = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
+
+class Expense(models.Model):
+    expenseTypeChoices = [('Showroom Service', 'Showroom Service'),('Regular Service','Regular Service'),('Minor Repair','Minor Repair'),('Gear Maintenance','Gear Maintenance'),('Brake Oil Change', 'Brake Oil Change'), ('Grease Oil Change', 'Grease Oil Change'), ('Engine Oil Change', 'Engine Oil Change'),
+                          ('Spare Parts Purhcase', 'Spare Parts Purhcase'), ('Air Filter Change', 'Air Filter Change'), ('Tyre Purchase', 'Tyre Purchase'), ('Tyre Retread', 'Tyre Retread'), ('Tyre Puncture', 'Tyre Puncture'), ('Roof Top Repair', 'Roof Top Repair'), ('Driver Batta', 'Driver Batta'),
+                          ('Driver Payment', 'Driver Payment'), ('Loading Charges', 'Loading Charges'), ('Unloading Charges', 'Unloading Charges'), ('Detention Charges', 'Detention Charges'), ('Union Charges', 'Union Charges'), ('Toll Expense', 'Toll Expense'), ('Police Expense', 'Police Expense'),
+                          ('RTO Expense', 'RTO Expense'), ('Brokerage Expense', 'Brokerage Expense'), ('Other Expense', 'Other Expense'), ('Fuel Expense', 'Fuel Expense')]
+    paymentModeChoices = [("Cash", 'Cash'), ("Credit", 'Credit'), ("Paid by Driver", 'Paid by Driver'), ("Online", 'Online')]
+
+    truckId = models.CharField()
+    expenseType = models.CharField(choices= expenseTypeChoices)
+    amountPaid = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Amount should contain only number")]
+    )
+    expenseDate = models.DateField(default="2025-01-01")
+    paymentMode = models.CharField(choices=paymentModeChoices, default='Cash')
+    currentKmReading = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Reading should contain only number")], blank=True
+    )
+    fuelQuantity = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Quantity should contain only number")], blank=True
+    )
+    notes = models.CharField(max_length=100, blank=True)
+
+class Party(models.Model):
+    stateChoices = [('Andhra Pradesh','Andhra Pradesh'),('Arunachal Pradesh','Arunachal Pradesh'),('Assam','Assam'),('Bihar','Bihar'),('Chhattisgarh','Chhattisgarh'),('Delhi','Delhi'),('Goa','Goa'),('Gujarat','Gujarat'),
+                ('Haryana','Haryana'),('Himachal Pradesh','Himachal Pradesh'),('Jammu and Kashmir','Jammu and Kashmir'),('Jharkhand','Jharkhand'),('Karnataka','Karnataka'),('Kerala','Kerala'),('Madhya Pradesh','Madhya Pradesh'),
+                ('Maharashtra','Maharashtra'),('Manipur','Manipur'),('Meghalaya','Meghalaya'),('Mizoram','Mizoram'),('Nagaland','Nagaland'),('Orissa','Orissa'),('Punjab','Punjab'),('Rajasthan','Rajasthan'),('Sikkim','Sikkim'),('Tamil Nadu','Tamil Nadu'),
+                ('Tripura','Tripura'),('Uttar Pradesh','Uttar Pradesh'),('Uttarakhand','Uttarakhand'),('West Bengal','West Bengal'),('Other','Other')]
+    partyName = models.CharField(max_length=100)
+    openingBalance = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Opening balance should contain only number")]
+    )
+    openingBalanceDate = models.DateField(default="2025-01-01")
+    mobileNumber = models.CharField(
+        max_length=10,
+        validators=[RegexValidator(regex=r'^\d{10}$', message="Phone number must be exactly 10 digits.")], 
+        blank= True
+    )
+
+    gstNumber = models.CharField(max_length=15, blank=True)
+    pan = models.CharField(max_length=10, blank=True)
+    companyName = models.CharField(max_length=100, blank= True)
+    address = models.CharField(max_length=300, blank=True)
+    state = models.CharField(choices= stateChoices, blank=True)
+    pincode = models.CharField(
+        max_length=6,
+        validators=[RegexValidator(regex=r'^\d{6}$', message="Pincode must be exactly 6 digits.")],
+        blank= True
+    )
+
+class Supplier(models.Model):
+    supplierName = models.CharField(max_length=100)
+    mobileNumber = models.CharField(
+        max_length=10,
+        validators=[RegexValidator(regex=r'^\d{10}$', message="Phone number must be exactly 10 digits.")], 
+        blank= True
+    )
+
+class Trip(models.Model):
+    partyBillingOptions = [ ("Fixed",'Fixed'),
+    ("Per Tonne","Per Tonne"),
+    ("Per Kg","Per Kg"),
+    ("Per Km","Per Km"),
+    ("Per Trip","Per Trip"),
+    ("Per Day","Per Day"),
+    ("Per Hour","Per Hour"),
+    ("Per Litre","Per Litre"),
+    ("Per Bag","Per Bag")]
+
+    tripTypeChoices = [('Single Route', 'Single Route'), ('Multiple Routes', 'Multiple Routes')]
+
+    paymentModeChoices = [('Cash','Cash'), ('Cheque', 'Cheque'), ('UPI', 'UPI'), ('Bank Transfer', 'Bank Transfer'), ('Fuel', 'Fuel'), ('Others', 'Others')]
+
+    tripStatusChoices = [('Started','Started'), ('Completed', 'Completed'), ('POD Received', 'POD Received'), ('POD Submitted', 'POD Submitted'), ('Settled', 'Settled')]
+
+    partyId = models.ForeignKey(
+        'Party',
+        on_delete= models.PROTECT,
+        related_name= 'trips'
+    )
+    truckId = models.ForeignKey(
+        'Truck',
+        on_delete= models.PROTECT,
+        related_name= 'trips'
+    )
+    driverId = models.ForeignKey(
+        'Driver',
+        on_delete= models.PROTECT,
+        related_name= 'trips',
+        default='1'
+    )
+    origin = models.CharField(max_length=100)
+    destination = models.CharField(max_length=100)
+    tripType = models.CharField(choices=tripTypeChoices, default='Single Route')
+    partyBillingType = models.CharField(choices=partyBillingOptions)
+    ratePerUnit = models.CharField(
+        validators=[RegexValidator(regex=r'^\d+$', message="Rate must be in digits.")], default=0 
+    )
+    noOfUnits = models.CharField(
+        validators=[RegexValidator(regex=r'^\d+$', message="Number of Units must be in digits.")], default=0
+    )
+    partyFreightAmount = models.CharField(
+        validators=[RegexValidator(regex=r'^\d+$', message="Amount must be in digits.")], 
+    )
+    tripStatus = models.CharField(choices=tripStatusChoices, default='Started')
+    startDate = models.DateField(default="2025-01-01")
+    startKmsReading = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Reading should contain only number")], blank=True
+    )
+    tripEndDate = models.DateField(blank=True, null=True)
+    endKmsReading = models.CharField(
+        validators=[RegexValidator(regex=r'^\d*$', message="Reading should contain only number")], blank=True
+    )
+    PODReceivedDate = models.DateField(blank=True, null=True)
+    PODSubmittedDate = models.DateField(blank=True, null=True)
+    settlementDate = models.DateField(blank=True, null=True)
+    settlementPaymentMode = models.CharField(choices=paymentModeChoices, default='Cash', blank=True)
+    settlementNotes = models.CharField(max_length=200, blank=True)
+    receivedByDriver = models.BooleanField(default=False)
+
+    # Add JSONField for consigner-consignee data
+    routes = models.JSONField(default=list, blank=True)
+
+    @property
+    def LRCount(self):
+        """Return the number of LRs associated with this trip"""
+        return self.LR.all().count()
+
+
+
+
+class Consigner(models.Model):
+    stateChoices = [('Andhra Pradesh','Andhra Pradesh'),('Arunachal Pradesh','Arunachal Pradesh'),('Assam','Assam'),('Bihar','Bihar'),('Chhattisgarh','Chhattisgarh'),('Delhi','Delhi'),('Goa','Goa'),('Gujarat','Gujarat'),
+                ('Haryana','Haryana'),('Himachal Pradesh','Himachal Pradesh'),('Jammu and Kashmir','Jammu and Kashmir'),('Jharkhand','Jharkhand'),('Karnataka','Karnataka'),('Kerala','Kerala'),('Madhya Pradesh','Madhya Pradesh'),
+                ('Maharashtra','Maharashtra'),('Manipur','Manipur'),('Meghalaya','Meghalaya'),('Mizoram','Mizoram'),('Nagaland','Nagaland'),('Orissa','Orissa'),('Punjab','Punjab'),('Rajasthan','Rajasthan'),('Sikkim','Sikkim'),('Tamil Nadu','Tamil Nadu'),
+                ('Tripura','Tripura'),('Uttar Pradesh','Uttar Pradesh'),('Uttarakhand','Uttarakhand'),('West Bengal','West Bengal'),('Other','Other')]
+    gstNumber = models.CharField(max_length=15, validators=[MinLengthValidator(15)])
+    name = models.CharField(max_length=100)
+    addressLine1 = models.CharField(max_length=150)
+    addressLine2 = models.CharField(max_length=150, blank=True)
+    state = models.CharField(choices=stateChoices)
+    pincode = models.CharField(max_length=6,
+        validators=[RegexValidator(regex=r'^\d{6}$', message="Pincode must be exactly 6 digits.")],)
+    mobileNumber = models.CharField(
+        max_length=10,
+        validators=[RegexValidator(regex=r'^\d{10}$', message="Phone number must be exactly 10 digits.")]
+    )
+
+class Consignee(models.Model):
+    stateChoices = [('Andhra Pradesh','Andhra Pradesh'),('Arunachal Pradesh','Arunachal Pradesh'),('Assam','Assam'),('Bihar','Bihar'),('Chhattisgarh','Chhattisgarh'),('Delhi','Delhi'),('Goa','Goa'),('Gujarat','Gujarat'),
+                ('Haryana','Haryana'),('Himachal Pradesh','Himachal Pradesh'),('Jammu and Kashmir','Jammu and Kashmir'),('Jharkhand','Jharkhand'),('Karnataka','Karnataka'),('Kerala','Kerala'),('Madhya Pradesh','Madhya Pradesh'),
+                ('Maharashtra','Maharashtra'),('Manipur','Manipur'),('Meghalaya','Meghalaya'),('Mizoram','Mizoram'),('Nagaland','Nagaland'),('Orissa','Orissa'),('Punjab','Punjab'),('Rajasthan','Rajasthan'),('Sikkim','Sikkim'),('Tamil Nadu','Tamil Nadu'),
+                ('Tripura','Tripura'),('Uttar Pradesh','Uttar Pradesh'),('Uttarakhand','Uttarakhand'),('West Bengal','West Bengal'),('Other','Other')]
+    gstNumber = models.CharField(max_length=15, validators=[MinLengthValidator(15)])
+    name = models.CharField(max_length=100)
+    addressLine1 = models.CharField(max_length=150)
+    addressLine2 = models.CharField(max_length=150, blank=True)
+    state = models.CharField(choices=stateChoices)
+    pincode = models.CharField(max_length=6,
+        validators=[RegexValidator(regex=r'^\d{6}$', message="Pincode must be exactly 6 digits.")],)
+    mobileNumber = models.CharField(
+        max_length=10,
+        validators=[RegexValidator(regex=r'^\d{10}$', message="Phone number must be exactly 10 digits.")]
+    )
+
+class LR(models.Model):
+    paymentOptions = [('Consigner', 'Consigner'), ('Consignee', 'Consignee'), ('Agent', 'Agent')]
+    unitChoices = [('Tonnes', 'Tonnes'), ('Kg','Kg'), ('Quintal', 'Quintal')]
+    freightPaidBy = models.CharField(choices=paymentOptions, default='Consigner')
+    gstPercentage = models.CharField(max_length=3,
+        validators=[RegexValidator(regex=r'^\d*$', message="Percentage must be within 100.")], blank=True)
+    lrDate = models.DateField(default="2025-01-01")
+    lrNumber = models.CharField(max_length = 30)
+    materialCategory = models.CharField(max_length=50)
+    numberOfPackages = models.CharField(max_length=20, validators=[RegexValidator(regex=r'^\d*$', message="Number of Packages should be a number")], blank=True)
+    unit = models.CharField(choices=unitChoices, default='Tonnes')
+    weight = models.CharField(max_length=30, validators=[RegexValidator(regex=r'^\d*$', message="Weight must be a number")],)
+
+    consignerId = models.ForeignKey(
+        'Consigner',
+        on_delete= models.PROTECT,
+        related_name= 'LR'
+    )
+    consigneeId = models.ForeignKey(
+        'Consignee',
+        on_delete= models.PROTECT,
+        related_name= 'LR'
+    )
+    tripId = models.ForeignKey(
+        'Trip',
+        on_delete= models.PROTECT,
+        related_name= 'LR',
+        default='1'
+    )

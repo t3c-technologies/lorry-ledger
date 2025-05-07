@@ -1,0 +1,6389 @@
+import {
+  BadgeCheck,
+  Camera,
+  FileCheck2,
+  FileText,
+  Truck,
+  User2,
+  ChevronDown,
+  View,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo } from "react";
+import {
+  notifyError,
+  notifyInfo,
+  notifySuccess,
+} from "@/components/Notification";
+import { api } from "../../utils/api";
+import { API_ENDPOINTS } from "../../utils/endpoints";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+
+export default function TripsDetail({ trip, onBack }) {
+  const [isRouteListModalOpen, setIsRouteListModalOpen] = useState(false);
+  const [isAddRouteModalOpen, setIsAddRouteModalOpen] = useState(false);
+  const [isEditRouteModalOpen, setIsEditRouteModalOpen] = useState(false);
+  const [isDeleteRouteConfirmOpen, setIsDeleteRouteConfirmOpen] =
+    useState(false);
+  const [isAddLRModalOpen, setIsAddLRModalOpen] = useState(false);
+  const [isEditLRModalOpen, setIsEditLRModalOpen] = useState(false);
+  const [isViewLRModalOpen, setIsViewLRModalOpen] = useState(false);
+  const [isLRListModalOpen, setIsLRListModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+  const [transactionsList, setTransactionsList] = useState([]);
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    amount: "",
+    amountType: "Credit",
+    reason: "",
+    date: new Date().toISOString().split("T")[0],
+  });
+
+  const [showEditTransactionModal, setShowEditTransactionModal] =
+    useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [currentTransaction, setCurrentTransaction] = useState(null);
+
+  const [showDeleteTransactionModal, setShowDeleteTransactionModal] =
+    useState(false);
+
+  //Expenses
+  const [showExpensesModal, setShowExpensesModal] = useState(false);
+
+  const [expensesList, setExpensesList] = useState([]);
+
+  const [showAddExpensesModal, setShowAddExpensesModal] = useState(false);
+  const [newExpense, setNewExpense] = useState({
+    expenseType: "",
+    amountPaid: "",
+    expenseDate: new Date().toISOString().split("T")[0],
+    paymentMode: "Cash",
+    currentKmReading: "",
+    fuelQuantity: "",
+    notes: "",
+  });
+
+  const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [currentExpense, setCurrentExpense] = useState(null);
+
+  const [showDeleteExpenseModal, setShowDeleteExpenseModal] = useState(false);
+
+  //Routes
+  const [routesList, setRoutesList] = useState(trip.routes);
+  const [newRoute, setNewRoute] = useState({ consigner: "", consignee: "" });
+  const [routeIndex, setRouteIndex] = useState(-1);
+
+  const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [modalType, setModalType] = useState(null);
+
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [billingType, setBillingType] = useState("Fixed");
+  const [paymentMode, setPaymentMode] = useState("Cash");
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [progressBarNumber, setProgressBarNumber] = useState(1);
+  const [progressButtonText, setProgressButtonText] =
+    useState("Mark as Completed");
+
+  const [tripCompletePopup, setTripCompletePopup] = useState(false);
+  const [showPODReceivedPopup, setShowPODReceivedPopup] = useState(false);
+  const [showPODSubmittedPopup, setShowPODSubmittedPopup] = useState(false);
+  const [showSettleBalancePopup, setShowSettleBalancePopup] = useState(false);
+  const [settlementMode, setSettlementMode] = useState("Cash");
+
+  const [updatedTrip, setUpdatedTrip] = useState(trip);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [nextPage, setNextPage] = useState(null);
+  const [prevPage, setPrevPage] = useState(null);
+  const [driverFilters, setDriverFilters] = useState([]);
+  const [currentFormSection, setCurrentFormSection] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  const [showAddConsignerPopup, setShowAddConsignerPopup] = useState(false);
+  const [showAddConsigneePopup, setShowAddConsigneePopup] = useState(false);
+  const [LRList, setLRList] = useState([]);
+  const [consigners, setConsigners] = useState([]);
+  const [consignees, setConsignees] = useState([]);
+  const [selectedConsigner, setSelectedConsigner] = useState("");
+  const [selectedConsignee, setSelectedConsignee] = useState("");
+  const [currentLR, setCurrentLR] = useState("");
+  const [nextLrNumber, setNextLrNumber] = useState("LRN-003");
+
+  // Form data state
+  const [formData, setFormData] = useState({
+    lrDate: new Date().toISOString().split("T")[0],
+    lrNumber: "LRN-",
+    consigner_id: "",
+    consignee_id: "",
+    materialCategory: "",
+    weight: "",
+    unit: "Tonnes",
+    numberOfPackages: "",
+    freightPaidBy: "Consigner",
+    gstPercentage: "",
+    trip_id: trip.id,
+  });
+
+  const resetAddLR = () => {
+    setFormData({
+      lrDate: new Date().toISOString().split("T")[0],
+      lrNumber: "LRN-",
+      consigner_id: "",
+      consignee_id: "",
+      materialCategory: "",
+      weight: "",
+      unit: "Tonnes",
+      numberOfPackages: "",
+      freightPaidBy: "Consigner",
+      gstPercentage: "",
+      trip_id: trip.id,
+    });
+  };
+
+  // New consigner form state
+  const [newConsigner, setNewConsigner] = useState({
+    gstNumber: "",
+    name: "",
+    addressLine1: "",
+    addressLine2: "",
+    state: "Maharashtra",
+    pincode: "",
+    mobileNumber: "",
+  });
+  const [newConsignee, setNewConsignee] = useState({
+    gstNumber: "",
+    name: "",
+    addressLine1: "",
+    addressLine2: "",
+    state: "Maharashtra",
+    pincode: "",
+    mobileNumber: "",
+  });
+
+  // Format date function
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const [progressSteps, SetProgressSteps] = useState([
+    { label: "Started", date: formatDate(trip.startDate) },
+    { label: "Completed", date: formatDate(trip.tripEndDate) },
+    { label: "POD Received", date: formatDate(trip.PODReceivedDate) },
+    { label: "POD Submitted", date: formatDate(trip.PODSubmittedDate) },
+    { label: "Settled", date: formatDate(trip.settlementDate) },
+  ]);
+
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = [];
+
+  const handleInputConsignerChange = (e) => {
+    const { name, value } = e.target;
+    setNewConsigner((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleInputConsigneeChange = (e) => {
+    const { name, value } = e.target;
+    setNewConsignee((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddConsigner = async () => {
+    // Validate form
+    if (!newConsigner.name || !newConsigner.gstNumber) {
+      alert("Please fill in required fields");
+      return;
+    }
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.consigners.create,
+        newConsigner,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      setSelectedConsigner(response.data.id);
+      setNewRoute((prev) => ({ ...prev, consigner: response.data.id }));
+      console.log(newRoute);
+
+      getConsigners();
+    } catch (error) {
+      notifyError("Error creating consigner");
+    }
+    setShowAddConsignerPopup(false);
+
+    // Reset form
+    setNewConsigner({
+      gstNumber: "",
+      name: "",
+      addressLine1: "",
+      addressLine2: "",
+      state: "Maharashtra",
+      pincode: "",
+      mobileNumber: "",
+    });
+  };
+
+  const extractNextPage = (fullUrl) => {
+    if (!fullUrl) return null; // Handle undefined or null cases
+
+    const baseUrl = "http://localhost:8000/api/";
+    const index = fullUrl.indexOf(baseUrl);
+
+    if (index !== -1) {
+      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+    }
+
+    return fullUrl; // Return original if base URL is missing
+  };
+
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleAddConsignee = async () => {
+    // Validate form
+    if (!newConsignee.name || !newConsignee.gstNumber) {
+      alert("Please fill in required fields");
+      return;
+    }
+
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.consignees.create,
+        newConsignee,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      setSelectedConsignee(response.data.id);
+      setNewRoute((prev) => ({ ...prev, consignee: response.data.id }));
+      getConsignees();
+      console.log(newRoute);
+    } catch (error) {
+      notifyError("Error creating consignee");
+    }
+    setShowAddConsigneePopup(false);
+
+    // Reset form
+    setNewConsignee({
+      gstNumber: "",
+      name: "",
+      addressLine1: "",
+      addressLine2: "",
+      state: "Maharashtra",
+      pincode: "",
+      mobileNumber: "",
+    });
+  };
+
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "ascending",
+  });
+
+  //Progress Bar
+  useEffect(() => {
+    // Determine progress based on trip data
+    if (trip.settlementDate) {
+      setProgressBarNumber(5);
+    } else if (trip.PODSubmittedDate) {
+      setProgressBarNumber(4);
+    } else if (trip.PODReceivedDate) {
+      setProgressBarNumber(3);
+    } else if (trip.tripEndDate) {
+      setProgressBarNumber(2);
+    } else {
+      setProgressBarNumber(1);
+    }
+  }, [trip]);
+
+  useEffect(() => {
+    // Set button text based on progress
+    if (progressBarNumber === 1) {
+      setProgressButtonText("Complete Trip");
+    } else if (progressBarNumber === 2) {
+      setProgressButtonText("Received POD");
+    } else if (progressBarNumber === 3) {
+      setProgressButtonText("Mark POD Submitted");
+    } else if (progressBarNumber === 4) {
+      setProgressButtonText("Settle Amount");
+    } else {
+      setProgressButtonText("Trip Fully Settled");
+    }
+  }, [progressBarNumber]);
+
+  const handleProgressBarUpdate = () => {
+    if (progressBarNumber == 1) {
+      console.log("Hi");
+
+      setTripCompletePopup(true);
+    } else if (progressBarNumber == 2) {
+      setShowPODReceivedPopup(true);
+    } else if (progressBarNumber === 3) {
+      setShowPODSubmittedPopup(true);
+    } else if (progressBarNumber === 4) {
+      setShowSettleBalancePopup(true);
+    }
+  };
+
+  const handleProgressBarInputChange = (e) => {
+    const { name, value } = e.target;
+    setUpdatedTrip((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const submitTripEnd = async () => {
+    if (progressBarNumber == 4) {
+      updatedTrip.settlementPaymentMode = settlementMode;
+    }
+    console.log(updatedTrip);
+
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), updatedTrip, {
+        headers: {
+          "Content-Type": "application/json", // Explicitly set header
+        },
+      });
+      notifySuccess("Trip updated successfully");
+      if (progressBarNumber == 1) {
+        setTripCompletePopup(false);
+      } else if (progressBarNumber == 2) {
+        setShowPODReceivedPopup(false);
+      } else if (progressBarNumber == 3) {
+        setShowPODSubmittedPopup(false);
+      } else if (progressBarNumber == 4) {
+        setShowSettleBalancePopup(false);
+        setSettlementMode("Cash");
+      }
+      setProgressBarNumber((prev) => prev + 1);
+      SetProgressSteps([
+        { label: "Started", date: formatDate(updatedTrip.startDate) },
+        { label: "Completed", date: formatDate(updatedTrip.tripEndDate) },
+        {
+          label: "POD Received",
+          date: formatDate(updatedTrip.PODReceivedDate),
+        },
+        {
+          label: "POD Submitted",
+          date: formatDate(updatedTrip.PODSubmittedDate),
+        },
+        { label: "Settled", date: formatDate(updatedTrip.settlementDate) },
+      ]);
+      console.log(progressBarNumber);
+      console.log(progressSteps);
+    } catch (error) {
+      notifyError("Error updating trip");
+    }
+  };
+
+  //Transactions
+
+  const totalTransactionAmount = useMemo(() => {
+    return transactionsList.reduce((total, transaction) => {
+      const amount = parseFloat(transaction.amount);
+      return transaction.amountType === "Credit"
+        ? total + amount
+        : total - amount;
+    }, 0);
+  });
+
+  const handleTransactionClick = () => {
+    setShowTransactionsModal(true);
+  };
+
+  // Function to close the modal
+  const closeTransactionModal = () => {
+    setShowTransactionsModal(false);
+  };
+
+  // Function to open add transaction modal
+  const openAddTransactionModal = () => {
+    setShowAddTransactionModal(true);
+  };
+
+  // Function to close add transaction modal
+  const closeAddTransactionModal = () => {
+    setShowAddTransactionModal(false);
+    setNewTransaction({
+      amount: "",
+      amountType: "Credit",
+      date: new Date().toISOString().split("T")[0],
+    });
+  };
+
+  // Function to handle input change in add transaction form
+
+  const handleTransactionInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewTransaction((prev) => {
+      const updatedTransaction = { ...prev, [name]: value };
+      return updatedTransaction;
+    });
+    console.log(showAddTransactionModal);
+  };
+  // Function to add a new transaction
+  const handleAddTransaction = async (e) => {
+    e.preventDefault();
+
+    const transaction = {
+      driverId: trip.driver.id,
+      amount: parseFloat(newTransaction.amount),
+      reason: newTransaction.reason,
+      amountType: newTransaction.amountType,
+      date: newTransaction.date,
+    };
+
+    try {
+      await api.post(
+        API_ENDPOINTS.drivers.transactionsCreate(trip.driver.id),
+        transaction,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      notifySuccess("Transaction added successfully");
+      getTransactions();
+      closeAddTransactionModal();
+    } catch (error) {
+      notifyError("Error adding transaction");
+    }
+  };
+  const openEditTransactionModal = (transaction) => {
+    setEditingTransaction({
+      ...transaction,
+      amount: transaction.amount.toString(),
+    });
+    setShowEditTransactionModal(true);
+  };
+
+  // Function to close edit transaction modal
+  const closeEditTransactionModal = () => {
+    setShowEditTransactionModal(false);
+    setEditingTransaction(null);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setEditingTransaction({
+      ...editingTransaction,
+      [name]: value,
+    });
+  };
+
+  const handleUpdateTransaction = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(
+        API_ENDPOINTS.drivers.transactionsUpdate(editingTransaction.id),
+        editingTransaction,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      getTransactions();
+      notifySuccess("Transaction edited successfully");
+    } catch (error) {
+      notifyError("Error adding driver");
+    }
+    closeEditTransactionModal();
+  };
+  // Function to edit a transaction
+
+  // Function to delete a transaction
+  const handleDeleteTransactionClick = (transaction) => {
+    setShowDeleteTransactionModal(true);
+    setCurrentTransaction(transaction);
+  };
+
+  const handleDeleteTransactionModal = async () => {
+    try {
+      await api.delete(
+        API_ENDPOINTS.drivers.transactionsDelete(currentTransaction.id)
+      );
+      notifyInfo("Trnsaction deleted successfully");
+      getTransactions();
+      setShowDeleteTransactionModal(false);
+      setCurrentTransaction(null);
+    } catch {
+      notifyError("Error deleting transaction");
+    }
+  };
+
+  //Expenses
+  const billingOptions = [
+    "Fixed",
+    "Per Tonne",
+    "Per Kg",
+    "Per Km",
+    "Per Trip",
+    "Per Day",
+    "Per Hour",
+    "Per Litre",
+    "Per Bag",
+  ];
+
+  const expenseTypeOptionsMaintenance = [
+    "Showroom Service",
+    "Regular Service",
+    "Minor Repair",
+    "Gear Maintenance",
+    "Brake Oil Change",
+    "Grease Oil Change",
+    "Engine Oil Change",
+    "Spare Parts Purhcase",
+    "Air Filter Change",
+    "Tyre Purchase",
+    "Tyre Retread",
+    "Tyre Puncture",
+    "Roof Top Repair",
+  ];
+  const expenseTypeOptionsDriver = [
+    "Driver Batta",
+    "Driver Payment",
+    "Loading Charges",
+    "Unloading Charges",
+    "Detention Charges",
+    "Union Charges",
+    "Toll Expense",
+    "Police Expense",
+    "RTO Expense",
+    "Brokerage Expense",
+    "Other Expense",
+  ];
+  const paymentOptions = ["Cash", "Credit", "Paid by Driver", "Online"];
+
+  const handleExpenseClick = () => {
+    setShowExpensesModal(true);
+  };
+
+  const totalExpenseAmount = useMemo(() => {
+    return expensesList.reduce((total, expense) => {
+      const amount = parseFloat(expense.amountPaid);
+      return total - amount;
+    }, 0);
+  });
+
+  // Function to close the modal
+  const closeExpenseModalMain = () => {
+    setShowTransactionsModal(false);
+  };
+
+  // Function to open add transaction modal
+  const openAddExpenseModal = () => {
+    setShowAddExpensesModal(true);
+  };
+
+  const openExpenseModal = (type) => {
+    setModalType(type);
+    setShowModal(true);
+    if (type == "fuel") {
+      newExpense.expenseType = "Fuel Expense";
+    }
+  };
+  const closeEditExpenseModal = () => {
+    setShowEditModal(false);
+    setEditingExpense({
+      expenseType: "",
+      amountPaid: "",
+      expenseDate: new Date().toISOString().split("T")[0],
+      paymentMode: "Cash",
+      currentKmReading: "",
+      fuelQuantity: "",
+      dieselPumpName: "",
+      notes: "",
+    });
+    setModalType(null);
+    setPaymentMode("Cash");
+  };
+
+  const closeExpensesModal = () => {
+    setShowExpensesModal(false);
+  };
+
+  const closeExpenseModal = () => {
+    setShowModal(false);
+    setNewExpense({
+      expenseType: "",
+      amountPaid: "",
+      expenseDate: new Date().toISOString().split("T")[0],
+      paymentMode: "Cash",
+      currentKmReading: "",
+      fuelQuantity: "",
+      dieselPumpName: "",
+      notes: "",
+    });
+    setModalType(null);
+    setPaymentMode("Cash");
+    console.log(newExpense);
+  };
+
+  const getExpenses = async () => {
+    try {
+      const response = await api.get(
+        API_ENDPOINTS.trucks.expenses(trip.truck.id),
+        {
+          page: currentPage,
+          page_size: recordsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
+        }
+      );
+      setExpensesList(response.data);
+    } catch (error) {
+      console.log(error);
+      notifyError("Error fetching Expense");
+    }
+  };
+
+  const handleExpenseInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewExpense((prev) => {
+      const updatedExpense = { ...prev, [name]: value };
+      return updatedExpense;
+    });
+    console.log(showAddTransactionModal);
+  };
+
+  const handleEditExpenseInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setEditingExpense({
+      ...editingExpense,
+      [name]: value,
+    });
+  };
+  const closeAddExpenseModal = () => {
+    setShowAddExpensesModal(false);
+  };
+
+  // Function to add a new transaction
+  const handleAddExpense = async (e) => {
+    e.preventDefault();
+
+    const expense = {
+      truckId: trip.truck.id,
+      expenseType: newExpense.expenseType,
+      amountPaid: parseFloat(newExpense.amountPaid),
+      fuelQuantity: newExpense.fuelQuantity,
+      expenseDate: newExpense.expenseDate,
+      notes: newExpense.notes,
+      paymentMode: newExpense.paymentMode,
+      currentKmReading: newExpense.currentKmReading,
+    };
+    try {
+      await api.post(
+        API_ENDPOINTS.trucks.expensesCreate(trip.truck.id),
+        expense,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      setNewExpense({
+        expenseType: "",
+        amountPaid: "",
+        expenseDate: new Date().toISOString().split("T")[0],
+        paymentMode: "Cash",
+        currentKmReading: "",
+        fuelQuantity: "",
+        notes: "",
+      });
+      notifySuccess("Expense added successfully");
+      getExpenses();
+      closeExpenseModal();
+      closeAddExpenseModal();
+    } catch (error) {
+      notifyError("Error adding expense");
+    }
+  };
+  const openEditExpenseModal = (expense) => {
+    setEditingExpense({
+      ...expense,
+      amountPaid: expense.amountPaid.toString(),
+    });
+    if (expense.expenseType == "Fuel Expense") {
+      setModalType("fuel");
+    } else if (expenseTypeOptionsMaintenance.includes(expense.expenseType)) {
+      setModalType("maintenance");
+    } else {
+      setModalType("driver");
+    }
+    setShowEditModal(true);
+  };
+
+  const handleDeleteExpenseClick = (expense) => {
+    setShowDeleteExpenseModal(true);
+    setCurrentExpense(expense);
+  };
+
+  const handleDeleteExpense = async (e) => {
+    e.preventDefault();
+    try {
+      await api.delete(API_ENDPOINTS.trucks.expensesDelete(currentExpense.id));
+      notifyInfo("Expense deleted successfully");
+      getExpenses();
+      setShowDeleteExpenseModal(false);
+      setCurrentExpense(null);
+    } catch {
+      notifyError("Error deleting expense");
+    }
+  };
+
+  const handleEditExpense = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(
+        API_ENDPOINTS.trucks.expensesUpdate(editingExpense.id),
+        editingExpense,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      console.log(editingExpense);
+
+      getExpenses();
+      notifySuccess("Expense edited successfully");
+      closeEditExpenseModal();
+      closeAddExpenseModal();
+    } catch (error) {
+      notifyError("Error updating expense");
+    }
+  };
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  // Handle records per page change
+  const handleRecordsPerPageChange = (e) => {
+    setRecordsPerPage(Number(e.target.value));
+    setCurrentPage(1); // Reset to first page when changing records per page
+  };
+
+  const getTransactions = async () => {
+    try {
+      const response = await api.get(
+        API_ENDPOINTS.drivers.transactions(trip.driver.id)
+      );
+      setTransactionsList(response.data);
+    } catch (error) {
+      console.log(error);
+      notifyError("Error fetching Transactions");
+    }
+  };
+
+  const getConsigners = async () => {
+    try {
+      console.log("Hi");
+
+      const response = await api.get(API_ENDPOINTS.consigners.list);
+      setConsigners(response.data);
+    } catch (error) {
+      notifyError("Error fetching consigners");
+    }
+  };
+  const getConsignees = async () => {
+    try {
+      console.log("Hi");
+
+      const response = await api.get(API_ENDPOINTS.consignees.list);
+      setConsignees(response.data);
+    } catch (error) {
+      notifyError("Error fetching consignees");
+    }
+  };
+
+  const handleAddLRClick = () => {
+    setIsAddLRModalOpen(true);
+    setCurrentFormSection(3); // Reset to first section when opening
+  };
+
+  const handleNextSection = () => {
+    if (currentFormSection < formSections.length - 1) {
+      setCurrentFormSection(currentFormSection + 1);
+    }
+  };
+
+  const handlePrevSection = () => {
+    if (currentFormSection > 0) {
+      setCurrentFormSection(currentFormSection - 1);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      [field]: value,
+    }));
+  };
+
+  useEffect(() => {
+    getTransactions();
+    getConsigners();
+    getConsignees();
+    getLR();
+  }, []);
+
+  useEffect(() => {
+    getLR();
+  }, [recordsPerPage]);
+  useEffect(() => {
+    getLR();
+  }, [sortConfig]);
+  useEffect(() => {
+    getLR();
+  }, [searchTerm]);
+  useEffect(() => {
+    getLR();
+  }, [driverFilters]);
+
+  const generateNextLrNumber = (lrs) => {
+    if (!lrs || lrs.length === 0) {
+      setNextLrNumber("LRN-001");
+      return;
+    }
+
+    // Find the highest LR number
+    let highestNumber = 0;
+
+    lrs.forEach((lr) => {
+      if (lr.lrNumber && lr.lrNumber.startsWith("LRN-")) {
+        const numPart = lr.lrNumber.substring(4);
+        const num = parseInt(numPart, 10);
+        if (!isNaN(num) && num > highestNumber) {
+          highestNumber = num;
+        }
+      }
+    });
+
+    // Generate the next number with leading zeros
+    const nextNumber = highestNumber + 1;
+    setNextLrNumber(`LRN-${String(nextNumber).padStart(3, "0")}`);
+  };
+
+  const getLR = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.LR.list(trip.id), {
+        search: searchTerm,
+        page_size: recordsPerPage,
+        filters: JSON.stringify(driverFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      setLRList(response.data);
+      setTotalPages(response.total_pages);
+      setPrevPage(extractNextPage(response.previous));
+      setNextPage(extractNextPage(response.next));
+      generateNextLrNumber(response.data);
+    } catch (error) {
+      notifyError("Error fetching LRs");
+    }
+  };
+
+  // Previous page
+  const prevPageClick = async () => {
+    try {
+      const response = await api.get(prevPage);
+      setLRList(response.data);
+      setNextPage(extractNextPage(response.next)); // Store next page URL
+      setPrevPage(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPages(response.total_pages);
+      setCurrentPage((prev) => prev - 1);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  // Next page
+  const nextPageClick = async () => {
+    console.log(currentPage);
+
+    try {
+      const response = await api.get(nextPage);
+      setLRList(response.data);
+      setNextPage(extractNextPage(response.next)); // Store next page URL
+      setPrevPage(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPages(response.total_pages);
+      setCurrentPage((prev) => prev + 1);
+    } catch (error) {
+      console.log(error);
+    }
+    console.log(nextPage);
+    console.log(currentPage);
+  };
+
+  const updateLR = async () => {
+    try {
+      const response = await api.put(
+        API_ENDPOINTS.LR.update(currentLR.id),
+        formData,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      setIsEditLRModalOpen(false);
+      resetAddLR();
+      setSelectedConsigner("");
+      setSelectedConsignee("");
+      notifySuccess("LR Updated Successfully");
+      getLR();
+    } catch (error) {
+      notifyError("Error updating LR");
+    }
+  };
+
+  const submitLR = async () => {
+    try {
+      const response = await api.post(API_ENDPOINTS.LR.create, formData, {
+        headers: {
+          "Content-Type": "application/json", // Explicitly set header
+        },
+      });
+      trip.LRCount = Number(trip.LRCount) + 1;
+      const res = await api.put(API_ENDPOINTS.trips.update(trip.id), trip, {
+        headers: {
+          "Content-Type": "application/json", // Explicitly set header
+        },
+      });
+      setIsAddLRModalOpen(false);
+      resetAddLR();
+      setSelectedConsigner("");
+      setSelectedConsignee("");
+      getLR();
+      notifySuccess("LR Created Successfully");
+    } catch (error) {
+      notifyError("Error creating LR");
+    }
+    // Reset form
+    // console.log(formData);
+  };
+
+  const handleUpdateLR = () => {
+    formData.consignee_id = selectedConsignee;
+    formData.consigner_id = selectedConsigner;
+    console.log(formData);
+    updateLR();
+  };
+
+  const handleSubmitLR = () => {
+    formData.consignee_id = selectedConsignee;
+    formData.consigner_id = selectedConsigner;
+    console.log(formData);
+    submitLR();
+  };
+
+  const handleRowClick = (LR) => {
+    setCurrentLR(LR);
+    setFormData({
+      trip_id: LR.trip.id,
+      lrDate: LR.lrDate,
+      lrNumber: LR.lrNumber,
+      materialCategory: LR.materialCategory,
+      numberOfPackages: LR.numberOfPackages,
+      unit: LR.unit,
+      weight: LR.weight,
+      freightPaidBy: LR.freightPaidBy,
+      gstPercentage: LR.gstPercentage,
+      consignee_id: LR.consignee.id,
+      consigner_id: LR.consigner.id,
+    });
+    getConsigners();
+    getConsignees();
+    setSelectedConsignee(LR.consignee.id);
+    setSelectedConsigner(LR.consigner.id);
+    console.log(formData);
+    console.log(currentLR);
+    setCurrentFormSection(0);
+    setIsViewLRModalOpen(true);
+  };
+
+  const handleNewRouteChange = (e) => {
+    const { name, value } = e.target;
+    setNewRoute((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddRouteClick = () => {
+    setIsAddRouteModalOpen(true);
+  };
+
+  const handleAddRoute = async () => {
+    const updatedRoutes = [...routesList, newRoute];
+    setRoutesList(updatedRoutes);
+    const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+    setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
+    console.log(updatedRoutes);
+
+    //console.log(updatedTrip);
+
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      setNewRoute({ consigner: "", consignee: "" });
+      setIsAddRouteModalOpen(false);
+    } catch (error) {
+      console.error("Error updating Trip:", error);
+      notifyError("Error updating Trip");
+    }
+  };
+
+  const handleEditRouteClick = (route, index) => {
+    setNewRoute(route);
+    setRouteIndex(index);
+    setIsEditRouteModalOpen(true);
+  };
+
+  const handleEditRoute = async () => {
+    const updatedRoutes = [...routesList];
+    updatedRoutes[routeIndex].consigner = newRoute.consigner;
+    updatedRoutes[routeIndex].consignee = newRoute.consignee;
+    console.log(updatedRoutes);
+    setRoutesList(updatedRoutes);
+    const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+    setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      setNewRoute({ consigner: "", consignee: "" });
+      setRouteIndex(-1);
+      setIsEditRouteModalOpen(false);
+    } catch (error) {
+      console.error("Error updating Trip:", error);
+      notifyError("Error updating Trip");
+    }
+  };
+
+  const handleDeleteRouteClick = (route, index) => {
+    setNewRoute(route);
+    setRouteIndex(index);
+    setIsDeleteRouteConfirmOpen(true);
+  };
+
+  const handleDeleteRoute = async () => {
+    const updatedRoutes = [...routesList];
+    updatedRoutes.splice(routeIndex, 1);
+    setRoutesList(updatedRoutes);
+    console.log(updatedRoutes);
+    const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+    setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      setNewRoute({ consigner: "", consignee: "" });
+      setRouteIndex(-1);
+      setIsDeleteRouteConfirmOpen(false);
+    } catch (error) {
+      console.error("Error updating Trip:", error);
+      notifyError("Error updating Trip");
+    }
+  };
+
+  const handleEditClick = (LR) => {
+    setCurrentLR(LR);
+    setFormData({
+      trip_id: LR.trip.id,
+      lrDate: LR.lrDate,
+      lrNumber: LR.lrNumber,
+      materialCategory: LR.materialCategory,
+      numberOfPackages: LR.numberOfPackages,
+      unit: LR.unit,
+      weight: LR.weight,
+      freightPaidBy: LR.freightPaidBy,
+      gstPercentage: LR.gstPercentage,
+      consignee_id: LR.consignee.id,
+      consigner_id: LR.consigner.id,
+    });
+    setSelectedConsignee(LR.consignee.id);
+    setSelectedConsigner(LR.consigner.id);
+    console.log(formData);
+    console.log(currentLR);
+    getConsigners();
+    getConsignees();
+    setCurrentFormSection(0);
+    setIsEditLRModalOpen(true);
+  };
+
+  const handleDeleteClick = (LR) => {
+    setCurrentLR(LR);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteLR = async () => {
+    try {
+      await api.delete(API_ENDPOINTS.LR.delete(currentLR.id));
+      notifyInfo("LR deleted successfully");
+      getLR();
+      setIsDeleteConfirmOpen(false);
+      // Extract current page from URL
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleViewToEdit = () => {
+    setIsViewLRModalOpen(false);
+    setIsEditLRModalOpen(true);
+  };
+
+  const paginate = async (page) => {
+    const pageUrl = `${API_ENDPOINTS.LR.list(
+      trip.id
+    )}?page=${page}&page_size=${recordsPerPage}`;
+    try {
+      const response = await api.get(pageUrl, {
+        search: searchTerm,
+        page_size: recordsPerPage,
+        filters: JSON.stringify(driverFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      setLRList(response.data);
+      setNextPage(extractNextPage(response.next)); // Store next page URL
+      setPrevPage(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPages(response.total_pages);
+      setCurrentPage(page);
+      // Extract current page from URL
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const formSections = [
+    "Trip Details",
+    "Consigner",
+    "Consignee",
+    "Load Details",
+  ];
+
+  const viewRoutesToggle = () => {
+    setIsRouteListModalOpen(true);
+  };
+
+  const AddLRToggle = () => {
+    setIsLRListModalOpen(true);
+  };
+
+  const getSortDirectionIcon = (columnName) => {
+    if (sortConfig.key !== columnName) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
+        </svg>
+      );
+    }
+    return sortConfig.direction === "ascending" ? (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-primary"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 15l7-7 7 7"
+        />
+      </svg>
+    ) : (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-primary"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    );
+  };
+
+  // Form section components
+  const renderTripDetailsSection = () => (
+    <div className="space-y-4">
+      <div className="bg-gray-100 rounded-md p-4 mb-4 text-black">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="font-bold">{trip.origin}</div>
+            <div className="text-sm text-gray-500">21 Apr 2025</div>
+          </div>
+          <ChevronDown
+            size={20}
+            className="text-gray-400 transform rotate -rotate-90"
+          />
+          <div>
+            <div className="font-bold">{trip.destination}</div>
+            <div className="text-sm text-gray-500">-</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 mt-4 gap-4">
+          <div>
+            <div className="text-sm text-gray-500">Party Name</div>
+            <div>{trip.party.partyName}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Billing Type</div>
+            <div>{trip.partyBillingType}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Freight Amount</div>
+            <div>₹ {trip.partyFreightAmount}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Party Balance</div>
+            <div>₹ {trip.party.openingBalance}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          LR Date*
+        </label>
+        <div className="relative">
+          <input
+            type="date"
+            value={formData.lrDate}
+            onChange={(e) => handleInputChange("lrDate", e.target.value)}
+            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          LR Number*
+        </label>
+        <input
+          type="text"
+          value={formData.lrNumber}
+          onChange={(e) => handleInputChange("lrNumber", e.target.value)}
+          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+        />
+      </div>
+    </div>
+  );
+
+  const renderConsignerSection = () => (
+    // <div className="space-y-4 text-black">
+    //   <div>
+    //     <label className="block text-sm text-black font-medium mb-1">
+    //       GST Number
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="GST Number"
+    //       value={formData.consigner.gstNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "gstNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium text-black mb-1">
+    //       Consigner Name*
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Name"
+    //       value={formData.consigner.name}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "name", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consigner Address Line 1
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Address Line 1"
+    //       value={formData.consigner.addressLine1}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "addressLine1", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consigner Address Line 2
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Address Line 2"
+    //       value={formData.consigner.addressLine2}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "addressLine2", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div className="grid grid-cols-2 gap-4">
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">State</label>
+    //       <div className="relative">
+    //         <select
+    //           value={formData.consigner.state}
+    //           onChange={(e) =>
+    //             handleInputChange("consigner", "state", e.target.value)
+    //           }
+    //           className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+    //         >
+    //           <option value="">State</option>
+    //           <option value="Maharashtra">Maharashtra</option>
+    //           <option value="Delhi">Delhi</option>
+    //           <option value="Karnataka">Karnataka</option>
+    //         </select>
+    //         <ChevronDown
+    //           size={16}
+    //           className="absolute right-3 top-3 text-black"
+    //         />
+    //       </div>
+    //     </div>
+
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">Pincode</label>
+    //       <input
+    //         type="text"
+    //         placeholder="Pincode"
+    //         value={formData.consigner.pincode}
+    //         onChange={(e) =>
+    //           handleInputChange("consigner", "pincode", e.target.value)
+    //         }
+    //         className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //       />
+    //     </div>
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">Mobile Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="+91 Mobile Number"
+    //       value={formData.consigner.mobileNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "mobileNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+    // </div>
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consigner Details</h2>
+          <button
+            onClick={() => setShowAddConsignerPopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consigner
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consigner</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsigner}
+            onChange={(e) => setSelectedConsigner(e.target.value)}
+          >
+            <option value="">-- Select a consigner --</option>
+            {consigners.map((consigner) => (
+              <option key={consigner.id} value={consigner.id}>
+                {consigner.name} (GST: {consigner.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedConsigner && selectedConsigner !== "0" && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consigner Details</h3>
+            {console.log(selectedConsigner)}
+            {consigners.find((c) => c.id == selectedConsigner) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).gstNumber}
+                </p>
+                {consigners.find((c) => c.id == selectedConsigner)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consigners.find((c) => c.id == selectedConsigner)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderConsigneeSection = () => (
+    // <div className="space-y-4 text-black">
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">GST Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="GST Number"
+    //       value={formData.consignee.gstNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "gstNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Name*
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Name"
+    //       value={formData.consignee.name}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "name", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Address Line 1
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Address Line 1"
+    //       value={formData.consignee.addressLine1}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "addressLine1", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Address Line 2
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Address Line 2"
+    //       value={formData.consignee.addressLine2}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "addressLine2", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div className="grid grid-cols-2 gap-4">
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">State</label>
+    //       <div className="relative">
+    //         <select
+    //           value={formData.consignee.state}
+    //           onChange={(e) =>
+    //             handleInputChange("consignee", "state", e.target.value)
+    //           }
+    //           className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+    //         >
+    //           <option value="">State</option>
+    //           <option value="Maharashtra">Maharashtra</option>
+    //           <option value="Delhi">Delhi</option>
+    //           <option value="Karnataka">Karnataka</option>
+    //         </select>
+    //         <ChevronDown
+    //           size={16}
+    //           className="absolute right-3 top-3 text-black"
+    //         />
+    //       </div>
+    //     </div>
+
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">Pincode</label>
+    //       <input
+    //         type="text"
+    //         placeholder="Pincode"
+    //         value={formData.consignee.pincode}
+    //         onChange={(e) =>
+    //           handleInputChange("consignee", "pincode", e.target.value)
+    //         }
+    //         className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //       />
+    //     </div>
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">Mobile Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="+91 Mobile Number"
+    //       value={formData.consignee.mobileNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "mobileNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+    // </div>
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consignee Details</h2>
+          <button
+            onClick={() => setShowAddConsigneePopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consignee
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consignee</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsignee}
+            onChange={(e) => setSelectedConsignee(e.target.value)}
+          >
+            <option value="">-- Select a consignee --</option>
+            {consignees.map((consignee) => (
+              <option key={consignee.id} value={consignee.id}>
+                {consignee.name} (GST: {consignee.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedConsignee && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consignee Details</h3>
+            {consignees.find((c) => c.id == selectedConsignee) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).gstNumber}
+                </p>
+                {consignees.find((c) => c.id == selectedConsignee)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consignees.find((c) => c.id == selectedConsignee)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderLoadDetailsSection = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          Material Category*
+        </label>
+        <div className="relative">
+          <select
+            value={formData.materialCategory}
+            onChange={(e) =>
+              handleInputChange("materialCategory", e.target.value)
+            }
+            className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+          >
+            <option value="">Eg: Steel</option>
+            <option value="Steel">Steel</option>
+            <option value="Wood">Wood</option>
+            <option value="Plastic">Plastic</option>
+          </select>
+          <ChevronDown
+            size={16}
+            className="absolute right-3 top-3 text-black"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Weight
+          </label>
+          <input
+            type="text"
+            placeholder="Eg: 5"
+            value={formData.weight}
+            onChange={(e) => handleInputChange("weight", e.target.value)}
+            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Unit
+          </label>
+          <div className="relative">
+            <select
+              value={formData.unit}
+              onChange={(e) => handleInputChange("unit", e.target.value)}
+              className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+            >
+              <option value="Tonnes">Tonnes</option>
+              <option value="Kg">Kg</option>
+              <option value="Quintal">Quintal</option>
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute right-3 top-3 text-black"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          No. of Bags / Box / Shipments
+        </label>
+        <input
+          type="text"
+          placeholder="Eg: 5"
+          value={formData.numberOfPackages}
+          onChange={(e) =>
+            handleInputChange("numberOfPackages", e.target.value)
+          }
+          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          FREIGHT PAID BY
+        </label>
+        <div className="flex space-x-4 mt-1">
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consigner"
+              checked={formData.freightPaidBy === "Consigner"}
+              onChange={(e) =>
+                handleInputChange("freightPaidBy", e.target.value)
+              }
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consigner</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consignee"
+              checked={formData.freightPaidBy === "Consignee"}
+              onChange={(e) =>
+                handleInputChange("freightPaidBy", e.target.value)
+              }
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consignee</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Agent"
+              checked={formData.freightPaidBy === "Agent"}
+              onChange={(e) =>
+                handleInputChange("freightPaidBy", e.target.value)
+              }
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Agent</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          GST Percentage
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Eg: 5"
+            value={formData.gstPercentage}
+            onChange={(e) => handleInputChange("gstPercentage", e.target.value)}
+            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          />
+          <span className="absolute right-3 top-2.5 text-black">%</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFormSection = () => {
+    switch (currentFormSection) {
+      case 0:
+        return renderTripDetailsSection();
+      case 1:
+        return renderConsignerSection();
+      case 2:
+        return renderConsigneeSection();
+      case 3:
+        return renderLoadDetailsSection();
+      default:
+        return renderTripDetailsSection();
+    }
+  };
+
+  // Form section components
+  const renderTripDetailsSectionView = () => (
+    <div className="space-y-4">
+      <div className="bg-gray-100 rounded-md p-4 mb-4 text-black">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="font-bold">{trip.origin}</div>
+            <div className="text-sm text-gray-500">21 Apr 2025</div>
+          </div>
+          <ChevronDown
+            size={20}
+            className="text-gray-400 transform rotate -rotate-90"
+          />
+          <div>
+            <div className="font-bold">{trip.destination}</div>
+            <div className="text-sm text-gray-500">-</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 mt-4 gap-4">
+          <div>
+            <div className="text-sm text-gray-500">Party Name</div>
+            <div>{trip.party.partyName}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Billing Type</div>
+            <div>{trip.partyBillingType}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Freight Amount</div>
+            <div>₹ {trip.partyFreightAmount}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Party Balance</div>
+            <div>₹ {trip.party.openingBalance}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          LR Date*
+        </label>
+        <div className="relative">
+          <span className="text-black">{formData.lrDate}</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          LR Number*
+        </label>
+        <span className="text-black">{formData.lrNumber}</span>
+      </div>
+    </div>
+  );
+
+  const renderConsignerSectionView = () => (
+    // <div className="space-y-4 text-black">
+    //   <div>
+    //     <label className="block text-sm text-black font-medium mb-1">
+    //       GST Number
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="GST Number"
+    //       value={formData.consigner.gstNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "gstNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium text-black mb-1">
+    //       Consigner Name*
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Name"
+    //       value={formData.consigner.name}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "name", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consigner Address Line 1
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Address Line 1"
+    //       value={formData.consigner.addressLine1}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "addressLine1", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consigner Address Line 2
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Address Line 2"
+    //       value={formData.consigner.addressLine2}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "addressLine2", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div className="grid grid-cols-2 gap-4">
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">State</label>
+    //       <div className="relative">
+    //         <select
+    //           value={formData.consigner.state}
+    //           onChange={(e) =>
+    //             handleInputChange("consigner", "state", e.target.value)
+    //           }
+    //           className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+    //         >
+    //           <option value="">State</option>
+    //           <option value="Maharashtra">Maharashtra</option>
+    //           <option value="Delhi">Delhi</option>
+    //           <option value="Karnataka">Karnataka</option>
+    //         </select>
+    //         <ChevronDown
+    //           size={16}
+    //           className="absolute right-3 top-3 text-black"
+    //         />
+    //       </div>
+    //     </div>
+
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">Pincode</label>
+    //       <input
+    //         type="text"
+    //         placeholder="Pincode"
+    //         value={formData.consigner.pincode}
+    //         onChange={(e) =>
+    //           handleInputChange("consigner", "pincode", e.target.value)
+    //         }
+    //         className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //       />
+    //     </div>
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">Mobile Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="+91 Mobile Number"
+    //       value={formData.consigner.mobileNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "mobileNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+    // </div>
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consigner Details</h2>
+          {/* <button
+            onClick={() => setShowAddConsignerPopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consigner
+          </button> */}
+        </div>
+
+        {/* <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consigner</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsigner}
+            onChange={(e) => setSelectedConsigner(e.target.value)}
+          >
+            <option value="">-- Select a consigner --</option>
+            {consigners.map((consigner) => (
+              <option key={consigner.id} value={consigner.id}>
+                {consigner.name} (GST: {consigner.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div> */}
+
+        {selectedConsigner && selectedConsigner !== "0" && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consigner Details</h3>
+            {console.log(selectedConsigner)}
+            {consigners.find((c) => c.id == selectedConsigner) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).gstNumber}
+                </p>
+                {consigners.find((c) => c.id == selectedConsigner)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consigners.find((c) => c.id == selectedConsigner)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderConsigneeSectionView = () => (
+    // <div className="space-y-4 text-black">
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">GST Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="GST Number"
+    //       value={formData.consignee.gstNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "gstNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Name*
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Name"
+    //       value={formData.consignee.name}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "name", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Address Line 1
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Address Line 1"
+    //       value={formData.consignee.addressLine1}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "addressLine1", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Address Line 2
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Address Line 2"
+    //       value={formData.consignee.addressLine2}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "addressLine2", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div className="grid grid-cols-2 gap-4">
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">State</label>
+    //       <div className="relative">
+    //         <select
+    //           value={formData.consignee.state}
+    //           onChange={(e) =>
+    //             handleInputChange("consignee", "state", e.target.value)
+    //           }
+    //           className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+    //         >
+    //           <option value="">State</option>
+    //           <option value="Maharashtra">Maharashtra</option>
+    //           <option value="Delhi">Delhi</option>
+    //           <option value="Karnataka">Karnataka</option>
+    //         </select>
+    //         <ChevronDown
+    //           size={16}
+    //           className="absolute right-3 top-3 text-black"
+    //         />
+    //       </div>
+    //     </div>
+
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">Pincode</label>
+    //       <input
+    //         type="text"
+    //         placeholder="Pincode"
+    //         value={formData.consignee.pincode}
+    //         onChange={(e) =>
+    //           handleInputChange("consignee", "pincode", e.target.value)
+    //         }
+    //         className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //       />
+    //     </div>
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">Mobile Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="+91 Mobile Number"
+    //       value={formData.consignee.mobileNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "mobileNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+    // </div>
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consignee Details</h2>
+          {/* <button
+            onClick={() => setShowAddConsigneePopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consignee
+          </button> */}
+        </div>
+
+        {/* <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consignee</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsignee}
+            onChange={(e) => setSelectedConsignee(e.target.value)}
+          >
+            <option value="">-- Select a consignee --</option>
+            {consignees.map((consignee) => (
+              <option key={consignee.id} value={consignee.id}>
+                {consignee.name} (GST: {consignee.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div> */}
+
+        {selectedConsignee && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consignee Details</h3>
+            {consignees.find((c) => c.id == selectedConsignee) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).gstNumber}
+                </p>
+                {consignees.find((c) => c.id == selectedConsignee)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consignees.find((c) => c.id == selectedConsignee)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderLoadDetailsSectionView = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          Material Category*
+        </label>
+        <div className="relative">
+          <span className="text-black">{formData.materialCategory}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Weight
+          </label>
+          <span className="text-black">{formData.weight}</span>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Unit
+          </label>
+          <div className="relative">
+            <span className="text-black">{formData.unit}</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          No. of Bags / Box / Shipments
+        </label>
+        <span className="text-black">{formData.numberOfPackages}</span>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          FREIGHT PAID BY
+        </label>
+        <div className="flex space-x-4 mt-1">
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consigner"
+              disabled
+              checked={formData.freightPaidBy === "Consigner"}
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consigner</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consignee"
+              disabled
+              checked={formData.freightPaidBy === "Consignee"}
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consignee</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Agent"
+              disabled
+              checked={formData.freightPaidBy === "Agent"}
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Agent</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          GST Percentage
+        </label>
+        <div className="relative">
+          <span className="text-black">% {formData.gstPercentage}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFormSectionView = () => {
+    switch (currentFormSection) {
+      case 0:
+        return renderTripDetailsSectionView();
+      case 1:
+        return renderConsignerSectionView();
+      case 2:
+        return renderConsigneeSectionView();
+      case 3:
+        return renderLoadDetailsSectionView();
+      default:
+        return renderTripDetailsSectionView();
+    }
+  };
+
+  const ProgressIndicator = () => (
+    <div className="flex justify-between items-center px-6 py-3 border-b text-black">
+      {formSections.map((section, index) => (
+        <div key={index} className="flex flex-col items-center">
+          <div className="flex items-center">
+            {index > 0 && (
+              <div
+                className={`h-1 w-16 ${
+                  index <= currentFormSection ? "bg-blue-600" : "bg-gray-300"
+                }`}
+              />
+            )}
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                index <= currentFormSection
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-black"
+              }`}
+            >
+              {index + 1}
+            </div>
+            {index < formSections.length - 1 && (
+              <div
+                className={`h-1 w-16 ${
+                  index < currentFormSection ? "bg-blue-600" : "bg-gray-300"
+                }`}
+              />
+            )}
+          </div>
+          <span className="text-xs mt-2">{section}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const AddLRFormModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+        {/* Form Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-800">Add New LR</h2>
+          <button
+            onClick={() => {
+              resetAddLR();
+              setSelectedConsigner("");
+              setSelectedConsignee("");
+              setIsAddLRModalOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <ProgressIndicator />
+
+        {/* Form Content */}
+        <div className="p-6">{renderFormSection()}</div>
+
+        {/* Form Footer */}
+        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+          <button
+            onClick={handlePrevSection}
+            className={`px-4 py-2 rounded-md border ${
+              currentFormSection === 0
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            }`}
+            disabled={currentFormSection === 0}
+          >
+            Previous
+          </button>
+
+          {currentFormSection < formSections.length - 1 ? (
+            <button
+              onClick={handleNextSection}
+              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                handleSubmitLR();
+                console.log("Form submitted:", formData);
+                //resetAddLR();
+                //setIsAddLRModalOpen(false);
+              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              Submit
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const EditLRFormModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+        {/* Form Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-800">Edit LR</h2>
+          <button
+            onClick={() => {
+              resetAddLR();
+              setSelectedConsigner("");
+              setSelectedConsignee("");
+              setIsEditLRModalOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <ProgressIndicator />
+
+        {/* Form Content */}
+        <div className="p-6">{renderFormSection()}</div>
+
+        {/* Form Footer */}
+        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+          <button
+            onClick={handlePrevSection}
+            className={`px-4 py-2 rounded-md border ${
+              currentFormSection === 0
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            }`}
+            disabled={currentFormSection === 0}
+          >
+            Previous
+          </button>
+
+          {currentFormSection < formSections.length - 1 ? (
+            <button
+              onClick={handleNextSection}
+              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                handleUpdateLR();
+                console.log("Form submitted:", formData);
+                //resetAddLR();
+                //setIsAddLRModalOpen(false);
+              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              Submit
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ViewLRFormModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+        {/* Form Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-800">LR Details</h2>
+          <button
+            onClick={() => {
+              resetAddLR();
+              setSelectedConsigner("");
+              setSelectedConsignee("");
+              setIsViewLRModalOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <ProgressIndicator />
+
+        {/* Form Content */}
+        <div className="p-6">{renderFormSectionView()}</div>
+
+        {/* Form Footer */}
+        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+          <button
+            onClick={handlePrevSection}
+            className={`px-4 py-2 rounded-md border ${
+              currentFormSection === 0
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            }`}
+            disabled={currentFormSection === 0}
+          >
+            Previous
+          </button>
+
+          {currentFormSection < formSections.length - 1 ? (
+            <button
+              onClick={handleNextSection}
+              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                handleViewToEdit();
+                //resetAddLR();
+                //setIsAddLRModalOpen(false);
+              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="min-h-screen bg-gray-100 p-4 space-y-4 overflow-auto text-black">
+        <div className="flex justify-end"></div>
+        {/* Truck & Driver Cards */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="bg-white rounded shadow p-4 w-full md:w-[50%] flex items-center gap-4">
+            <Truck className="w-8 h-8" />
+            <div>
+              <p className="font-semibold">{trip.truck.truckNo}</p>
+              <p
+                onClick={handleExpenseClick}
+                className="text-sm text-blue-600 cursor-pointer"
+              >
+                View Truck &rarr;
+              </p>
+            </div>
+          </div>
+          <div className="bg-white rounded shadow p-4 w-full md:w-[50%] flex items-center gap-4">
+            <User2 className="w-6 h-6" />
+            <div onClick={handleTransactionClick} className="cursor-pointer">
+              <p className="text-sm text-gray-500">Driver Name</p>
+              <p className="font-semibold">{trip.driver.name}</p>
+            </div>
+          </div>
+          <div className="pt-1 gap-4">
+            <button
+              className="w-full border border-blue-600 bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition"
+              onClick={() => onBack()}
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left Side */}
+          <div className="col-span-2 space-y-4">
+            <div className="bg-white rounded shadow p-4 space-y-4">
+              {/* Trip Info */}
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="col-span-1 bg-gray-50 p-4 rounded">
+                  <p className="text-gray-500">Party Name</p>
+                  <p className="text-blue-600 font-semibold">
+                    {trip.party.partyName}
+                  </p>
+                  <p className="text-gray-500 mt-2">Party Balance</p>
+                  <p className="text-green-600 font-semibold">
+                    ₹ {trip.party.openingBalance}
+                  </p>
+                </div>
+                <div className="col-span-1 bg-gray-50 p-4 rounded">
+                  <p className="text-gray-500">From</p>
+                  <p>{trip.origin} - 15 Apr 2025</p>
+                  <p className="text-gray-500 mt-2">To</p>
+                  <p>{trip.destination} - 18 Apr 2025</p>
+                </div>
+                <div className="col-span-1 bg-gray-50 p-4 rounded">
+                  <p className="text-gray-500">Start KMs Reading</p>
+                  <p className="font-semibold">{trip.startKmsReading} KM</p>
+                  <p className="text-gray-500 mt-2">End KMs Reading</p>
+                  <p className="font-semibold">
+                    {updatedTrip.endKmsReading == ""
+                      ? "-----"
+                      : updatedTrip.endKmsReading}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Bar with Connectors */}
+              <div className="flex justify-between items-start pt-6 relative">
+                {progressSteps.map((step, idx) => {
+                  const isCompleted = idx < progressBarNumber;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center w-full text-center relative"
+                    >
+                      <div
+                        className="z-10 w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                        style={{
+                          backgroundColor: isCompleted ? "#16a34a" : "#fff",
+                          borderColor: isCompleted ? "#16a34a" : "#d1d5db",
+                        }}
+                      />
+                      <p className="text-sm font-semibold mt-2">{step.label}</p>
+                      <div className="h-4">
+                        {step.date && (
+                          <p className="text-xs text-gray-500">{step.date}</p>
+                        )}
+                      </div>
+                      {idx < 4 && (
+                        <div
+                          className="absolute top-2 left-1/2 h-1"
+                          style={{
+                            width: "100%",
+                            backgroundColor:
+                              idx < progressBarNumber - 1
+                                ? "#16a34a"
+                                : "#d1d5db",
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 pt-4">
+                {progressBarNumber < 5 && (
+                  <button
+                    className={`w-1/2 border px-4 py-2 rounded transition ${
+                      progressBarNumber >= 5
+                        ? "border-gray-400 text-gray-400 cursor-not-allowed"
+                        : "border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+                    }`}
+                    onClick={handleProgressBarUpdate}
+                  >
+                    {progressButtonText}
+                  </button>
+                )}
+                <button
+                  className={`${
+                    progressBarNumber > 4 ? "w-full" : "w-1/2"
+                  } border border-blue-600 bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition`}
+                >
+                  View Bill
+                </button>
+              </div>
+
+              {/* Freight Info */}
+              <div className="pt-4">
+                <div className="flex justify-between">
+                  <p className="font-bold">Freight Amount</p>
+                  <div className="text-right font-bold text-blue-600">
+                    ₹ {trip.partyFreightAmount}{" "}
+                    <span className="ml-2 cursor-pointer">✎</span>
+                  </div>
+                </div>
+
+                <div className="gap-4 text-sm">
+                  <div className="my-4">
+                    <p className="font-semibold">(-) Advance</p>
+                    <a href="#" className="text-blue-600 block mt-1">
+                      Add Advance
+                    </a>
+                  </div>
+                  <div className="my-4">
+                    <p className="font-semibold">(+) Charges</p>
+                    <a href="#" className="text-blue-600 block mt-1">
+                      Add Charge
+                    </a>
+                  </div>
+                  <div className="my-4">
+                    <p className="font-semibold">(-) Payments</p>
+                    <a href="#" className="text-blue-600 block mt-1">
+                      Add Payment
+                    </a>
+                  </div>
+                </div>
+
+                <div className="pt-4 font-bold">Pending Party Balance</div>
+                <div className="text-blue-600 text-sm">+ Notes</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side */}
+          <div className="space-y-4">
+            {/* Trip Profit */}
+            <div className="bg-white rounded shadow p-4 space-y-2 min-h-[50%]">
+              <div className="flex justify-between items-center">
+                <p className="font-bold">Trip Profit</p>
+                <button className="border border-blue-700 text-blue-700 text-sm px-3 py-1 rounded hover:bg-blue-700 hover:text-white transition">
+                  + Add Expense
+                </button>
+              </div>
+              <hr className="my-2" />
+              <div className="text-sm">
+                <p className="font-bold my-4">
+                  (+) Revenue{" "}
+                  <span className="float-right text-blue-700">₹ 13,579</span>
+                </p>
+                <p className="text-gray-500 my-3">
+                  Preetam <span className="float-right">₹ 1,234</span>
+                </p>
+                <p className="text-gray-500 my-3">
+                  Preetam <span className="float-right">₹ 12,345</span>
+                </p>
+                <hr className="my-2" />
+                <p className="font-bold my-4">
+                  (-) Expense{" "}
+                  <span className="float-right text-blue-700">₹ 0</span>
+                </p>
+                <hr className="my-2" />
+                <p className="font-bold text-green-600 my-4">Profit ₹ 13,579</p>
+              </div>
+            </div>
+
+            {/* Document Section */}
+            <div className="bg-white rounded shadow p-4 space-y-4">
+              <div className="flex items-center justify-between border p-2 rounded">
+                <div className="flex items-center space-x-2">
+                  <FileText className="text-green-600" />
+                  <span>Routes</span>
+                </div>
+                <button
+                  onClick={viewRoutesToggle}
+                  className="border border-blue-600 text-blue-600 px-4 py-1 rounded hover:bg-blue-600 hover:text-white transition text-sm"
+                >
+                  View Routes
+                </button>
+              </div>
+              <div className="flex items-center justify-between border p-2 rounded">
+                <div className="flex items-center space-x-2">
+                  <FileText className="text-green-600" />
+                  <span>Online Bilty/LR</span>
+                </div>
+                <button
+                  onClick={AddLRToggle}
+                  className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
+                >
+                  View LRs
+                </button>
+              </div>
+              <div className="flex items-center justify-between border p-2 rounded">
+                <div className="flex items-center space-x-2">
+                  <FileCheck2 className="text-blue-600" />
+                  <span>POD Challan</span>
+                </div>
+                <div className="flex space-x-2">
+                  <button className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm">
+                    View POD
+                  </button>
+                  <button className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm">
+                    <Camera className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isRouteListModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg p-6 relative">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-6 pr-10">
+              <h1 className="text-2xl font-semibold text-gray-800">Routes</h1>
+              <button
+                onClick={() => handleAddRouteClick()}
+                className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm transition-colors hover:bg-opacity-90"
+              >
+                <span className="mr-1">+</span> Add Route
+              </button>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsRouteListModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 z-10"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Modal Content */}
+            <div className="bg-white rounded-md p-6">
+              {/* Search Input */}
+              {/* <div className="mb-6 flex flex-wrap justify-end items-center">
+                <div className="flex items-center relative w-full md:w-80 mx-3">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg
+                      className="h-5 w-5 text-gray-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search LRs"
+                    value={searchTerm}
+                    onChange={handleSearch}
+                    className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
+                  />
+                  {driverFilters.length > 0 && (
+                    <button
+                      onClick={() => setDriverFilters([])}
+                      className="flex items-center justify-center whitespace-nowrap px-4 py-2 mx-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-md transition-colors duration-200 text-sm"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-4 md:mt-0 flex items-center">
+                  <label className="mr-2 text-sm text-gray-600">
+                    Records per page:
+                  </label>
+                  <select
+                    value={recordsPerPage}
+                    onChange={handleRecordsPerPageChange}
+                    className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
+                  >
+                    <option value={1}>1</option>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div> */}
+
+              {/* Drivers Table */}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {/* <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("lrNumber")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            LR Number
+                          </span>
+                          {getSortDirectionIcon("lrNumber")}
+                        </div>
+                      </th> */}
+                      {/* <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("lrDate")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            LR Date
+                          </span>
+                          {getSortDirectionIcon("lrDate")}
+                        </div>
+                      </th> */}
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("consigner.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Consigner Name
+                          </span>
+                          {getSortDirectionIcon("consigner.name")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("consignee.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Consignee Name
+                          </span>
+                          {getSortDirectionIcon("consignee.name")}
+                        </div>
+                      </th>
+                      <th className="px-6 py-3 text-right">
+                        <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                          Actions
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {routesList.map((route, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        {/* <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base font-medium text-gray-900">
+                            {LR.lrNumber}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.lrDate}
+                          </span>
+                        </td> */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {
+                              consigners.find((c) => c.id == route.consigner)
+                                .name
+                            }
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {
+                              consignees.find((c) => c.id == route.consignee)
+                                .name
+                            }
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              className="border border-blue-600 text-blue-600 px-4 py-1 rounded hover:bg-blue-600 hover:text-white transition text-sm"
+                            >
+                              Create Invoice
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNewRoute(route);
+                                setRouteIndex(index);
+                                setSelectedConsigner(route.consigner);
+                                setSelectedConsignee(route.consignee);
+                                setFormData({
+                                  lrDate: new Date()
+                                    .toISOString()
+                                    .split("T")[0],
+                                  lrNumber: nextLrNumber,
+                                  consigner_id: route.consigner,
+                                  consignee_id: route.consignee,
+                                  materialCategory: "",
+                                  weight: "",
+                                  unit: "Tonnes",
+                                  numberOfPackages: "",
+                                  freightPaidBy: "Consigner",
+                                  gstPercentage: "",
+                                  trip_id: trip.id,
+                                });
+                                handleAddLRClick();
+                              }}
+                              className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
+                            >
+                              Create LR
+                            </button>
+                            {/* <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                //handleRowClick(LR);
+                              }}
+                              className="text-primary hover:text-blue-700 transition-colors"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="bi bi-eye h-5 w-5"
+                                fill="currentColor"
+                                stroke="currentColor"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
+                              </svg>
+                            </button> */}
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditRouteClick(route, index);
+                              }}
+                              className="text-primary hover:text-blue-700 transition-colors"
+                              title="Edit Driver"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteRouteClick(route, index);
+                              }}
+                              className="text-danger hover:text-red-600 transition-colors"
+                              title="Delete Driver"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Empty state */}
+                {routesList.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-700 text-base">
+                      No Routes found. Try a different search term or add a new
+                      route.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {/* {routesList.length > 0 && (
+                <div className="flex items-center justify-between mt-4 px-2">
+                  <div className="text-sm text-gray-600">
+                    Showing {indexOfFirstRecord + 1} to{" "}
+                    {Math.min(indexOfLastRecord, routesList.length)} of{" "}
+                    {routesList.length} entries
+                  </div>
+
+                  <nav className="flex items-center">
+                    <button
+                      onClick={prevPageClick}
+                      disabled={currentPage === 1}
+                      className={`px-3 py-1 rounded-md mx-1 ${
+                        currentPage === 1
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(
+                        (page) =>
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                      )
+                      .map((page, index, array) => {
+                        const showEllipsisBefore =
+                          index > 0 && array[index - 1] !== page - 1;
+                        const showEllipsisAfter =
+                          index < array.length - 1 &&
+                          array[index + 1] !== page + 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsisBefore && (
+                              <span className="px-3 py-1 text-gray-500">
+                                ...
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => paginate(page)}
+                              className={`px-3 py-1 rounded-md mx-1 ${
+                                currentPage === page
+                                  ? "bg-primary text-white"
+                                  : "text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {page}
+                            </button>
+
+                            {showEllipsisAfter && (
+                              <span className="px-3 py-1 text-gray-500">
+                                ...
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                    <button
+                      onClick={nextPageClick}
+                      disabled={currentPage === totalPages}
+                      className={`px-3 py-1 rounded-md mx-1 ${
+                        currentPage === totalPages
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )} */}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsLRListModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLRListModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg p-6 relative">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-6 pr-10">
+              <h1 className="text-2xl font-semibold text-gray-800">LR</h1>
+              <button
+                onClick={handleAddLRClick}
+                className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm transition-colors hover:bg-opacity-90"
+              >
+                <span className="mr-1">+</span> Add LR
+              </button>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsLRListModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 z-10"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Modal Content */}
+            <div className="bg-white rounded-md p-6">
+              {/* Search Input */}
+              <div className="mb-6 flex flex-wrap justify-end items-center">
+                <div className="flex items-center relative w-full md:w-80 mx-3">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg
+                      className="h-5 w-5 text-gray-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search LRs"
+                    value={searchTerm}
+                    onChange={handleSearch}
+                    className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
+                  />
+                  {driverFilters.length > 0 && (
+                    <button
+                      onClick={() => setDriverFilters([])}
+                      className="flex items-center justify-center whitespace-nowrap px-4 py-2 mx-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-md transition-colors duration-200 text-sm"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-4 md:mt-0 flex items-center">
+                  <label className="mr-2 text-sm text-gray-600">
+                    Records per page:
+                  </label>
+                  <select
+                    value={recordsPerPage}
+                    onChange={handleRecordsPerPageChange}
+                    className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
+                  >
+                    <option value={1}>1</option>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Drivers Table */}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSort("lrNumber")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            LR Number
+                          </span>
+                          {getSortDirectionIcon("lrNumber")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSort("lrDate")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            LR Date
+                          </span>
+                          {getSortDirectionIcon("lrDate")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSort("consigner.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Consigner Name
+                          </span>
+                          {getSortDirectionIcon("consigner.name")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSort("consignee.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Consignee Name
+                          </span>
+                          {getSortDirectionIcon("consignee.name")}
+                        </div>
+                      </th>
+                      <th className="px-6 py-3 text-right">
+                        <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                          Actions
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {LRList.map((LR) => (
+                      <tr
+                        key={LR.id}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base font-medium text-gray-900">
+                            {LR.lrNumber}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.lrDate}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.consigner.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.consignee.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(LR);
+                              }}
+                              className="text-primary hover:text-blue-700 transition-colors"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="bi bi-eye h-5 w-5"
+                                fill="currentColor"
+                                stroke="currentColor"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
+                              </svg>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClick(LR);
+                              }}
+                              className="text-primary hover:text-blue-700 transition-colors"
+                              title="Edit Driver"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(LR);
+                              }}
+                              className="text-danger hover:text-red-600 transition-colors"
+                              title="Delete Driver"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Empty state */}
+                {LRList.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-700 text-base">
+                      No LRs found. Try a different search term or add a new LR.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {LRList.length > 0 && (
+                <div className="flex items-center justify-between mt-4 px-2">
+                  <div className="text-sm text-gray-600">
+                    Showing {indexOfFirstRecord + 1} to{" "}
+                    {Math.min(indexOfLastRecord, LRList.length)} of{" "}
+                    {LRList.length} entries
+                  </div>
+
+                  <nav className="flex items-center">
+                    <button
+                      onClick={prevPageClick}
+                      disabled={currentPage === 1}
+                      className={`px-3 py-1 rounded-md mx-1 ${
+                        currentPage === 1
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(
+                        (page) =>
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                      )
+                      .map((page, index, array) => {
+                        const showEllipsisBefore =
+                          index > 0 && array[index - 1] !== page - 1;
+                        const showEllipsisAfter =
+                          index < array.length - 1 &&
+                          array[index + 1] !== page + 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsisBefore && (
+                              <span className="px-3 py-1 text-gray-500">
+                                ...
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => paginate(page)}
+                              className={`px-3 py-1 rounded-md mx-1 ${
+                                currentPage === page
+                                  ? "bg-primary text-white"
+                                  : "text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {page}
+                            </button>
+
+                            {showEllipsisAfter && (
+                              <span className="px-3 py-1 text-gray-500">
+                                ...
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                    <button
+                      onClick={nextPageClick}
+                      disabled={currentPage === totalPages}
+                      className={`px-3 py-1 rounded-md mx-1 ${
+                        currentPage === totalPages
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsLRListModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete LR{" "}
+                <span className="font-semibold">{currentLR?.lrNumber}</span>?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteLR}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddLRModalOpen && AddLRFormModal()}
+
+      {isEditLRModalOpen && EditLRFormModal()}
+
+      {isViewLRModalOpen && ViewLRFormModal()}
+
+      {showTransactionsModal && (
+        <div className="fixed inset-y-0 right-0 z-50 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
+          <div className="flex justify-between items-center border-b p-6 pb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              Transactions for {trip.driver.name} - {trip.phone_number}
+            </h2>
+            <button
+              onClick={closeTransactionModal}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* Summary Section */}
+          <div className="bg-gray-100 p-4 flex justify-between items-center">
+            <div>
+              <span className="text-sm text-gray-600 mr-2">Total Amount:</span>
+              <span
+                className={`text-lg font-bold flex ${
+                  totalTransactionAmount >= 0
+                    ? "text-green-700"
+                    : "text-red-700"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  // stroke-width="2"
+                  // stroke-linecap="round"
+                  // stroke-linejoin="round"
+                  // class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                >
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
+                  <path d="M7 9l11 0" />
+                </svg>
+                {Math.abs(totalTransactionAmount).toFixed(2)}
+              </span>
+            </div>
+            <span
+              className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                totalTransactionAmount >= 0
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {totalTransactionAmount >= 0 ? "Net Credit" : "Net Debit"}
+            </span>
+            <button
+              onClick={openAddTransactionModal}
+              className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+            >
+              + Add Transaction
+            </button>
+          </div>
+
+          <div className="flex-grow overflow-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    AMOUNT
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TYPE
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    REASON
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DATE
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {transactionsList.map((transaction) => (
+                  <tr
+                    key={transaction.id}
+                    className="hover:bg-gray-50"
+                    onClick={() => openEditTransactionModal(transaction)}
+                  >
+                    <td className="px-4 py-3 text-black flex">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                      >
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
+                        <path d="M7 9l11 0" />
+                      </svg>
+                      {transaction.amount}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block px-2 py-1 rounded-full font-medium ${
+                          transaction.amountType === "Credit"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {transaction.amountType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-black">
+                      {transaction.reason}
+                    </td>
+                    <td className="px-4 py-3 text-black">{transaction.date}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => openEditTransactionModal(transaction)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTransactionClick(transaction);
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {transactionsList.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="px-4 py-3 text-center text-gray-500"
+                    >
+                      No transactions found for this driver.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {showAddTransactionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg w-[400px] p-6 shadow-xl">
+            <div className="flex justify-between items-center border-b pb-4 mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Add New Transaction
+              </h3>
+              <button
+                onClick={closeAddTransactionModal}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTransaction}>
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  name="amount"
+                  value={newTransaction.amount}
+                  onChange={handleTransactionInputChange}
+                  placeholder="Enter amount"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Type
+                </label>
+                <select
+                  name="amountType"
+                  value={newTransaction.amountType}
+                  onChange={handleTransactionInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                >
+                  <option value="Credit">Credit</option>
+                  <option value="Debit">Debit</option>
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Reason
+                </label>
+                <input
+                  type="text"
+                  name="reason"
+                  value={newTransaction.reason}
+                  onChange={handleTransactionInputChange}
+                  placeholder="Enter reason"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={newTransaction.date}
+                  onChange={handleTransactionInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={closeAddTransactionModal}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#243b6c] text-white rounded-md hover:bg-blue-700"
+                >
+                  Add Transaction
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditTransactionModal && editingTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[1100] flex justify-center items-center">
+          <div className="bg-white rounded-lg w-[400px] p-5 relative">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-5 pb-2.5 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Edit Transaction
+              </h3>
+              <button
+                onClick={closeEditTransactionModal}
+                className="text-2xl text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleUpdateTransaction}>
+              {/* Amount Input */}
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  name="amount"
+                  value={editingTransaction.amount}
+                  onChange={handleEditInputChange}
+                  placeholder="Enter amount"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+
+              {/* Type Select */}
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Type
+                </label>
+                <select
+                  name="amountType"
+                  value={editingTransaction.amountType}
+                  onChange={handleEditInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                >
+                  <option value="Credit">Credit</option>
+                  <option value="Debit">Debit</option>
+                </select>
+              </div>
+
+              {/* Reason Input */}
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Reason
+                </label>
+                <input
+                  type="text"
+                  name="reason"
+                  value={editingTransaction.reason}
+                  onChange={handleEditInputChange}
+                  placeholder="Enter reason"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+
+              {/* Date Input */}
+              <div className="mb-4">
+                <label className="block mb-2 font-medium text-gray-700">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={editingTransaction.date}
+                  onChange={handleEditInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-2.5 mt-5">
+                <button
+                  type="button"
+                  onClick={closeEditTransactionModal}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#243b6c] text-white rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Update Transaction
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteTransactionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setShowDeleteTransactionModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete Transaction{" "}
+                <span className="font-semibold">{trip.driver?.name}</span>? This
+                action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowDeleteTransactionModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTransactionModal}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExpensesModal && (
+        <div className="fixed inset-y-0 right-0 z-30 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
+          <div className="flex justify-between items-center border-b p-6 pb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              Expenses for {trip.truck.truckNo} - {trip.truck.truckType}
+            </h2>
+            <button
+              onClick={closeExpensesModal}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* Summary Section */}
+          <div className="bg-gray-100 p-4 flex justify-between items-center">
+            <div>
+              <span className="text-sm text-gray-600 mr-2">Total Amount:</span>
+              <span
+                className={`text-lg font-bold flex ${
+                  totalExpenseAmount >= 0 ? "text-green-700" : "text-red-700"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                >
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
+                  <path d="M7 9l11 0" />
+                </svg>
+                {Math.abs(totalExpenseAmount).toFixed(2)}
+              </span>
+            </div>
+            <span
+              className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                totalExpenseAmount >= 0
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {totalExpenseAmount >= 0 ? "Net Credit" : "Net Debit"}
+            </span>
+            <div>
+              <button
+                onClick={openAddExpenseModal}
+                className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+              >
+                + Add Expense
+              </button>
+              {/* <button
+                    onClick={openTripSidebar}
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    + Add Trip
+                  </button> */}
+            </div>
+          </div>
+
+          <div className="flex-grow overflow-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DATE
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    REASON
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    EXPENSES
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    REVENUE
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {expensesList.map((expense) => (
+                  <tr
+                    key={expense.id}
+                    className="hover:bg-gray-50"
+                    onClick={() => openEditExpenseModal(expense)}
+                  >
+                    <td className="px-4 py-3 text-black">
+                      {expense.expenseDate}
+                    </td>
+                    <td className="px-4 py-3 text-black">
+                      {expense.expenseType}
+                    </td>
+                    <td className="px-4 py-3 text-black flex">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                      >
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
+                        <path d="M7 9l11 0" />
+                      </svg>
+                      <span
+                        className="inline-block px-2 py-1 rounded-full font-medium
+                                bg-red-100 text-red-800"
+                      >
+                        {expense.amountPaid}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">Null</td>
+
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => openEditExpenseModal(expense)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteExpenseClick(expense);
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {expensesList.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="px-4 py-3 text-center text-gray-500"
+                    >
+                      No expenses found for this truck.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showAddExpensesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">Add Expenses</h2>
+              <button
+                onClick={closeAddExpenseModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 flex justify-center space-x-8">
+              <div
+                onClick={() => openExpenseModal("fuel")}
+                className="flex flex-col items-center cursor-pointer"
+              >
+                <div className="text-blue-600 mb-2">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M3 8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12H3V8z" />
+                    <path d="M11 14h3a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-3v6z" />
+                    <path d="M13 5v3" />
+                    <path d="M8 5v3" />
+                  </svg>
+                </div>
+                <div className="text-center text-black">
+                  <div className="font-medium">Fuel</div>
+                  <div>Expense</div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => openExpenseModal("maintenance")}
+                className="flex flex-col items-center cursor-pointer"
+              >
+                <div className="text-blue-600 mb-2">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                  </svg>
+                </div>
+                <div className="text-center text-black">
+                  <div className="font-medium">Maintenance</div>
+                  <div>Expense</div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => openExpenseModal("driver")}
+                className="flex flex-col items-center cursor-pointer"
+              >
+                <div className="text-blue-600 mb-2">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="4" />
+                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+                  </svg>
+                </div>
+                <div className="text-center text-black">
+                  <div className="font-medium ">Driver/Other</div>
+                  <div>Expense</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showModal && modalType === "fuel" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">
+                Add Fuel Expense
+              </h2>
+              <button
+                onClick={closeExpenseModal}
+                className="text-black hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Amount*</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="amountPaid"
+                    placeholder="Enter Amount"
+                    value={newExpense.amountPaid}
+                    onChange={handleExpenseInputChange}
+                    className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">₹</span>
+                </div>
+              </div>
+
+              <div className="flex mb-4 gap-4">
+                <div className="flex-1">
+                  <label className="block text-black mb-1">Fuel Quantity</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="fuelQuantity"
+                      placeholder="Fuel Quantity"
+                      value={newExpense.fuelQuantity}
+                      onChange={handleExpenseInputChange}
+                      className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                    />
+                    <span className="absolute right-3 top-2.5 text-black">
+                      L
+                    </span>
+                  </div>
+                  <div className="text-sm mt-1 text-black">Optional</div>
+                </div>
+
+                <div className="flex-1">
+                  <label className="block text-black mb-1">
+                    Rate per litre
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="ratePerLitre"
+                      placeholder="Rate per litre"
+                      value={
+                        newExpense.fuelQuantity > 0
+                          ? newExpense.amountPaid / newExpense.fuelQuantity
+                          : ""
+                      }
+                      readOnly
+                      className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                    />
+                    <span className="absolute right-3 top-2.5 text-black">
+                      ₹
+                    </span>
+                  </div>
+                  <div className="text-black text-sm mt-1">Optional</div>
+                </div>
+              </div>
+
+              {/* <div className="mb-4 flex items-center">
+                    <span className="mr-2 text-black">
+                      I have filled full tank
+                    </span>
+                    <div className="w-10 h-6 bg-gray-300 rounded-full relative">
+                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div>
+                    </div>
+                  </div> */}
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">
+                  Current KM Reading
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="currentKmReading"
+                    value={newExpense.currentKmReading}
+                    onChange={handleExpenseInputChange}
+                    placeholder="Current KM Reading"
+                    className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">
+                    KMs
+                  </span>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Date*</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="expenseDate"
+                    value={newExpense.expenseDate}
+                    onChange={handleExpenseInputChange}
+                    className="w-full border rounded-md p-2 text-black"
+                  />
+                </div>
+              </div>
+
+              {/* <div className="mb-4">
+                    <button className="bg-blue-100 text-blue-500 p-2 rounded-md">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </button>
+                  </div> */}
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Payment Mode*</label>
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={`px-4 py-2 rounded-md text-sm ${
+                        paymentMode === option
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      name="paymentMode"
+                      onClick={() => {
+                        newExpense.paymentMode = option;
+                        setPaymentMode(option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Add Trip</label>
+                <select
+                  name="addTrip"
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Trip</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeExpenseModal}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+              >
+                Close
+              </button>
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                onClick={handleAddExpense}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* General Expense Modal */}
+      {showModal && modalType === "maintenance" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">
+                Add Expense / Purchase
+              </h2>
+              <button
+                onClick={closeExpenseModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Type*</label>
+                <select
+                  name="expenseType"
+                  value={newExpense.expenseType}
+                  onChange={handleExpenseInputChange}
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Expense Type</option>
+                  {expenseTypeOptionsMaintenance.map((type, index) => (
+                    <option key={index} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Amount Paid*</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="amountPaid"
+                    value={newExpense.amountPaid}
+                    onChange={handleExpenseInputChange}
+                    placeholder="Amount Paid"
+                    className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">₹</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Date*</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="expenseDate"
+                    value={newExpense.expenseDate}
+                    onChange={handleExpenseInputChange}
+                    className="w-full border rounded-md p-2 text-black"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Payment Mode*</label>
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={`px-4 py-2 rounded-md text-sm ${
+                        paymentMode === option
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      name="paymentMode"
+                      onClick={() => {
+                        newExpense.paymentMode = option;
+                        setPaymentMode(option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">
+                  Current KM Reading
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="currentKmReading"
+                    onChange={handleExpenseInputChange}
+                    placeholder="Current KM Reading"
+                    className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">
+                    KMs
+                  </span>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Add Trip</label>
+                <select
+                  name="addTrip"
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Trip</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeExpenseModal}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+              >
+                Close
+              </button>
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                onClick={handleAddExpense}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Driver/Other Expense Modal */}
+      {showModal && modalType === "driver" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">
+                Add Driver / Other Expense
+              </h2>
+              <button
+                onClick={closeExpenseModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Type*</label>
+                <select
+                  name="expenseType"
+                  value={newExpense.expenseType}
+                  onChange={handleExpenseInputChange}
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Expense Type</option>
+                  {expenseTypeOptionsDriver.map((type, index) => (
+                    <option key={index} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Amount Paid*</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="amountPaid"
+                    value={newExpense.amountPaid}
+                    onChange={handleExpenseInputChange}
+                    placeholder="Amount Paid"
+                    className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">₹</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Date*</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="expenseDate"
+                    value={newExpense.expenseDate}
+                    onChange={handleExpenseInputChange}
+                    className="w-full border rounded-md p-2 text-black"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Payment Mode*</label>
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={`px-4 py-2 rounded-md text-sm ${
+                        paymentMode === option
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      name="paymentMode"
+                      onClick={() => {
+                        newExpense.paymentMode = option;
+                        setPaymentMode(option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Notes</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-black">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <line x1="21" y1="6" x2="3" y2="6" />
+                      <line x1="21" y1="12" x2="3" y2="12" />
+                      <line x1="21" y1="18" x2="3" y2="18" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    name="notes"
+                    placeholder="Notes"
+                    value={newExpense.notes}
+                    onChange={handleExpenseInputChange}
+                    className="w-full border rounded-md p-2 pl-10 text-black"
+                  />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Add Trip</label>
+                <select
+                  name="addTrip"
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Trip</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeExpenseModal}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+              >
+                Close
+              </button>
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                onClick={handleAddExpense}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && modalType === "fuel" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">
+                Add Fuel Expense
+              </h2>
+              <button
+                onClick={closeEditExpenseModal}
+                className="text-black hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Amount*</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="amountPaid"
+                    placeholder="Enter Amount"
+                    value={editingExpense.amountPaid}
+                    onChange={handleEditExpenseInputChange}
+                    className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">₹</span>
+                </div>
+              </div>
+
+              <div className="flex mb-4 gap-4">
+                <div className="flex-1">
+                  <label className="block text-black mb-1">Fuel Quantity</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="fuelQuantity"
+                      placeholder="Fuel Quantity"
+                      value={editingExpense.fuelQuantity}
+                      onChange={handleEditExpenseInputChange}
+                      className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                    />
+                    <span className="absolute right-3 top-2.5 text-black">
+                      L
+                    </span>
+                  </div>
+                  <div className="text-sm mt-1 text-black">Optional</div>
+                </div>
+
+                <div className="flex-1">
+                  <label className="block text-black mb-1">
+                    Rate per litre
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="ratePerLitre"
+                      placeholder="Rate per litre"
+                      value={
+                        editingExpense.fuelQuantity > 0
+                          ? editingExpense.amountPaid /
+                            editingExpense.fuelQuantity
+                          : ""
+                      }
+                      readOnly
+                      className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                    />
+                    <span className="absolute right-3 top-2.5 text-black">
+                      ₹
+                    </span>
+                  </div>
+                  <div className="text-black text-sm mt-1">Optional</div>
+                </div>
+              </div>
+
+              {/* <div className="mb-4 flex items-center">
+                    <span className="mr-2 text-black">
+                      I have filled full tank
+                    </span>
+                    <div className="w-10 h-6 bg-gray-300 rounded-full relative">
+                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div>
+                    </div>
+                  </div> */}
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">
+                  Current KM Reading
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="currentKmReading"
+                    value={editingExpense.currentKmReading}
+                    onChange={handleEditExpenseInputChange}
+                    placeholder="Current KM Reading"
+                    className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">
+                    KMs
+                  </span>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Date*</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="expenseDate"
+                    value={editingExpense.expenseDate}
+                    onChange={handleEditExpenseInputChange}
+                    className="w-full border rounded-md p-2 text-black"
+                  />
+                </div>
+              </div>
+
+              {/* <div className="mb-4">
+                    <button className="bg-blue-100 text-blue-500 p-2 rounded-md">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </button>
+                  </div> */}
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Payment Mode*</label>
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={`px-4 py-2 rounded-md text-sm ${
+                        editingExpense.paymentMode === option
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      name="paymentMode"
+                      onClick={() => {
+                        setEditingExpense({
+                          ...editingExpense,
+                          paymentMode: option,
+                        });
+                        setPaymentMode(option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Add Trip</label>
+                <select
+                  name="addTrip"
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Trip</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeEditExpenseModal}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+              >
+                Close
+              </button>
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                onClick={handleEditExpense}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* General Expense Modal */}
+      {showEditModal && modalType === "maintenance" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">
+                Add Expense / Purchase
+              </h2>
+              <button
+                onClick={closeEditExpenseModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Type*</label>
+                <select
+                  name="expenseType"
+                  value={editingExpense.expenseType}
+                  onChange={handleEditExpenseInputChange}
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Expense Type</option>
+                  {expenseTypeOptionsMaintenance.map((type, index) => (
+                    <option key={index} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Amount Paid*</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="amountPaid"
+                    value={editingExpense.amountPaid}
+                    onChange={handleEditExpenseInputChange}
+                    placeholder="Amount Paid"
+                    className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">₹</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Date*</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="expenseDate"
+                    value={editingExpense.expenseDate}
+                    onChange={handleEditExpenseInputChange}
+                    className="w-full border rounded-md p-2 text-black"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Payment Mode*</label>
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={`px-4 py-2 rounded-md text-sm ${
+                        editingExpense.paymentMode === option
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      name="paymentMode"
+                      onClick={() => {
+                        setEditingExpense({
+                          ...editingExpense,
+                          paymentMode: option,
+                        });
+                        setPaymentMode(option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">
+                  Current KM Reading
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="currentKmReading"
+                    value={editingExpense.currentKmReading}
+                    onChange={handleEditExpenseInputChange}
+                    placeholder="Current KM Reading"
+                    className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">
+                    KMs
+                  </span>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Add Trip</label>
+                <select
+                  name="addTrip"
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Trip</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeEditExpenseModal}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+              >
+                Close
+              </button>
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                onClick={handleEditExpense}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Driver/Other Expense Modal */}
+      {showEditModal && modalType === "driver" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-medium text-black">
+                Add Driver / Other Expense
+              </h2>
+              <button
+                onClick={closeEditExpenseModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Type*</label>
+                <select
+                  name="expenseType"
+                  value={editingExpense.expenseType}
+                  onChange={handleEditExpenseInputChange}
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Expense Type</option>
+                  {expenseTypeOptionsDriver.map((type, index) => (
+                    <option key={index} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Amount Paid*</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="amountPaid"
+                    value={editingExpense.amountPaid}
+                    onChange={handleEditExpenseInputChange}
+                    placeholder="Amount Paid"
+                    className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                  />
+                  <span className="absolute right-3 top-2.5 text-black">₹</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Expense Date*</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="expenseDate"
+                    value={editingExpense.expenseDate}
+                    onChange={handleEditExpenseInputChange}
+                    className="w-full border rounded-md p-2 text-black"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Payment Mode*</label>
+                <div className="flex flex-wrap gap-2">
+                  {paymentOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={`px-4 py-2 rounded-md text-sm ${
+                        editingExpense.paymentMode === option
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      name="paymentMode"
+                      onClick={() => {
+                        setEditingExpense({
+                          ...editingExpense,
+                          paymentMode: option,
+                        });
+                        setPaymentMode(option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-black mb-1">Notes</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-black">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <line x1="21" y1="6" x2="3" y2="6" />
+                      <line x1="21" y1="12" x2="3" y2="12" />
+                      <line x1="21" y1="18" x2="3" y2="18" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    name="notes"
+                    placeholder="Notes"
+                    value={editingExpense.notes}
+                    onChange={handleEditExpenseInputChange}
+                    className="w-full border rounded-md p-2 pl-10 text-black"
+                  />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-black mb-1">Add Trip</label>
+                <select
+                  name="addTrip"
+                  className="w-full border rounded-md p-2 text-black"
+                >
+                  <option value="">Select Trip</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t">
+              <button
+                onClick={closeEditExpenseModal}
+                className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+              >
+                Close
+              </button>
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                onClick={handleEditExpense}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteExpenseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setShowDeleteExpenseModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete Expense for{" "}
+                <span className="font-semibold">{trip.truck.truckNo}</span>?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowDeleteExpenseModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteExpense}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Delivered Popup - Integrated directly into this component */}
+      {tripCompletePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 text-black">
+          <div className="bg-white rounded shadow-lg w-full max-w-md mx-4">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b">
+              <h2 className="text-xl font-medium">Mark Delivered</h2>
+              <button
+                onClick={() => setTripCompletePopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Trip End Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="tripEndDate"
+                      onChange={handleProgressBarInputChange}
+                      value={updatedTrip.tripEndDate}
+                      className="w-full border rounded-md p-2 text-black"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    End KMs
+                  </label>
+                  <input
+                    type="text"
+                    value={updatedTrip.endKmsReading}
+                    onChange={handleProgressBarInputChange}
+                    name="endKmsReading"
+                    className="border rounded py-2 px-3 w-full"
+                    placeholder="KMs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t">
+              <button
+                onClick={() => setTripCompletePopup(false)}
+                className="px-4 py-2 border rounded text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={submitTripEnd}
+                className="px-4 py-2 rounded bg-primary text-white hover:bg-gray-800"
+              >
+                Mark Delivered
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark POD Received Popup */}
+      {showPODReceivedPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 text-black">
+          <div className="bg-white rounded shadow-lg w-full max-w-md mx-4">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b">
+              <h2 className="text-xl font-medium">Mark POD Received</h2>
+              <button
+                onClick={() => setShowPODReceivedPopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    POD Received On *
+                  </label>
+                  <div className="relative">
+                    <input
+                      value={updatedTrip.PODReceivedDate}
+                      onChange={handleProgressBarInputChange}
+                      type="date"
+                      name="PODReceivedDate"
+                      className="w-full border rounded-md p-2 text-black"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <button className="flex items-center gap-2 text-blue-600 px-4 py-2 border border-blue-600 rounded">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    Add Image
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t">
+              <button
+                onClick={() => setShowPODReceivedPopup(false)}
+                className="px-4 py-2 border rounded text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={submitTripEnd}
+                className="px-4 py-2 rounded bg-primary text-white hover:bg-gray-800"
+              >
+                Mark POD Received
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark POD Submitted Popup */}
+      {showPODSubmittedPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 text-black">
+          <div className="bg-white rounded shadow-lg w-full max-w-md mx-4">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b">
+              <h2 className="text-xl font-medium">Mark POD Submitted</h2>
+              <button
+                onClick={() => setShowPODSubmittedPopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    POD Submitted On *
+                  </label>
+                  <div className="relative">
+                    <input
+                      value={updatedTrip.PODSubmittedDate}
+                      onChange={handleProgressBarInputChange}
+                      type="date"
+                      name="PODSubmittedDate"
+                      className="w-full border rounded-md p-2 text-black"
+                    />
+                  </div>
+                </div>
+
+                {/* <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm">Payment Reminder After</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <select 
+                      value={reminderDays}
+                      onChange={(e) => setReminderDays(e.target.value)}
+                      className="border rounded py-1 px-2"
+                    >
+                      <option value="7 days">7 days</option>
+                      <option value="14 days">14 days</option>
+                      <option value="30 days">30 days</option>
+                    </select>
+                    
+                    <div className="relative inline-block w-10 align-middle select-none">
+                      <input 
+                        type="checkbox" 
+                        id="toggle"
+                        checked={enablePaymentReminder}
+                        onChange={() => setEnablePaymentReminder(!enablePaymentReminder)} 
+                        className="opacity-0 absolute h-0 w-0"
+                      />
+                      <label 
+                        htmlFor="toggle" 
+                        className={`block overflow-hidden h-6 rounded-full cursor-pointer ${enablePaymentReminder ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        style={{ width: '40px', transition: 'background-color 0.3s' }}
+                      >
+                        <span 
+                          className={`block h-5 w-5 ml-0.5 mt-0.5 rounded-full bg-white transform ${enablePaymentReminder ? 'translate-x-4' : ''}`}
+                          style={{ transition: 'transform 0.3s' }}
+                        ></span>
+                      </label>
+                    </div>
+                  </div>
+                </div> */}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t">
+              <button
+                onClick={() => setShowPODSubmittedPopup(false)}
+                className="px-4 py-2 border rounded text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={submitTripEnd}
+                className="px-4 py-2 rounded bg-primary text-white hover:bg-gray-800"
+              >
+                Mark POD Submitted
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settle Party Balance Popup */}
+      {showSettleBalancePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 text-black">
+          <div className="bg-white rounded shadow-lg w-full max-w-md mx-4">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b">
+              <h2 className="text-xl font-medium">Settle Party Balance</h2>
+              <button
+                onClick={() => setShowSettleBalancePopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Settle Amount *
+                  </label>
+                  <input
+                    type="text"
+                    value={trip.partyFreightAmount}
+                    readOnly
+                    className="border rounded py-2 px-3 w-full"
+                    placeholder="Amount"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">
+                    Payment Mode *
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      "Cash",
+                      "Cheque",
+                      "UPI",
+                      "Bank Transfer",
+                      "Fuel",
+                      "Others",
+                    ].map((mode) => (
+                      <div key={mode} className="flex items-center">
+                        <input
+                          type="radio"
+                          id={mode}
+                          checked={settlementMode === mode}
+                          onChange={() => setSettlementMode(mode)}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label
+                          htmlFor={mode}
+                          className="ml-2 text-sm text-gray-700"
+                        >
+                          {mode}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Settlement Date *
+                  </label>
+                  <div className="relative">
+                    <input
+                      value={updatedTrip.settlementDate}
+                      onChange={handleProgressBarInputChange}
+                      type="date"
+                      name="settlementDate"
+                      className="w-full border rounded-md p-2 text-black"
+                    />
+                  </div>
+                </div>
+
+                {/* <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-700">Received By Driver</label>
+                  <div className="relative inline-block w-10 align-middle select-none">
+                    <input 
+                      type="checkbox" 
+                      id="driver-toggle"
+                      checked={updatedTrip.receivedByDriver}
+                      onChange={() => setReceivedByDriver(!receivedByDriver)}
+                      className="opacity-0 absolute h-0 w-0"
+                    />
+                    <label 
+                      htmlFor="driver-toggle" 
+                      className={`block overflow-hidden h-6 rounded-full cursor-pointer ${receivedByDriver ? 'bg-blue-600' : 'bg-gray-300'}`}
+                      style={{ width: '40px', transition: 'background-color 0.3s' }}
+                    >
+                      <span 
+                        className={`block h-5 w-5 ml-0.5 mt-0.5 rounded-full bg-white transform ${receivedByDriver ? 'translate-x-4' : ''}`}
+                        style={{ transition: 'transform 0.3s' }}
+                      ></span>
+                    </label>
+                  </div>
+                </div> */}
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <div className="border rounded overflow-hidden">
+                    <div className="border-b px-3 py-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-gray-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M4 12h16m-7 6h7"
+                        />
+                      </svg>
+                    </div>
+                    <textarea
+                      value={updatedTrip.settlementNotes}
+                      name="settlementNotes"
+                      onChange={handleProgressBarInputChange}
+                      className="w-full px-3 py-2 focus:outline-none resize-none"
+                      placeholder="Enter Notes"
+                      rows={3}
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t">
+              <button
+                onClick={() => setShowSettleBalancePopup(false)}
+                className="px-4 py-2 border rounded text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={submitTripEnd}
+                className="px-4 py-2 rounded bg-primary text-white hover:bg-gray-800"
+              >
+                Settle Party Balance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddRouteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Add New Route
+              </h2>
+              <button
+                onClick={() => {
+                  setIsAddRouteModalOpen(false);
+                  setNewRoute({ consigner: "", consignee: "" });
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <form>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Consigner <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex">
+                    <select
+                      value={newRoute.consigner}
+                      name="consigner"
+                      onChange={handleNewRouteChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                    >
+                      <option value="">-- Select a consigner --</option>
+                      {consigners.map((consigner) => (
+                        <option key={consigner.id} value={consigner.id}>
+                          {consigner.name} (GST: {consigner.gstNumber})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddConsignerPopup(true)}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <div className="pointer-events-none absolute inset-y-0 right-10 flex items-center px-2 text-gray-700">
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Consignee <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex">
+                    <select
+                      value={newRoute.consignee}
+                      name="consignee"
+                      onChange={handleNewRouteChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                    >
+                      <option value="">-- Select a consignee --</option>
+                      {consignees.map((consignee) => (
+                        <option key={consignee.id} value={consignee.id}>
+                          {consignee.name} (GST: {consignee.gstNumber})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddConsigneePopup(true);
+                        console.log(showAddConsigneePopup);
+                      }}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <div className="pointer-events-none absolute inset-y-0 right-10 flex items-center px-2 text-gray-700">
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddRouteModalOpen(false);
+                    setNewRoute({ consigner: "", consignee: "" });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddRoute()}
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isEditRouteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Add New Route
+              </h2>
+              <button
+                onClick={() => {
+                  setIsEditRouteModalOpen(false);
+                  setNewRoute({ consigner: "", consignee: "" });
+                  setRouteIndex(-1);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <form>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Consigner <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex">
+                    <select
+                      value={newRoute.consigner}
+                      name="consigner"
+                      onChange={handleNewRouteChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                    >
+                      <option value="">-- Select a consigner --</option>
+                      {consigners.map((consigner) => (
+                        <option key={consigner.id} value={consigner.id}>
+                          {consigner.name} (GST: {consigner.gstNumber})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddConsignerPopup(true)}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <div className="pointer-events-none absolute inset-y-0 right-10 flex items-center px-2 text-gray-700">
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Consignee <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex">
+                    <select
+                      value={newRoute.consignee}
+                      name="consignee"
+                      onChange={handleNewRouteChange}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                    >
+                      <option value="">-- Select a consignee --</option>
+                      {consignees.map((consignee) => (
+                        <option key={consignee.id} value={consignee.id}>
+                          {consignee.name} (GST: {consignee.gstNumber})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddConsigneePopup(true);
+                        console.log(showAddConsigneePopup);
+                      }}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <div className="pointer-events-none absolute inset-y-0 right-10 flex items-center px-2 text-gray-700">
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditRouteModalOpen(false);
+                    setNewRoute({ consigner: "", consignee: "" });
+                    setRouteIndex(-1);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleEditRoute()}
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showAddConsignerPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 text-black">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Add New Consigner</h2>
+              <button
+                onClick={() => setShowAddConsignerPopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-1 font-medium">GST Number</label>
+                <input
+                  type="text"
+                  name="gstNumber"
+                  value={newConsigner.gstNumber}
+                  onChange={handleInputConsignerChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">
+                  Consigner Name*
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={newConsigner.name}
+                  onChange={handleInputConsignerChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Address Line 1</label>
+                <input
+                  type="text"
+                  name="addressLine1"
+                  value={newConsigner.addressLine1}
+                  onChange={handleInputConsignerChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Address Line 2</label>
+                <input
+                  type="text"
+                  name="addressLine2"
+                  value={newConsigner.addressLine2}
+                  onChange={handleInputConsignerChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1 font-medium">State</label>
+                  <select
+                    name="state"
+                    value={newConsigner.state}
+                    onChange={handleInputConsignerChange}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="Maharashtra">Maharashtra</option>
+                    <option value="Gujarat">Gujarat</option>
+                    <option value="Karnataka">Karnataka</option>
+                    <option value="Tamil Nadu">Tamil Nadu</option>
+                    <option value="Delhi">Delhi</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block mb-1 font-medium">Pincode</label>
+                  <input
+                    type="text"
+                    name="pincode"
+                    value={newConsigner.pincode}
+                    onChange={handleInputConsignerChange}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Mobile Number</label>
+                <input
+                  type="text"
+                  name="mobileNumber"
+                  value={newConsigner.mobileNumber}
+                  onChange={handleInputConsignerChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowAddConsignerPopup(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddConsigner}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md"
+                >
+                  Save Consigner
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAddConsigneePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 text-black">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Add New Consignee</h2>
+              <button
+                onClick={() => setShowAddConsigneePopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-1 font-medium">GST Number</label>
+                <input
+                  type="text"
+                  name="gstNumber"
+                  value={newConsignee.gstNumber}
+                  onChange={handleInputConsigneeChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">
+                  Consigner Name*
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={newConsignee.name}
+                  onChange={handleInputConsigneeChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Address Line 1</label>
+                <input
+                  type="text"
+                  name="addressLine1"
+                  value={newConsignee.addressLine1}
+                  onChange={handleInputConsigneeChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Address Line 2</label>
+                <input
+                  type="text"
+                  name="addressLine2"
+                  value={newConsignee.addressLine2}
+                  onChange={handleInputConsigneeChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1 font-medium">State</label>
+                  <select
+                    name="state"
+                    value={newConsignee.state}
+                    onChange={handleInputConsigneeChange}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="Maharashtra">Maharashtra</option>
+                    <option value="Gujarat">Gujarat</option>
+                    <option value="Karnataka">Karnataka</option>
+                    <option value="Tamil Nadu">Tamil Nadu</option>
+                    <option value="Delhi">Delhi</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block mb-1 font-medium">Pincode</label>
+                  <input
+                    type="text"
+                    name="pincode"
+                    value={newConsignee.pincode}
+                    onChange={handleInputConsigneeChange}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-1 font-medium">Mobile Number</label>
+                <input
+                  type="text"
+                  name="mobileNumber"
+                  value={newConsignee.mobileNumber}
+                  onChange={handleInputConsigneeChange}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowAddConsigneePopup(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddConsignee}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md"
+                >
+                  Save Consignee
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeleteRouteConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => {
+                  setIsDeleteRouteConfirmOpen(false);
+                  setNewRoute({ consigner: "", consignee: "" });
+                  setRouteIndex(-1);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete route for{" "}
+                <span className="font-semibold">
+                  {consigners.find((c) => c.id == newRoute.consigner).name}
+                  {" : "}
+                  {consigners.find((c) => c.id == newRoute.consigner).gstNumber}
+                  {" - "}
+                  {consignees.find((c) => c.id == newRoute.consignee).name}
+                  {" : "}
+                  {consignees.find((c) => c.id == newRoute.consignee).gstNumber}
+                </span>
+                ? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setIsDeleteRouteConfirmOpen(false);
+                  setNewRoute({ consigner: "", consignee: "" });
+                  setRouteIndex(-1);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteRoute}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

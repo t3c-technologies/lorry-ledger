@@ -34,6 +34,52 @@ export const API_ENDPOINTS = {
     detail: (id) => `trucks/${id}/`,
     update: (id) => `trucks/${id}/update/`,
     delete: (id) => `trucks/${id}/delete/`,
+    expenses: (truckId) => `trucks/${truckId}/expenses`,
+    expensesCreate: (truckId) => `trucks/${truckId}/expenses/create`,
+    expensesUpdate: (id) => `trucks/expenses/${id}/update`,
+    expensesDelete: (id) => `trucks/expenses/${id}/delete`,
+  },
+
+  parties: {
+    list: `parties/`,
+    create: `parties/create/`,
+    detail: (id) => `parties/${id}/`,
+    update: (id) => `parties/${id}/update/`,
+    delete: (id) => `parties/${id}/delete/`,
+  },
+
+  suppliers: {
+    list: `suppliers/`,
+    create: `suppliers/create/`,
+    detail: (id) => `suppliers/${id}/`,
+    update: (id) => `suppliers/${id}/update/`,
+    delete: (id) => `suppliers/${id}/delete/`,
+  },
+
+  trips: {
+    list: `trips/`,
+    create: `trips/create/`,
+    detail: (id) => `trips/${id}/`,
+    update: (id) => `trips/${id}/update/`,
+    delete: (id) => `trips/${id}/delete/`,
+  },
+
+  consigners: {
+    list: `consigners/`,
+    create: `consigners/create/`,
+  },
+
+  consignees: {
+    list: `consignees/`,
+    create: `consignees/create/`,
+  },
+
+  LR: {
+    listAll: `LR/`,
+    list: (tripId) => `${tripId}/LR/`,
+    create: `LR/create/`,
+    update: (id) => `LR/${id}/update/`,
+    delete: (id) => `LR/${id}/delete/`,
   },
 };
 

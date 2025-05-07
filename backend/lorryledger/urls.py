@@ -30,7 +30,32 @@ from .views import (
     TruckCreateView,
     TruckDetailView,
     TruckUpdateView,
-    TruckDeleteView
+    TruckDeleteView,
+    ExpenseCreateView,
+    ExpenseListView,
+    ExpenseUpdateView,
+    ExpenseDeleteView,
+    PartyCreateView,
+    PartyListView,
+    PartyUpdateView,
+    PartyDeleteView,
+    SupplierCreateView,
+    SupplierListView,
+    SupplierUpdateView,
+    SupplierDetailView,
+    SupplierDeleteView,
+    TripCreateView,
+    TripListView,
+    TripUpdateView,
+    TripDeleteView,
+    ConsginerCreateView,
+    ConsignerListView,
+    ConsgineeCreateView,
+    ConsigneeListView,
+    LRCreateView,
+    LRListView,
+    LRUpdateView,
+    LRDeleteView
 )
 
 urlpatterns = [
@@ -57,4 +82,43 @@ urlpatterns = [
     path('api/trucks/<int:id>/', TruckDetailView.as_view(), name='truck_detail'),
     path('api/trucks/<int:id>/update/', TruckUpdateView.as_view(), name='truck_update'),
     path('api/trucks/<int:id>/delete/', TruckDeleteView.as_view(), name='truck_delete'),
+
+    #Expenses
+    path('api/trucks/<int:truckId>/expenses', ExpenseListView.as_view(), name='expense_list'),
+    path('api/trucks/<int:truckId>/expenses/create', ExpenseCreateView.as_view(), name='expense_create'),
+    path('api/trucks/expenses/<int:id>/update', ExpenseUpdateView.as_view(), name='expense_update'),
+    path('api/trucks/expenses/<int:id>/delete', ExpenseDeleteView.as_view(), name='expense_delete'),
+
+    #Parties
+    path('api/parties/', PartyListView.as_view(), name='party_list'),
+    path('api/parties/create/', PartyCreateView.as_view(), name='party_create'),
+    path('api/parties/<int:id>/update/', PartyUpdateView.as_view(), name='party_update'),
+    path('api/parties/<int:id>/delete/', PartyDeleteView.as_view(), name='party_delete'),
+
+    #Suppliers
+    path('api/suppliers/', SupplierListView.as_view(), name='supplier_list'),
+    path('api/suppliers/create/', SupplierCreateView.as_view(), name='supplier_create'),
+    path('api/suppliers/<int:id>/update/', SupplierUpdateView.as_view(), name='supplier_update'),
+    path('api/suppliers/<int:id>/delete/', SupplierDeleteView.as_view(), name='supplier_delete'),
+
+    #Trips
+    path('api/trips/', TripListView.as_view(), name='trip_list'),
+    path('api/trips/create/', TripCreateView.as_view(), name='trip_create'),
+    path('api/trips/<int:id>/update/', TripUpdateView.as_view(), name='trip_update'),
+    path('api/trips/<int:id>/delete/', TripDeleteView.as_view(), name='trip_delete'),
+
+    #Consigner
+    path('api/consigners/', ConsignerListView.as_view(), name='consigner_list'),
+    path('api/consigners/create/', ConsginerCreateView.as_view(), name='consigner_create'),
+
+    #Consignee
+    path('api/consignees/', ConsigneeListView.as_view(), name='consignee_list'),
+    path('api/consignees/create/', ConsgineeCreateView.as_view(), name='consignee_create'),
+
+    #LR
+    path('api/LR/', LRListView.as_view(), name='lr_list'),
+    path('api/<int:tripId>/LR/', LRListView.as_view(), name='lr_list'),
+    path('api/LR/create/', LRCreateView.as_view(), name='lr_create'),
+    path('api/LR/<int:id>/update/', LRUpdateView.as_view(), name='LR_update'),
+    path('api/LR/<int:id>/delete/', LRDeleteView.as_view(), name='lr_delete'),
 ]

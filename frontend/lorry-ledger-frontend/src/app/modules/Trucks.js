@@ -38,10 +38,13 @@ export default function Trucks() {
 
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
-    amount: "",
-    amountType: "Credit",
-    reason: "",
-    date: new Date().toISOString().split("T")[0],
+    expenseType: "",
+    amountPaid: "",
+    expenseDate: new Date().toISOString().split("T")[0],
+    paymentMode: "Cash",
+    currentKmReading: "",
+    fuelQuantity: "",
+    notes: "",
   });
 
   const [showEditTransactionModal, setShowEditTransactionModal] =
@@ -51,6 +54,7 @@ export default function Trucks() {
 
   const [showDeleteTransactionModal, setShowDeleteTransactionModal] =
     useState(false);
+  const [showDeleteExpenseModal, setShowDeleteExpenseModal] = useState(false);
 
   const handleRowClick = (driver) => {
     setCurrentDriver(driver);
@@ -69,11 +73,16 @@ export default function Trucks() {
   const [nextPage, setNextPage] = useState(null);
   const [prevPage, setPrevPage] = useState(null);
 
-  const [showDriverNameFilterDropdown, setShowDriverNameFilterDropdown] =
+  const [showTruckTypeFilterDropdown, setShowTruckTypeFilterDropdown] =
     useState(false);
 
-  const [showDriverStatusFilterDropdown, setShowDriverStatusFilterDropdown] =
+  const [showTruckStatusFilterDropdown, setShowTruckStatusFilterDropdown] =
     useState(false);
+
+  const [
+    showTruckOwnershipFilterDropdown,
+    setShowTruckOwnershipFilterDropdown,
+  ] = useState(false);
 
   const [newDriver, setNewDriver] = useState({
     truckNo: "",
@@ -91,20 +100,52 @@ export default function Trucks() {
     });
   };
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [modalType, setModalType] = useState(null);
 
   const [showSidebar, setShowSidebar] = useState(false);
   const [billingType, setBillingType] = useState("Fixed");
+  const [paymentMode, setPaymentMode] = useState("Cash");
   const [showMoreDetails, setShowMoreDetails] = useState(false);
 
   const openModal = (type) => {
     setModalType(type);
     setShowModal(true);
+    if (type == "fuel") {
+      newTransaction.expenseType = "Fuel Expense";
+    }
+  };
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingTransaction({
+      expenseType: "",
+      amountPaid: "",
+      expenseDate: new Date().toISOString().split("T")[0],
+      paymentMode: "Cash",
+      currentKmReading: "",
+      fuelQuantity: "",
+      dieselPumpName: "",
+      notes: "",
+    });
+    setModalType(null);
+    setPaymentMode("Cash");
   };
 
   const closeModal = () => {
     setShowModal(false);
+    setNewTransaction({
+      expenseType: "",
+      amountPaid: "",
+      expenseDate: new Date().toISOString().split("T")[0],
+      paymentMode: "Cash",
+      currentKmReading: "",
+      fuelQuantity: "",
+      dieselPumpName: "",
+      notes: "",
+    });
     setModalType(null);
+    setPaymentMode("Cash");
+    console.log(newTransaction);
   };
   const extractNextPage = (fullUrl) => {
     if (!fullUrl) return null; // Handle undefined or null cases
@@ -157,26 +198,58 @@ export default function Trucks() {
     "Per Bag",
   ];
 
-  const toggleDriverNameFilterDropdown = () => {
-    setShowDriverNameFilterDropdown(!showDriverNameFilterDropdown);
+  const expenseTypeOptionsMaintenance = [
+    "Showroom Service",
+    "Regular Service",
+    "Minor Repair",
+    "Gear Maintenance",
+    "Brake Oil Change",
+    "Grease Oil Change",
+    "Engine Oil Change",
+    "Spare Parts Purhcase",
+    "Air Filter Change",
+    "Tyre Purchase",
+    "Tyre Retread",
+    "Tyre Puncture",
+    "Roof Top Repair",
+  ];
+  const expenseTypeOptionsDriver = [
+    "Driver Batta",
+    "Driver Payment",
+    "Loading Charges",
+    "Unloading Charges",
+    "Detention Charges",
+    "Union Charges",
+    "Toll Expense",
+    "Police Expense",
+    "RTO Expense",
+    "Brokerage Expense",
+    "Other Expense",
+  ];
+  const paymentOptions = ["Cash", "Credit", "Paid by Driver", "Online"];
+
+  const toggleTruckTypeFilterDropdown = () => {
+    setShowTruckTypeFilterDropdown(!showTruckTypeFilterDropdown);
   };
 
-  const toggleDriverStatusFilterDropdown = () => {
-    setShowDriverStatusFilterDropdown(!showDriverStatusFilterDropdown);
+  const toggleTruckOwnershipFilterDropdown = () => {
+    setShowTruckOwnershipFilterDropdown(!showTruckOwnershipFilterDropdown);
+  };
+
+  const toggleTruckStatusFilterDropdown = () => {
+    setShowTruckStatusFilterDropdown(!showTruckStatusFilterDropdown);
   };
 
   const fetchTransactions = async (driver) => {
     try {
       console.log(driver);
 
-      const response = await api.get(
-        API_ENDPOINTS.drivers.transactions(driver.id),
-        {
-          page: currentPage,
-          page_size: recordsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
-        }
-      );
+      const response = await api.get(API_ENDPOINTS.trucks.expenses(driver.id), {
+        page: currentPage,
+        page_size: recordsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
+      });
       setTransactions(response.data);
+      console.log(transactions);
     } catch (error) {
       console.log(error);
       notifyError("Error fetching Transactions");
@@ -214,9 +287,13 @@ export default function Trucks() {
         if (showAddTransactionModal) {
           setShowAddTransactionModal(false);
           setNewTransaction({
-            amount: "",
-            amountType: "Credit",
-            date: new Date().toISOString().split("T")[0],
+            expenseType: "",
+            amountPaid: "",
+            expenseDate: new Date().toISOString().split("T")[0],
+            paymentMode: "Cash",
+            currentKmReading: "",
+            fuelQuantity: "",
+            notes: "",
           });
           return; // Exit the function to prevent other modals from closing
         }
@@ -234,10 +311,16 @@ export default function Trucks() {
         setIsViewTruckModalOpen(false);
         setIsDeleteConfirmOpen(false);
         setShowTransactionsModal(false);
-        setShowDriverNameFilterDropdown(false);
-        setShowDriverStatusFilterDropdown(false);
+        setShowTruckTypeFilterDropdown(false);
+        setShowTruckOwnershipFilterDropdown(false);
+        setShowTruckStatusFilterDropdown(false);
         // Reset states if needed
-        setNewDriver({ name: "", phone_number: "", status: "available" });
+        setNewDriver({
+          truckNo: "",
+          truckType: "",
+          ownership: "",
+          truckStatus: "available",
+        });
         setCurrentDriver(null);
         setIsEditMode(false);
       }
@@ -261,8 +344,9 @@ export default function Trucks() {
     setIsEditTruckModalOpen,
     setIsViewTruckModalOpen,
     setIsDeleteConfirmOpen,
-    setShowDriverNameFilterDropdown,
-    setShowDriverStatusFilterDropdown,
+    setShowTruckTypeFilterDropdown,
+    setShowTruckStatusFilterDropdown,
+    setShowTruckOwnershipFilterDropdown,
     setNewDriver,
     setCurrentDriver,
     setIsEditMode,
@@ -477,11 +561,6 @@ export default function Trucks() {
   // Function to close add transaction modal
   const closeAddTransactionModal = () => {
     setShowAddTransactionModal(false);
-    setNewTransaction({
-      amount: "",
-      amountType: "Credit",
-      date: new Date().toISOString().split("T")[0],
-    });
   };
 
   // Function to handle input change in add transaction form
@@ -492,24 +571,27 @@ export default function Trucks() {
       const updatedTransaction = { ...prev, [name]: value };
       return updatedTransaction;
     });
-    console.log(showAddTransactionModal);
   };
   // Function to add a new transaction
-  const handleAddTransaction = async (e) => {
+  const handleAddExpense = async (e) => {
     e.preventDefault();
 
-    const transaction = {
-      driverId: selectedDriver.id,
-      amount: parseFloat(newTransaction.amount),
-      reason: newTransaction.reason,
-      amountType: newTransaction.amountType,
-      date: newTransaction.date,
+    const expense = {
+      truckId: selectedDriver.id,
+      expenseType: newTransaction.expenseType,
+      amountPaid: parseFloat(newTransaction.amountPaid),
+      fuelQuantity: newTransaction.fuelQuantity,
+      expenseDate: newTransaction.expenseDate,
+      notes: newTransaction.notes,
+      paymentMode: newTransaction.paymentMode,
+      currentKmReading: newTransaction.currentKmReading,
     };
+    console.log(expense);
 
     try {
       await api.post(
-        API_ENDPOINTS.drivers.transactionsCreate(selectedDriver.id),
-        transaction,
+        API_ENDPOINTS.trucks.expensesCreate(selectedDriver.id),
+        expense,
         {
           headers: {
             "Content-Type": "application/json", // Explicitly set header
@@ -517,8 +599,18 @@ export default function Trucks() {
         }
       );
       console.log(selectedDriver);
-      notifySuccess("Transaction added successfully");
+      setNewTransaction({
+        expenseType: "",
+        amountPaid: "",
+        expenseDate: new Date().toISOString().split("T")[0],
+        paymentMode: "Cash",
+        currentKmReading: "",
+        fuelQuantity: "",
+        notes: "",
+      });
+      notifySuccess("Expense added successfully");
       fetchTransactions(selectedDriver);
+      closeModal();
       closeAddTransactionModal();
     } catch (error) {
       notifyError("Error adding driver");
@@ -527,9 +619,18 @@ export default function Trucks() {
   const openEditTransactionModal = (transaction) => {
     setEditingTransaction({
       ...transaction,
-      amount: transaction.amount.toString(),
+      amountPaid: transaction.amountPaid.toString(),
     });
-    setShowEditTransactionModal(true);
+    if (transaction.expenseType == "Fuel Expense") {
+      setModalType("fuel");
+    } else if (
+      expenseTypeOptionsMaintenance.includes(transaction.expenseType)
+    ) {
+      setModalType("maintenance");
+    } else {
+      setModalType("driver");
+    }
+    setShowEditModal(true);
   };
 
   // Function to close edit transaction modal
@@ -545,6 +646,52 @@ export default function Trucks() {
       ...editingTransaction,
       [name]: value,
     });
+  };
+  const handleDeleteExpenseClick = (expense) => {
+    console.log(selectedDriver);
+    console.log("Hi");
+    console.log(currentDriver);
+
+    setShowDeleteExpenseModal(true);
+    setCurrentTransaction(expense);
+  };
+
+  const handleDeleteExpense = async (e) => {
+    e.preventDefault();
+    try {
+      await api.delete(
+        API_ENDPOINTS.trucks.expensesDelete(currentTransaction.id)
+      );
+      notifyInfo("Expense deleted successfully");
+      fetchTransactions(selectedDriver);
+      setShowDeleteExpenseModal(false);
+      setCurrentTransaction(null);
+    } catch {
+      notifyError("Error deleting expense");
+    }
+  };
+
+  const handleEditExpense = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(
+        API_ENDPOINTS.trucks.expensesUpdate(editingTransaction.id),
+        editingTransaction,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      console.log(editingTransaction);
+
+      fetchTransactions(selectedDriver);
+      notifySuccess("Expense edited successfully");
+      closeEditModal();
+      closeAddTransactionModal();
+    } catch (error) {
+      notifyError("Error updating expense");
+    }
   };
 
   const handleUpdateTransaction = async (e) => {
@@ -635,10 +782,8 @@ export default function Trucks() {
 
   const totalAmount = useMemo(() => {
     return transactions.reduce((total, transaction) => {
-      const amount = parseFloat(transaction.amount);
-      return transaction.amountType === "Credit"
-        ? total + amount
-        : total - amount;
+      const amount = parseFloat(transaction.amountPaid);
+      return total - amount;
     }, 0);
   });
 
@@ -707,22 +852,24 @@ export default function Trucks() {
   };
 
   const toggleEditMode = () => {
+    console.log("Hiii");
+
     if (isEditMode) {
       // If in edit mode, call the shared edit handler with fromViewModal=true
       handleEditTruckFormSubmit(null, true);
+      console.log(newDriver);
     } else {
       // If in view mode, close the view modal and open the edit modal instead
       setIsViewTruckModalOpen(false); // Close view modal
-
       // Open edit modal with current driver data
       setNewDriver({
-        name: currentDriver.name,
-        phone_number: currentDriver.phone_number,
-        status: currentDriver.status,
-        aadhar_number: currentDriver.aadhar_number,
-        license_number: currentDriver.license_number,
-        license_expiry_date: currentDriver.license_expiry_date,
+        truckNo: currentDriver.truckNo,
+        truckType: currentDriver.truckType,
+        ownership: currentDriver.ownership,
+        truckStatus: currentDriver.truckStatus,
       });
+
+      console.log(newDriver);
 
       // Open the regular edit modal
       setIsEditTruckModalOpen(true);
@@ -887,37 +1034,275 @@ export default function Trucks() {
                       {getSortDirectionIcon("truckNo")}
                     </div>
                   </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("truckType")}
-                  >
-                    <div className="flex items-center space-x-1">
+                  <th className="px-6 py-3 text-left cursor-pointer flex">
+                    <div
+                      className="flex items-center space-x-1"
+                      onClick={() => requestSort("truckType")}
+                    >
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         Truck Type
                       </span>
                       {getSortDirectionIcon("truckType")}
                     </div>
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("ownership")}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                        Ownership
-                      </span>
-                      {getSortDirectionIcon("ownership")}
+                    <div className="relative">
+                      <button
+                        onClick={toggleTruckTypeFilterDropdown}
+                        className="px-3 py-2 hover:bg-gray-100 focus:outline-none"
+                      >
+                        {driverFilters.some(
+                          (filter) =>
+                            filter.truckType && filter.truckType.trim() !== ""
+                        ) ? (
+                          <FilterX size={20} className="text-blue-500" />
+                        ) : (
+                          <Filter size={20} className="text-gray-500" />
+                        )}
+                      </button>
+                      {showTruckTypeFilterDropdown && (
+                        <div className="fixed mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                          <div className="p-3">
+                            <div className="flex justify-between">
+                              <h4 className="block mb-2 font-medium text-gray-700">
+                                Search In
+                              </h4>
+                              <button
+                                onClick={toggleTruckTypeFilterDropdown}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-6 w-6"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                            {(driverFilters.some(
+                              (filter) => !("truckType" in filter)
+                            )
+                              ? [
+                                  ...new Set(
+                                    columnFilteredDrivers.map(
+                                      (e) => e.truckType
+                                    )
+                                  ),
+                                ]
+                              : [...new Set(drivers.map((e) => e.truckType))]
+                            ).map((truckType) => (
+                              <label
+                                key={truckType}
+                                className="flex items-center space-x-2 py-1 mb-2 font-medium text-gray-700"
+                              >
+                                <input
+                                  key={truckType}
+                                  type="checkbox"
+                                  checked={driverFilters.some(
+                                    (filter) => filter.truckType === truckType
+                                  )}
+                                  onChange={(event) =>
+                                    handleFilterChange(event, "truckType")
+                                  }
+                                  className="form-checkbox h-4 w-4 text-blue-600"
+                                  value={truckType}
+                                />
+                                <span className="text-sm capitalize">
+                                  {truckType}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("status")}
-                  >
-                    <div className="flex items-center space-x-1">
+                  <th className="px-6 py-3 text-left cursor-pointer">
+                    <div className="flex">
+                      <div
+                        className="flex items-center space-x-1"
+                        onClick={() => requestSort("ownership")}
+                      >
+                        <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                          Ownership
+                        </span>
+                        {getSortDirectionIcon("ownership")}
+                      </div>
+                      <div className="relative">
+                        <button
+                          onClick={toggleTruckOwnershipFilterDropdown}
+                          className="px-3 py-2 hover:bg-gray-100 focus:outline-none"
+                        >
+                          {driverFilters.some(
+                            (filter) =>
+                              filter.ownership && filter.ownership.trim() !== ""
+                          ) ? (
+                            <FilterX size={20} className="text-blue-500" />
+                          ) : (
+                            <Filter size={20} className="text-gray-500" />
+                          )}
+                        </button>
+                        {showTruckOwnershipFilterDropdown && (
+                          <div className="fixed mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                            <div className="p-3">
+                              <div className="flex justify-between">
+                                <h4 className="block mb-2 font-medium text-gray-700">
+                                  Search In
+                                </h4>
+                                <button
+                                  onClick={toggleTruckOwnershipFilterDropdown}
+                                  className="text-gray-500 hover:text-gray-700"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-6 w-6"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                              {(driverFilters.some(
+                                (filter) => !("ownership" in filter)
+                              )
+                                ? [
+                                    ...new Set(
+                                      columnFilteredDrivers.map(
+                                        (e) => e.ownership
+                                      )
+                                    ),
+                                  ]
+                                : [...new Set(drivers.map((e) => e.ownership))]
+                              ).map((ownership) => (
+                                <label
+                                  key={ownership}
+                                  className="flex items-center space-x-2 py-1 mb-2 font-medium text-gray-700"
+                                >
+                                  <input
+                                    key={ownership}
+                                    type="checkbox"
+                                    checked={driverFilters.some(
+                                      (filter) => filter.ownership === ownership
+                                    )}
+                                    onChange={(event) =>
+                                      handleFilterChange(event, "ownership")
+                                    }
+                                    className="form-checkbox h-4 w-4 text-blue-600"
+                                    value={ownership}
+                                  />
+                                  <span className="text-sm capitalize">
+                                    {ownership}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left cursor-pointer flex">
+                    <div
+                      className="flex items-center space-x-1"
+                      onClick={() => requestSort("status")}
+                    >
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         Status
                       </span>
                       {getSortDirectionIcon("status")}
+                    </div>
+                    <div className="relative">
+                      <button
+                        onClick={toggleTruckStatusFilterDropdown}
+                        className="px-3 py-2 hover:bg-gray-100 focus:outline-none"
+                      >
+                        {driverFilters.some(
+                          (filter) =>
+                            filter.truckStatus &&
+                            filter.truckStatus.trim() !== ""
+                        ) ? (
+                          <FilterX size={20} className="text-blue-500" />
+                        ) : (
+                          <Filter size={20} className="text-gray-500" />
+                        )}
+                      </button>
+                      {showTruckStatusFilterDropdown && (
+                        <div className="fixed mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                          <div className="p-3">
+                            <div className="flex justify-between">
+                              <h4 className="block mb-2 font-medium text-gray-700">
+                                Search In
+                              </h4>
+                              <button
+                                onClick={toggleTruckStatusFilterDropdown}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-6 w-6"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                            {(driverFilters.some(
+                              (filter) => !("truckStatus" in filter)
+                            )
+                              ? [
+                                  ...new Set(
+                                    columnFilteredDrivers.map(
+                                      (e) => e.truckStatus
+                                    )
+                                  ),
+                                ]
+                              : [...new Set(drivers.map((e) => e.truckStatus))]
+                            ).map((truckStatus) => (
+                              <label
+                                key={truckStatus}
+                                className="flex items-center space-x-2 py-1 mb-2 font-medium text-gray-700"
+                              >
+                                <input
+                                  key={truckStatus}
+                                  type="checkbox"
+                                  checked={driverFilters.some(
+                                    (filter) =>
+                                      filter.truckStatus === truckStatus
+                                  )}
+                                  onChange={(event) =>
+                                    handleFilterChange(event, "truckStatus")
+                                  }
+                                  className="form-checkbox h-4 w-4 text-blue-600"
+                                  value={truckStatus}
+                                />
+                                <span className="text-sm capitalize">
+                                  {truckStatus}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </th>
                   <th className="px-6 py-3 text-right">
@@ -1042,8 +1427,8 @@ export default function Trucks() {
             {sortedAndFilteredDrivers.length === 0 && (
               <div className="text-center py-8">
                 <p className="text-gray-700 text-base">
-                  No drivers found. Try a different search term or add a new
-                  driver.
+                  No trucks found. Try a different search term or add a new
+                  truck.
                 </p>
               </div>
             )}
@@ -1053,8 +1438,8 @@ export default function Trucks() {
             <div className="fixed inset-y-0 right-0 z-30 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
               <div className="flex justify-between items-center border-b p-6 pb-4">
                 <h2 className="text-xl font-semibold text-gray-800">
-                  Transactions for {selectedDriver.name} -{" "}
-                  {selectedDriver.phone_number}
+                  Transactions for {selectedDriver.truckNo} -{" "}
+                  {selectedDriver.truckType}
                 </h2>
                 <button
                   onClick={closeTransactionModal}
@@ -1119,16 +1504,16 @@ export default function Trucks() {
                 <div>
                   <button
                     onClick={openAddTransactionModal}
-                    className="px-4 py-2 mx-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
                   >
                     + Add Expense
                   </button>
-                  <button
+                  {/* <button
                     onClick={openTripSidebar}
                     className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
                   >
                     + Add Trip
-                  </button>
+                  </button> */}
                 </div>
               </div>
 
@@ -1137,16 +1522,16 @@ export default function Trucks() {
                   <thead className="bg-gray-100 border-b sticky top-0">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        AMOUNT
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        TYPE
+                        DATE
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         REASON
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        DATE
+                        EXPENSES
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        REVENUE
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         ACTIONS
@@ -1160,6 +1545,12 @@ export default function Trucks() {
                         className="hover:bg-gray-50"
                         onClick={() => openEditTransactionModal(transaction)}
                       >
+                        <td className="px-4 py-3 text-black">
+                          {transaction.expenseDate}
+                        </td>
+                        <td className="px-4 py-3 text-black">
+                          {transaction.expenseType}
+                        </td>
                         <td className="px-4 py-3 text-black flex">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1177,25 +1568,15 @@ export default function Trucks() {
                             <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
                             <path d="M7 9l11 0" />
                           </svg>
-                          {transaction.amount}
-                        </td>
-                        <td className="px-4 py-3">
                           <span
-                            className={`inline-block px-2 py-1 rounded-full font-medium ${
-                              transaction.amountType === "Credit"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
+                            className="inline-block px-2 py-1 rounded-full font-medium
+                                bg-red-100 text-red-800"
                           >
-                            {transaction.amountType}
+                            {transaction.amountPaid}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-black">
-                          {transaction.reason}
-                        </td>
-                        <td className="px-4 py-3 text-black">
-                          {transaction.date}
-                        </td>
+                        <td className="px-4 py-3">Null</td>
+
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() =>
@@ -1208,7 +1589,7 @@ export default function Trucks() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteTransactionClick(transaction);
+                              handleDeleteExpenseClick(transaction);
                             }}
                             className="text-red-600 hover:text-red-900"
                           >
@@ -1223,7 +1604,7 @@ export default function Trucks() {
                           colSpan="5"
                           className="px-4 py-3 text-center text-gray-500"
                         >
-                          No transactions found for this driver.
+                          No expenses found for this truck.
                         </td>
                       </tr>
                     )}
@@ -1349,7 +1730,10 @@ export default function Trucks() {
                     <div className="relative">
                       <input
                         type="text"
+                        name="amountPaid"
                         placeholder="Enter Amount"
+                        value={newTransaction.amountPaid}
+                        onChange={handleInputChange}
                         className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
                       />
                       <span className="absolute right-3 top-2.5 text-black">
@@ -1366,8 +1750,11 @@ export default function Trucks() {
                       <div className="relative">
                         <input
                           type="text"
+                          name="fuelQuantity"
                           placeholder="Fuel Quantity"
-                          className="w-full border rounded-md p-2 pl-3 pr-8"
+                          value={newTransaction.fuelQuantity}
+                          onChange={handleInputChange}
+                          className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
                         />
                         <span className="absolute right-3 top-2.5 text-black">
                           L
@@ -1383,7 +1770,15 @@ export default function Trucks() {
                       <div className="relative">
                         <input
                           type="text"
+                          name="ratePerLitre"
                           placeholder="Rate per litre"
+                          value={
+                            newTransaction.fuelQuantity > 0
+                              ? newTransaction.amountPaid /
+                                newTransaction.fuelQuantity
+                              : ""
+                          }
+                          readOnly
                           className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
                         />
                         <span className="absolute right-3 top-2.5 text-black">
@@ -1394,14 +1789,14 @@ export default function Trucks() {
                     </div>
                   </div>
 
-                  <div className="mb-4 flex items-center">
+                  {/* <div className="mb-4 flex items-center">
                     <span className="mr-2 text-black">
                       I have filled full tank
                     </span>
                     <div className="w-10 h-6 bg-gray-300 rounded-full relative">
                       <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div>
                     </div>
-                  </div>
+                  </div> */}
 
                   <div className="mb-4">
                     <label className="block text-black mb-1">
@@ -1410,6 +1805,9 @@ export default function Trucks() {
                     <div className="relative">
                       <input
                         type="text"
+                        name="currentKmReading"
+                        value={newTransaction.currentKmReading}
+                        onChange={handleInputChange}
                         placeholder="Current KM Reading"
                         className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
                       />
@@ -1417,10 +1815,23 @@ export default function Trucks() {
                         KMs
                       </span>
                     </div>
-                    <div className="text-black text-sm mt-1">Optional</div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="expenseDate"
+                        value={newTransaction.expenseDate}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-md p-2 text-black"
+                      />
+                    </div>
                   </div>
 
-                  <div className="mb-4">
+                  {/* <div className="mb-4">
                     <button className="bg-blue-100 text-blue-500 p-2 rounded-md">
                       <svg
                         width="20"
@@ -1434,13 +1845,40 @@ export default function Trucks() {
                         <circle cx="12" cy="13" r="4" />
                       </svg>
                     </button>
-                  </div>
+                  </div> */}
 
                   <div className="mb-4">
                     <label className="block text-black mb-1">
                       Payment Mode*
                     </label>
-                    {/* Add payment mode options here */}
+                    <div className="flex flex-wrap gap-2">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option}
+                          className={`px-4 py-2 rounded-md text-sm ${
+                            paymentMode === option
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                          name="paymentMode"
+                          onClick={() => {
+                            newTransaction.paymentMode = option;
+                            setPaymentMode(option);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Add Trip</label>
+                    <select
+                      name="addTrip"
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Trip</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1451,7 +1889,10 @@ export default function Trucks() {
                   >
                     Close
                   </button>
-                  <button className="bg-gray-300 text-black px-4 py-2 rounded-md">
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                    onClick={handleAddExpense}
+                  >
                     Confirm
                   </button>
                 </div>
@@ -1480,11 +1921,19 @@ export default function Trucks() {
                     <label className="block text-black mb-1">
                       Expense Type*
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Expense Type"
-                      className="w-full border rounded-md p-2"
-                    />
+                    <select
+                      name="expenseType"
+                      value={newTransaction.expenseType}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Expense Type</option>
+                      {expenseTypeOptionsMaintenance.map((type, index) => (
+                        <option key={index} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="mb-4">
@@ -1494,8 +1943,11 @@ export default function Trucks() {
                     <div className="relative">
                       <input
                         type="text"
+                        name="amountPaid"
+                        value={newTransaction.amountPaid}
+                        onChange={handleInputChange}
                         placeholder="Amount Paid"
-                        className="w-full border rounded-md p-2 pl-3 pr-8"
+                        className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
                       />
                       <span className="absolute right-3 top-2.5 text-black">
                         ₹
@@ -1509,13 +1961,11 @@ export default function Trucks() {
                     </label>
                     <div className="relative">
                       <input
-                        type="text"
-                        defaultValue="03-04-2025"
-                        className="w-full border rounded-md p-2 pr-10"
-                      />
-                      <Calendar
-                        size={20}
-                        className="absolute right-3 top-2.5 text-black"
+                        type="date"
+                        name="expenseDate"
+                        value={newTransaction.expenseDate}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-md p-2 text-black"
                       />
                     </div>
                   </div>
@@ -1524,19 +1974,24 @@ export default function Trucks() {
                     <label className="block text-black mb-1">
                       Payment Mode*
                     </label>
-                    <div className="flex gap-2">
-                      <button className="bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm">
-                        Cash
-                      </button>
-                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
-                        Credit
-                      </button>
-                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
-                        Paid By Driver
-                      </button>
-                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
-                        Online
-                      </button>
+                    <div className="flex flex-wrap gap-2">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option}
+                          className={`px-4 py-2 rounded-md text-sm ${
+                            paymentMode === option
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                          name="paymentMode"
+                          onClick={() => {
+                            newTransaction.paymentMode = option;
+                            setPaymentMode(option);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -1547,13 +2002,24 @@ export default function Trucks() {
                     <div className="relative">
                       <input
                         type="text"
+                        name="currentKmReading"
+                        onChange={handleInputChange}
                         placeholder="Current KM Reading"
-                        className="w-full border rounded-md p-2 pl-3 pr-12"
+                        className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
                       />
                       <span className="absolute right-3 top-2.5 text-black">
                         KMs
                       </span>
                     </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Add Trip</label>
+                    <select
+                      name="addTrip"
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Trip</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1564,7 +2030,10 @@ export default function Trucks() {
                   >
                     Close
                   </button>
-                  <button className="bg-gray-300 text-black px-4 py-2 rounded-md">
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                    onClick={handleAddExpense}
+                  >
                     Confirm
                   </button>
                 </div>
@@ -1593,11 +2062,19 @@ export default function Trucks() {
                     <label className="block text-black mb-1">
                       Expense Type*
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Expense Type"
-                      className="w-full border rounded-md p-2"
-                    />
+                    <select
+                      name="expenseType"
+                      value={newTransaction.expenseType}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Expense Type</option>
+                      {expenseTypeOptionsDriver.map((type, index) => (
+                        <option key={index} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="mb-4">
@@ -1607,8 +2084,11 @@ export default function Trucks() {
                     <div className="relative">
                       <input
                         type="text"
+                        name="amountPaid"
+                        value={newTransaction.amountPaid}
+                        onChange={handleInputChange}
                         placeholder="Amount Paid"
-                        className="w-full border rounded-md p-2 pl-3 pr-8"
+                        className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
                       />
                       <span className="absolute right-3 top-2.5 text-black">
                         ₹
@@ -1622,13 +2102,11 @@ export default function Trucks() {
                     </label>
                     <div className="relative">
                       <input
-                        type="text"
-                        defaultValue="03-04-2025"
-                        className="w-full border rounded-md p-2 pr-10"
-                      />
-                      <Calendar
-                        size={20}
-                        className="absolute right-3 top-2.5 text-black"
+                        type="date"
+                        name="expenseDate"
+                        value={newTransaction.expenseDate}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-md p-2 text-black"
                       />
                     </div>
                   </div>
@@ -1637,19 +2115,24 @@ export default function Trucks() {
                     <label className="block text-black mb-1">
                       Payment Mode*
                     </label>
-                    <div className="flex gap-2">
-                      <button className="bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm">
-                        Cash
-                      </button>
-                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
-                        Credit
-                      </button>
-                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
-                        Paid By Driver
-                      </button>
-                      <button className="bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm">
-                        Online
-                      </button>
+                    <div className="flex flex-wrap gap-2">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option}
+                          className={`px-4 py-2 rounded-md text-sm ${
+                            paymentMode === option
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                          name="paymentMode"
+                          onClick={() => {
+                            newTransaction.paymentMode = option;
+                            setPaymentMode(option);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -1672,10 +2155,22 @@ export default function Trucks() {
                       </span>
                       <input
                         type="text"
+                        name="notes"
                         placeholder="Notes"
-                        className="w-full border rounded-md p-2 pl-10"
+                        value={newTransaction.notes}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-md p-2 pl-10 text-black"
                       />
                     </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Add Trip</label>
+                    <select
+                      name="addTrip"
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Trip</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1686,7 +2181,505 @@ export default function Trucks() {
                   >
                     Close
                   </button>
-                  <button className="bg-gray-300 text-black px-4 py-2 rounded-md">
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                    onClick={handleAddExpense}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showEditModal && modalType === "fuel" && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Fuel Expense
+                  </h2>
+                  <button
+                    onClick={closeEditModal}
+                    className="text-black hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Amount*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="amountPaid"
+                        placeholder="Enter Amount"
+                        value={editingTransaction.amountPaid}
+                        onChange={handleEditInputChange}
+                        className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex mb-4 gap-4">
+                    <div className="flex-1">
+                      <label className="block text-black mb-1">
+                        Fuel Quantity
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="fuelQuantity"
+                          placeholder="Fuel Quantity"
+                          value={editingTransaction.fuelQuantity}
+                          onChange={handleEditInputChange}
+                          className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                        />
+                        <span className="absolute right-3 top-2.5 text-black">
+                          L
+                        </span>
+                      </div>
+                      <div className="text-sm mt-1 text-black">Optional</div>
+                    </div>
+
+                    <div className="flex-1">
+                      <label className="block text-black mb-1">
+                        Rate per litre
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="ratePerLitre"
+                          placeholder="Rate per litre"
+                          value={
+                            editingTransaction.fuelQuantity > 0
+                              ? editingTransaction.amountPaid /
+                                editingTransaction.fuelQuantity
+                              : ""
+                          }
+                          readOnly
+                          className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                        />
+                        <span className="absolute right-3 top-2.5 text-black">
+                          ₹
+                        </span>
+                      </div>
+                      <div className="text-black text-sm mt-1">Optional</div>
+                    </div>
+                  </div>
+
+                  {/* <div className="mb-4 flex items-center">
+                    <span className="mr-2 text-black">
+                      I have filled full tank
+                    </span>
+                    <div className="w-10 h-6 bg-gray-300 rounded-full relative">
+                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div>
+                    </div>
+                  </div> */}
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Current KM Reading
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="currentKmReading"
+                        value={editingTransaction.currentKmReading}
+                        onChange={handleEditInputChange}
+                        placeholder="Current KM Reading"
+                        className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        KMs
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="expenseDate"
+                        value={editingTransaction.expenseDate}
+                        onChange={handleEditInputChange}
+                        className="w-full border rounded-md p-2 text-black"
+                      />
+                    </div>
+                  </div>
+
+                  {/* <div className="mb-4">
+                    <button className="bg-blue-100 text-blue-500 p-2 rounded-md">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </button>
+                  </div> */}
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Payment Mode*
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option}
+                          className={`px-4 py-2 rounded-md text-sm ${
+                            editingTransaction.paymentMode === option
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                          name="paymentMode"
+                          onClick={() => {
+                            setEditingTransaction({
+                              ...editingTransaction,
+                              paymentMode: option,
+                            });
+                            setPaymentMode(option);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Add Trip</label>
+                    <select
+                      name="addTrip"
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Trip</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-4 border-t">
+                  <button
+                    onClick={closeEditModal}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                    onClick={handleEditExpense}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* General Expense Modal */}
+          {showEditModal && modalType === "maintenance" && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Expense / Purchase
+                  </h2>
+                  <button
+                    onClick={closeEditModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Type*
+                    </label>
+                    <select
+                      name="expenseType"
+                      value={editingTransaction.expenseType}
+                      onChange={handleEditInputChange}
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Expense Type</option>
+                      {expenseTypeOptionsMaintenance.map((type, index) => (
+                        <option key={index} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Amount Paid*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="amountPaid"
+                        value={editingTransaction.amountPaid}
+                        onChange={handleEditInputChange}
+                        placeholder="Amount Paid"
+                        className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="expenseDate"
+                        value={editingTransaction.expenseDate}
+                        onChange={handleEditInputChange}
+                        className="w-full border rounded-md p-2 text-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Payment Mode*
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option}
+                          className={`px-4 py-2 rounded-md text-sm ${
+                            editingTransaction.paymentMode === option
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                          name="paymentMode"
+                          onClick={() => {
+                            setEditingTransaction({
+                              ...editingTransaction,
+                              paymentMode: option,
+                            });
+                            setPaymentMode(option);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Current KM Reading
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="currentKmReading"
+                        value={editingTransaction.currentKmReading}
+                        onChange={handleEditInputChange}
+                        placeholder="Current KM Reading"
+                        className="w-full border rounded-md p-2 pl-3 pr-12 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        KMs
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Add Trip</label>
+                    <select
+                      name="addTrip"
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Trip</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-4 border-t">
+                  <button
+                    onClick={closeEditModal}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                    onClick={handleEditExpense}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Driver/Other Expense Modal */}
+          {showEditModal && modalType === "driver" && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-md shadow-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-medium text-black">
+                    Add Driver / Other Expense
+                  </h2>
+                  <button
+                    onClick={closeEditModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Type*
+                    </label>
+                    <select
+                      name="expenseType"
+                      value={editingTransaction.expenseType}
+                      onChange={handleEditInputChange}
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Expense Type</option>
+                      {expenseTypeOptionsDriver.map((type, index) => (
+                        <option key={index} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Amount Paid*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="amountPaid"
+                        value={editingTransaction.amountPaid}
+                        onChange={handleEditInputChange}
+                        placeholder="Amount Paid"
+                        className="w-full border rounded-md p-2 pl-3 pr-8 text-black"
+                      />
+                      <span className="absolute right-3 top-2.5 text-black">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="expenseDate"
+                        value={editingTransaction.expenseDate}
+                        onChange={handleEditInputChange}
+                        className="w-full border rounded-md p-2 text-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Payment Mode*
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option}
+                          className={`px-4 py-2 rounded-md text-sm ${
+                            editingTransaction.paymentMode === option
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                          name="paymentMode"
+                          onClick={() => {
+                            setEditingTransaction({
+                              ...editingTransaction,
+                              paymentMode: option,
+                            });
+                            setPaymentMode(option);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Notes</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-black">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <line x1="21" y1="6" x2="3" y2="6" />
+                          <line x1="21" y1="12" x2="3" y2="12" />
+                          <line x1="21" y1="18" x2="3" y2="18" />
+                        </svg>
+                      </span>
+                      <input
+                        type="text"
+                        name="notes"
+                        placeholder="Notes"
+                        value={editingTransaction.notes}
+                        onChange={handleEditInputChange}
+                        className="w-full border rounded-md p-2 pl-10 text-black"
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">Add Trip</label>
+                    <select
+                      name="addTrip"
+                      className="w-full border rounded-md p-2 text-black"
+                    >
+                      <option value="">Select Trip</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-4 border-t">
+                  <button
+                    onClick={closeEditModal}
+                    className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md mr-2"
+                  >
+                    Close
+                  </button>
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded-md"
+                    onClick={handleEditExpense}
+                  >
                     Confirm
                   </button>
                 </div>
@@ -1850,7 +2843,6 @@ export default function Trucks() {
                         <div className="relative">
                           <input
                             type="text"
-                            defaultValue="03-04-2025"
                             className="w-full border rounded-md p-2 pr-10 text-black"
                           />
                           <Calendar
@@ -2249,7 +3241,7 @@ export default function Trucks() {
                       Status
                     </label>
                     <select
-                      name="status"
+                      name="truckStatus"
                       value={newDriver.truckStatus}
                       onChange={handleDriverChange}
                       className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
@@ -2373,7 +3365,7 @@ export default function Trucks() {
                       Status
                     </label>
                     <select
-                      name="status"
+                      name="truckStatus"
                       value={newDriver.truckStatus}
                       onChange={handleDriverChange}
                       className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
@@ -2427,7 +3419,7 @@ export default function Trucks() {
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-800">
-                {isEditMode ? "Edit Driver" : "Driver Details"}
+                {isEditMode ? "Edit Truck" : "Truck Details"}
               </h2>
               <button
                 onClick={() => setIsViewTruckModalOpen(false)}
@@ -2627,6 +3619,57 @@ export default function Trucks() {
               </button>
               <button
                 onClick={handleDeleteTruck}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteExpenseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setShowDeleteExpenseModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete Expense for{" "}
+                <span className="font-semibold">{selectedDriver?.truckNo}</span>
+                ? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowDeleteExpenseModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteExpense}
                 className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
               >
                 Delete
