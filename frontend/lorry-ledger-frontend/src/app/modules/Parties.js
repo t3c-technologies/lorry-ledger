@@ -266,17 +266,36 @@ export default function Parties() {
   const extractNextPage = (fullUrl) => {
     if (!fullUrl) return null; // Handle undefined or null cases
 
-    const baseUrl = "http://localhost:8000/api/";
-    const index = fullUrl.indexOf(baseUrl);
+    try {
+      // Parse the URL to get its components
+      const url = new URL(fullUrl);
 
-    if (index !== -1) {
-      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+      // Extract path and query parameters
+      let pathWithQuery = url.pathname + url.search;
+
+      // Remove leading slash if present
+      if (pathWithQuery.startsWith("/")) {
+        pathWithQuery = pathWithQuery.substring(1);
+      }
+
+      // Check if the path contains "api/" and remove it to avoid duplication
+      const apiPattern = /^api\//i;
+      if (apiPattern.test(pathWithQuery)) {
+        pathWithQuery = pathWithQuery.replace(apiPattern, "");
+      }
+
+      return pathWithQuery;
+    } catch (error) {
+      // If URL parsing fails (e.g., if it's not a valid URL), return the original
+      console.warn("Invalid URL format:", error.message);
+      return fullUrl;
     }
-
-    return fullUrl; // Return original if base URL is missing
   };
   const [errors, setErrors] = useState({
-    truckNo: "",
+    partyName: "",
+    openingBalance: "",
+    openingBalanceDate: "",
+    mobileNumber: "",
   });
 
   const fetchDrivers = async () => {
@@ -882,17 +901,50 @@ export default function Parties() {
     }
   };
 
-  const validateTruckForm = () => {
+  const validatePartyForm = () => {
     let valid = true;
-    let newErrors = { truckNo: "" };
+    let newErrors = {
+      partyName: "",
+      openingBalance: "",
+      openingBalanceDate: "",
+      mobileNumber: "",
+    };
+
+    // Check if party name is empty
+    if (!newDriver.partyName.trim()) {
+      newErrors.partyName = "Party name is required";
+      valid = false;
+    }
+
+    // Check if opening balance is empty
+    if (!newDriver.openingBalance.trim()) {
+      newErrors.openingBalance = "Opening balance is required";
+      valid = false;
+    }
+
+    // Check if opening balance date is empty
+    if (!newDriver.openingBalanceDate) {
+      newErrors.openingBalanceDate = "Date is required";
+      valid = false;
+    }
+
+    // Check if mobile number is empty
+    if (!newDriver.mobileNumber.trim()) {
+      newErrors.mobileNumber = "Mobile number is required";
+      valid = false;
+    }
+
+    if (!/^\d{10}$/.test(newDriver.phone_number)) {
+      newErrors.mobileNumber = "Mobile number should be exactly 10 digits";
+      valid = false;
+    }
 
     setErrors(newErrors);
     return valid;
   };
-
   const handleAddPartyFormSubmit = (e) => {
     e.preventDefault(); // Prevent form submission if invalid
-    if (validateTruckForm()) {
+    if (validatePartyForm()) {
       handleAddParty(e); // Call parent submit function if valid
     }
   };
@@ -971,7 +1023,7 @@ export default function Parties() {
   };
   const handleEditPartyFormSubmit = async (e, fromViewModal = false) => {
     if (e) e.preventDefault();
-    if (validateTruckForm()) {
+    if (validatePartyForm()) {
       handleEditParty(e, fromViewModal); // Call parent submit function if valid
     }
   };
@@ -1693,7 +1745,16 @@ export default function Parties() {
                 Add New Party
               </h2>
               <button
-                onClick={() => setIsAddPartyModalOpen(false)}
+                onClick={() => {
+                  setErrors({
+                    partyName: "",
+                    openingBalance: "",
+                    openingBalanceDate: "",
+                    mobileNumber: "",
+                  });
+                  resetNewDriverForm();
+                  setIsAddPartyModalOpen(false);
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -1718,29 +1779,44 @@ export default function Parties() {
                 <div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Party Name
+                      Party Name*
                     </label>
                     <input
                       type="text"
                       name="partyName"
                       value={newDriver.partyName}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`w-full p-2 border ${
+                        errors.partyName ? "border-red-500" : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.partyName && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.partyName}
+                      </p>
+                    )}
                   </div>
 
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Opening Balance
+                      Opening Balance*
                     </label>
                     <input
                       type="text"
                       name="openingBalance"
                       value={newDriver.openingBalance}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                      className={`w-full p-2 border ${
+                        errors.openingBalance
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.openingBalance && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.openingBalance}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-black mb-1">
@@ -1752,21 +1828,39 @@ export default function Parties() {
                         name="openingBalanceDate"
                         value={newDriver.openingBalanceDate}
                         onChange={handleDriverChange}
-                        className="w-full border rounded-md p-2 text-black"
+                        className={`w-full border ${
+                          errors.openingBalanceDate
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md p-2 text-black`}
                       />
+                      {errors.openingBalanceDate && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.openingBalanceDate}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mobile Number
+                      Mobile Number*
                     </label>
                     <input
                       type="text"
                       name="mobileNumber"
                       value={newDriver.mobileNumber}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                      className={`w-full p-2 border ${
+                        errors.mobileNumber
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.mobileNumber && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.mobileNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1776,7 +1870,16 @@ export default function Parties() {
               <div className="flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
-                  onClick={() => setIsAddPartyModalOpen(false)}
+                  onClick={() => {
+                    setErrors({
+                      partyName: "",
+                      openingBalance: "",
+                      openingBalanceDate: "",
+                      mobileNumber: "",
+                    });
+                    resetNewDriverForm();
+                    setIsAddPartyModalOpen(false);
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Cancel
@@ -1792,7 +1895,6 @@ export default function Parties() {
           </div>
         </div>
       )}
-
       {/* Edit Driver Modal */}
       {isEditPartyModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
@@ -1802,7 +1904,16 @@ export default function Parties() {
                 Edit Party
               </h2>
               <button
-                onClick={() => setIsEditPartyModalOpen(false)}
+                onClick={() => {
+                  setErrors({
+                    partyName: "",
+                    openingBalance: "",
+                    openingBalanceDate: "",
+                    mobileNumber: "",
+                  });
+                  resetNewDriverForm();
+                  setIsEditPartyModalOpen(false);
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -1827,33 +1938,48 @@ export default function Parties() {
                 <div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Party Name
+                      Party Name*
                     </label>
                     <input
                       type="text"
                       name="partyName"
                       value={newDriver.partyName}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`w-full p-2 border ${
+                        errors.partyName ? "border-red-500" : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.partyName && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.partyName}
+                      </p>
+                    )}
                   </div>
 
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Opening Balance
+                      Opening Balance*
                     </label>
                     <input
                       type="text"
                       name="openingBalance"
                       value={newDriver.openingBalance}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                      className={`w-full p-2 border ${
+                        errors.openingBalance
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.openingBalance && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.openingBalance}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-black mb-1">
-                      Opening Balance Date
+                      Expense Date*
                     </label>
                     <div className="relative">
                       <input
@@ -1861,21 +1987,39 @@ export default function Parties() {
                         name="openingBalanceDate"
                         value={newDriver.openingBalanceDate}
                         onChange={handleDriverChange}
-                        className="w-full border rounded-md p-2 text-black"
+                        className={`w-full border ${
+                          errors.openingBalanceDate
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md p-2 text-black`}
                       />
+                      {errors.openingBalanceDate && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.openingBalanceDate}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mobile Number
+                      Mobile Number*
                     </label>
                     <input
                       type="text"
                       name="mobileNumber"
                       value={newDriver.mobileNumber}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                      className={`w-full p-2 border ${
+                        errors.mobileNumber
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.mobileNumber && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.mobileNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1886,6 +2030,12 @@ export default function Parties() {
                 <button
                   type="button"
                   onClick={() => {
+                    setErrors({
+                      partyName: "",
+                      openingBalance: "",
+                      openingBalanceDate: "",
+                      mobileNumber: "",
+                    });
                     resetNewDriverForm();
                     setIsEditPartyModalOpen(false);
                   }}

@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from . import views
 from .views import (
     DriverCreateView,
     DriverListView,
@@ -55,7 +56,11 @@ from .views import (
     LRCreateView,
     LRListView,
     LRUpdateView,
-    LRDeleteView
+    LRDeleteView,
+    InvoiceCreateView,
+    InvoiceListView,
+    InvoiceUpdateView,
+    InvoiceDeleteView
 )
 
 urlpatterns = [
@@ -121,4 +126,17 @@ urlpatterns = [
     path('api/LR/create/', LRCreateView.as_view(), name='lr_create'),
     path('api/LR/<int:id>/update/', LRUpdateView.as_view(), name='LR_update'),
     path('api/LR/<int:id>/delete/', LRDeleteView.as_view(), name='lr_delete'),
+    #Print LR
+    path('api/lr/pdf/<int:id>/', views.generate_lr_pdf, name='generate_lr_pdf'),
+
+    #Invoice
+    path('api/invoices/', InvoiceListView.as_view(), name='invoice_list'),
+    path('api/<int:tripId>/invoices/', InvoiceListView.as_view(), name='invoice_list'),
+    path('api/invoices/create/', InvoiceCreateView.as_view(), name='invoice_create'),
+    path('api/invoices/<int:id>/update/', InvoiceUpdateView.as_view(), name='invoice_update'),
+    path('api/invoices/<int:id>/delete/', InvoiceDeleteView.as_view(), name='invoice_delete'),
+    #Print Invoice
+    path('api/invoices/pdf/<int:id>/', views.generate_invoice_pdf, name='generate_invoice_pdf'),
+
+
 ]

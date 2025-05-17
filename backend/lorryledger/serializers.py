@@ -1,7 +1,7 @@
 # drivers/serializers.py
 
 from rest_framework import serializers
-from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip, Consigner, Consignee, LR
+from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip, Consigner, Consignee, LR, Invoice
 
 class DriverSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
@@ -162,5 +162,36 @@ class LRSerializer(serializers.ModelSerializer):
         model = LR
         fields = [
             'id', 'freightPaidBy', 'gstPercentage', 'lrDate', 'lrNumber', 'materialCategory', 'numberOfPackages', 'unit', 'weight', 'consigner', 'consignee', 'trip', 'consigner_id', 'consignee_id', 'trip_id'
+        ]
+        read_only_fields = ['id']
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    # Nested serializers for read operations
+    consigner = ConsignerSerializer(source='consignerId', read_only=True)
+    consignee = ConsigneeSerializer(source='consigneeId', read_only=True)
+    trip = TripSerializer(source= 'tripId', read_only = True)
+
+    # Fields for write operations
+    consigner_id = serializers.PrimaryKeyRelatedField(
+        source='consignerId',
+        queryset=Consigner.objects.all(),
+        write_only=True
+    )
+    consignee_id = serializers.PrimaryKeyRelatedField(
+        source='consigneeId',
+        queryset=Consignee.objects.all(),
+        write_only=True
+    )
+
+    trip_id = serializers.PrimaryKeyRelatedField(
+        source='tripId',
+        queryset=Trip.objects.all(),
+        write_only=True
+    )
+    
+    class Meta:
+        model = Invoice
+        fields = [
+            'id', 'freightPaidBy', 'gstPercentage', 'invoiceDate', 'invoiceNumber', 'materialCategory', 'numberOfPackages', 'unit', 'weight', 'consigner', 'consignee', 'trip', 'consigner_id', 'consignee_id', 'trip_id'
         ]
         read_only_fields = ['id']

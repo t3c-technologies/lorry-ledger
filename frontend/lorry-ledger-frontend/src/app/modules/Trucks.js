@@ -150,14 +150,30 @@ export default function Trucks() {
   const extractNextPage = (fullUrl) => {
     if (!fullUrl) return null; // Handle undefined or null cases
 
-    const baseUrl = "http://localhost:8000/api/";
-    const index = fullUrl.indexOf(baseUrl);
+    try {
+      // Parse the URL to get its components
+      const url = new URL(fullUrl);
 
-    if (index !== -1) {
-      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+      // Extract path and query parameters
+      let pathWithQuery = url.pathname + url.search;
+
+      // Remove leading slash if present
+      if (pathWithQuery.startsWith("/")) {
+        pathWithQuery = pathWithQuery.substring(1);
+      }
+
+      // Check if the path contains "api/" and remove it to avoid duplication
+      const apiPattern = /^api\//i;
+      if (apiPattern.test(pathWithQuery)) {
+        pathWithQuery = pathWithQuery.replace(apiPattern, "");
+      }
+
+      return pathWithQuery;
+    } catch (error) {
+      // If URL parsing fails (e.g., if it's not a valid URL), return the original
+      console.warn("Invalid URL format:", error.message);
+      return fullUrl;
     }
-
-    return fullUrl; // Return original if base URL is missing
   };
   const [errors, setErrors] = useState({
     truckNo: "",
@@ -756,10 +772,37 @@ export default function Trucks() {
 
   const validateTruckForm = () => {
     let valid = true;
-    let newErrors = { truckNo: "" };
+    let newErrors = {
+      truckNo: "",
+      truckType: "",
+      ownership: "",
+      truckStatus: "",
+    };
 
-    if (newDriver.truckNo.length !== 10) {
+    // Validate truck number
+    if (!newDriver.truckNo) {
+      newErrors.truckNo = "Truck Number is required.";
+      valid = false;
+    } else if (newDriver.truckNo.length !== 10) {
       newErrors.truckNo = "Truck No must be exactly 10 digits.";
+      valid = false;
+    }
+
+    // Validate truck type
+    if (!newDriver.truckType) {
+      newErrors.truckType = "Please select a Truck Type.";
+      valid = false;
+    }
+
+    // Validate ownership
+    if (!newDriver.ownership) {
+      newErrors.ownership = "Please select an Ownership type.";
+      valid = false;
+    }
+
+    // Validate truck status
+    if (!newDriver.truckStatus) {
+      newErrors.truckStatus = "Please select a Status.";
       valid = false;
     }
 
@@ -3161,7 +3204,16 @@ export default function Trucks() {
                 Add New Truck
               </h2>
               <button
-                onClick={() => setIsAddTruckModalOpen(false)}
+                onClick={() => {
+                  resetNewDriverForm();
+                  setErrors({
+                    truckNo: "",
+                    truckType: "",
+                    ownership: "",
+                    truckStatus: "",
+                  });
+                  setIsAddTruckModalOpen(false);
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -3193,11 +3245,12 @@ export default function Trucks() {
                       name="truckNo"
                       value={newDriver.truckNo}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`${
+                        errors.truckNo ? "border-red-500" : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
                     {errors.truckNo && (
-                      <p className="text-red-500 text-xs absolute mt-1">
+                      <p className="text-red-500 text-xs mt-1">
                         {errors.truckNo}
                       </p>
                     )}
@@ -3210,8 +3263,11 @@ export default function Trucks() {
                       name="truckType"
                       value={newDriver.truckType}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
+                      className={`${
+                        errors.truckType ? "border-red-500" : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     >
+                      <option value="">Select Truck Type</option>
                       <option value="Mini Truck / LCV">Mini Truck / LCV</option>
                       <option value="Open Body Truck">Open Body Truck</option>
                       <option value="Closed Container">Closed Container</option>
@@ -3220,6 +3276,11 @@ export default function Trucks() {
                       <option value="Tipper">Tipper</option>
                       <option value="Other">Other</option>
                     </select>
+                    {errors.truckType && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.truckType}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3229,12 +3290,19 @@ export default function Trucks() {
                       name="ownership"
                       value={newDriver.ownership}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`${
+                        errors.ownership ? "border-red-500" : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     >
+                      <option value="">Select Ownership</option>
                       <option value="Market Truck">Market Truck</option>
                       <option value="My Truck">My Truck</option>
                     </select>
+                    {errors.ownership && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.ownership}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3244,12 +3312,22 @@ export default function Trucks() {
                       name="truckStatus"
                       value={newDriver.truckStatus}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
+                      className={`${
+                        errors.truckStatus
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     >
+                      <option value="">Select Status</option>
                       <option value="available">Available</option>
                       <option value="on_trip">On Trip</option>
                       <option value="off_duty">Off Duty</option>
                     </select>
+                    {errors.truckStatus && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.truckStatus}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -3259,7 +3337,16 @@ export default function Trucks() {
               <div className="flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
-                  onClick={() => setIsAddTruckModalOpen(false)}
+                  onClick={() => {
+                    resetNewDriverForm();
+                    setErrors({
+                      truckNo: "",
+                      truckType: "",
+                      ownership: "",
+                      truckStatus: "",
+                    });
+                    setIsAddTruckModalOpen(false);
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Cancel
@@ -3285,7 +3372,16 @@ export default function Trucks() {
                 Edit Truck
               </h2>
               <button
-                onClick={() => setIsEditTruckModalOpen(false)}
+                onClick={() => {
+                  resetNewDriverForm();
+                  setErrors({
+                    truckNo: "",
+                    truckType: "",
+                    ownership: "",
+                    truckStatus: "",
+                  });
+                  setIsEditTruckModalOpen(false);
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -3317,8 +3413,9 @@ export default function Trucks() {
                       name="truckNo"
                       value={newDriver.truckNo}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`${
+                        errors.truckNo ? "border-red-500" : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
                     {errors.truckNo && (
                       <p className="text-red-500 text-xs absolute mt-1">
@@ -3334,7 +3431,9 @@ export default function Trucks() {
                       name="truckType"
                       value={newDriver.truckType}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
+                      className={`${
+                        errors.truckType ? "border-red-500" : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     >
                       <option value="Mini Truck / LCV">Mini Truck / LCV</option>
                       <option value="Open Body Truck">Open Body Truck</option>
@@ -3344,6 +3443,11 @@ export default function Trucks() {
                       <option value="Tipper">Tipper</option>
                       <option value="Other">Other</option>
                     </select>
+                    {errors.truckType && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.truckType}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3353,12 +3457,18 @@ export default function Trucks() {
                       name="ownership"
                       value={newDriver.ownership}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`${
+                        errors.ownership ? "border-red-500" : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     >
                       <option value="Market Truck">Market Truck</option>
                       <option value="My Truck">My Truck</option>
                     </select>
+                    {errors.ownership && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.ownership}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3368,12 +3478,21 @@ export default function Trucks() {
                       name="truckStatus"
                       value={newDriver.truckStatus}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
+                      className={`${
+                        errors.truckStatus
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     >
                       <option value="available">Available</option>
                       <option value="on_trip">On Trip</option>
                       <option value="off_duty">Off Duty</option>
                     </select>
+                    {errors.truckStatus && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.truckStatus}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -3394,6 +3513,12 @@ export default function Trucks() {
                       photoFile: null,
                       photoPreview: null,
                       documentsFile: null,
+                    });
+                    setErrors({
+                      truckNo: "",
+                      truckType: "",
+                      ownership: "",
+                      truckStatus: "",
                     });
                     setIsEditTruckModalOpen(false);
                   }}

@@ -59,6 +59,7 @@ export default function LorryReceipt() {
 
   const [showEditTransactionModal, setShowEditTransactionModal] =
     useState(false);
+  const [nextLrNumber, setNextLrNumber] = useState("LRN-001");
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [currentTransaction, setCurrentTransaction] = useState(null);
 
@@ -83,7 +84,6 @@ export default function LorryReceipt() {
     });
     getConsigners();
     getConsignees();
-    getTrips();
     setSelectedConsignee(LR.consignee.id);
     setSelectedConsigner(LR.consigner.id);
     setSelectedTrip(LR.trip.id);
@@ -368,6 +368,30 @@ export default function LorryReceipt() {
     });
   };
 
+  const generateNextLrNumber = (lrs) => {
+    if (!lrs || lrs.length === 0) {
+      setNextLrNumber("LRN-001");
+      return;
+    }
+
+    // Find the highest LR number
+    let highestNumber = 0;
+
+    lrs.forEach((lr) => {
+      if (lr.lrNumber && lr.lrNumber.startsWith("LRN-")) {
+        const numPart = lr.lrNumber.substring(4);
+        const num = parseInt(numPart, 10);
+        if (!isNaN(num) && num > highestNumber) {
+          highestNumber = num;
+        }
+      }
+    });
+
+    // Generate the next number with leading zeros
+    const nextNumber = highestNumber + 1;
+    setNextLrNumber(`LRN-${String(nextNumber).padStart(3, "0")}`);
+  };
+
   const handleAddConsignee = async () => {
     // Validate form
     if (!newConsignee.name || !newConsignee.gstNumber) {
@@ -407,14 +431,30 @@ export default function LorryReceipt() {
   const extractNextPage = (fullUrl) => {
     if (!fullUrl) return null; // Handle undefined or null cases
 
-    const baseUrl = "http://localhost:8000/api/";
-    const index = fullUrl.indexOf(baseUrl);
+    try {
+      // Parse the URL to get its components
+      const url = new URL(fullUrl);
 
-    if (index !== -1) {
-      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+      // Extract path and query parameters
+      let pathWithQuery = url.pathname + url.search;
+
+      // Remove leading slash if present
+      if (pathWithQuery.startsWith("/")) {
+        pathWithQuery = pathWithQuery.substring(1);
+      }
+
+      // Check if the path contains "api/" and remove it to avoid duplication
+      const apiPattern = /^api\//i;
+      if (apiPattern.test(pathWithQuery)) {
+        pathWithQuery = pathWithQuery.replace(apiPattern, "");
+      }
+
+      return pathWithQuery;
+    } catch (error) {
+      // If URL parsing fails (e.g., if it's not a valid URL), return the original
+      console.warn("Invalid URL format:", error.message);
+      return fullUrl;
     }
-
-    return fullUrl; // Return original if base URL is missing
   };
   const [errors, setErrors] = useState({
     truckNo: "",
@@ -445,6 +485,7 @@ export default function LorryReceipt() {
       setTotalPages(response.total_pages);
       setPrevPage(extractNextPage(response.previous));
       setNextPage(extractNextPage(response.next));
+      generateNextLrNumber(response.data);
     } catch (error) {
       console.log(error);
 
@@ -593,6 +634,7 @@ export default function LorryReceipt() {
 
   useEffect(() => {
     getLR();
+    getTrips();
   }, []);
 
   // Sort function for table columns
@@ -612,8 +654,11 @@ export default function LorryReceipt() {
   // Filter drivers based on search term
   const filteredDrivers = columnFilteredDrivers.filter(
     (supplier) =>
-      supplier.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.mobileNumber?.includes(searchTerm.toLowerCase())
+      supplier.lrNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.consigner.name?.includes(
+        searchTerm.toLowerCase() ||
+          supplier.consignee.name?.includes(searchTerm.toLowerCase())
+      )
   );
 
   // Get sorted and filtered drivers
@@ -626,7 +671,7 @@ export default function LorryReceipt() {
 
   // Change page
   const paginate = async (page) => {
-    const pageUrl = `${API_ENDPOINTS.suppliers.list}?page=${page}&page_size=${recordsPerPage}`;
+    const pageUrl = `${API_ENDPOINTS.LR.listAll}?page=${page}&page_size=${recordsPerPage}`;
     try {
       const response = await api.get(pageUrl, {
         search: searchTerm,
@@ -635,7 +680,7 @@ export default function LorryReceipt() {
         sorting: JSON.stringify(sortConfig),
       });
       if (driverFilters.length === 0) {
-        setSortedAndFilteredDrivers(response.data);
+        setLRList(response.data);
       }
       setColumnFilteredDrivers(response.data);
       setNextPage(extractNextPage(response.next)); // Store next page URL
@@ -684,7 +729,6 @@ export default function LorryReceipt() {
     console.log(currentLR);
     getConsigners();
     getConsignees();
-    getTrips();
     setCurrentFormSection(0);
     setIsEditLRModalOpen(true);
   };
@@ -717,8 +761,6 @@ export default function LorryReceipt() {
 
   const getTrips = async () => {
     try {
-      console.log("Hi");
-
       const response = await api.get(API_ENDPOINTS.trips.list);
       setTrips(response.data);
     } catch (error) {
@@ -785,11 +827,45 @@ export default function LorryReceipt() {
     }
   };
 
+  const findRouteIndexByLR = () => {
+    for (let tripIndex = 0; tripIndex < trips.length; tripIndex++) {
+      const trip = trips[tripIndex];
+      // Make sure the trip has a routes array
+      if (trip && trip.routes && Array.isArray(trip.routes)) {
+        const routeIndex = trip.routes.findIndex(
+          (route) => route && route.lrNumber === currentLR.id
+        );
+        console.log(trip.routes);
+        console.log(routeIndex);
+        console.log(currentLR.id);
+
+        if (routeIndex !== -1) {
+          return {
+            tripIndex,
+            routes: trip.routes,
+            routeIndex,
+            trip,
+          };
+        }
+      }
+    }
+    return -1;
+  };
+
   const handleDeleteLR = async () => {
     try {
+      const result = findRouteIndexByLR();
+      const { tripIndex, routes, routeIndex, trip } = result;
+      console.log(routes);
+      const updatedRoutes = [...routes];
+      updatedRoutes[routeIndex].lrNumber = "";
+      const tripToUpdate = { ...trip, routes: updatedRoutes };
       await api.delete(API_ENDPOINTS.LR.delete(currentLR.id));
       notifyInfo("LR deleted successfully");
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
       getLR();
+      getTrips();
       setIsDeleteConfirmOpen(false);
     } catch (error) {
       console.log(error);
@@ -818,10 +894,21 @@ export default function LorryReceipt() {
   };
 
   const handleAddLRClick = () => {
-    getTrips();
     getConsigners();
     getConsignees();
     setIsAddLRModalOpen(true);
+    setFormData({
+      lrDate: new Date().toISOString().split("T")[0],
+      lrNumber: nextLrNumber,
+      consigner_id: "",
+      consignee_id: "",
+      materialCategory: "",
+      weight: "",
+      unit: "Tonnes",
+      numberOfPackages: "",
+      freightPaidBy: "Consigner",
+      gstPercentage: "",
+    });
     setCurrentFormSection(0); // Reset to first section when opening
   };
 
@@ -918,7 +1005,7 @@ export default function LorryReceipt() {
           {trips.map((trip) => (
             <option key={trip.id} value={trip.id}>
               Party Name: {trip.party.partyName}, {trip.origin} &rarr;
-              {trip.destination}
+              {trip.destination}, Vehicle No: {trip.truck.truckNo}
             </option>
           ))}
         </select>

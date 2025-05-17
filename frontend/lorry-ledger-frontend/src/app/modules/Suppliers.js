@@ -256,17 +256,34 @@ export default function Suppliers() {
   const extractNextPage = (fullUrl) => {
     if (!fullUrl) return null; // Handle undefined or null cases
 
-    const baseUrl = "http://localhost:8000/api/";
-    const index = fullUrl.indexOf(baseUrl);
+    try {
+      // Parse the URL to get its components
+      const url = new URL(fullUrl);
 
-    if (index !== -1) {
-      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+      // Extract path and query parameters
+      let pathWithQuery = url.pathname + url.search;
+
+      // Remove leading slash if present
+      if (pathWithQuery.startsWith("/")) {
+        pathWithQuery = pathWithQuery.substring(1);
+      }
+
+      // Check if the path contains "api/" and remove it to avoid duplication
+      const apiPattern = /^api\//i;
+      if (apiPattern.test(pathWithQuery)) {
+        pathWithQuery = pathWithQuery.replace(apiPattern, "");
+      }
+
+      return pathWithQuery;
+    } catch (error) {
+      // If URL parsing fails (e.g., if it's not a valid URL), return the original
+      console.warn("Invalid URL format:", error.message);
+      return fullUrl;
     }
-
-    return fullUrl; // Return original if base URL is missing
   };
   const [errors, setErrors] = useState({
-    truckNo: "",
+    supplierName: "",
+    mobileNumber: "",
   });
 
   const fetchDrivers = async () => {
@@ -870,9 +887,22 @@ export default function Suppliers() {
     }
   };
 
-  const validateTruckForm = () => {
+  const validateSupplierForm = () => {
     let valid = true;
-    let newErrors = { truckNo: "" };
+    let newErrors = { supplierName: "", mobileNumber: "" };
+
+    if (!newDriver.supplierName.trim()) {
+      newErrors.supplierName = "Supplier name is required";
+      valid = false;
+    }
+
+    if (
+      !/^\d{10}$/.test(newDriver.phone_number) &&
+      newDriver.mobileNumber.trim().length != 0
+    ) {
+      newErrors.mobileNumber = "Mobile number should be exactly 10 digits";
+      valid = false;
+    }
 
     setErrors(newErrors);
     return valid;
@@ -880,7 +910,7 @@ export default function Suppliers() {
 
   const handleAddSupplierFormSubmit = (e) => {
     e.preventDefault(); // Prevent form submission if invalid
-    if (validateTruckForm()) {
+    if (validateSupplierForm()) {
       handleAddSupplier(e); // Call parent submit function if valid
     }
   };
@@ -958,7 +988,7 @@ export default function Suppliers() {
   };
   const handleEditSupplierFormSubmit = async (e, fromViewModal = false) => {
     if (e) e.preventDefault();
-    if (validateTruckForm()) {
+    if (validateSupplierForm()) {
       handleEditSupplier(e, fromViewModal); // Call parent submit function if valid
     }
   };
@@ -1645,7 +1675,14 @@ export default function Suppliers() {
                 Add New Supplier
               </h2>
               <button
-                onClick={() => setIsAddSupplierModalOpen(false)}
+                onClick={() => {
+                  setErrors({
+                    supplierName: "",
+                    mobileNumber: "",
+                  });
+                  resetNewDriverForm();
+                  setIsAddSupplierModalOpen(false);
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -1677,9 +1714,17 @@ export default function Suppliers() {
                       name="supplierName"
                       value={newDriver.supplierName}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`${
+                        errors.supplierName
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.supplierName && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.supplierName}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1690,8 +1735,17 @@ export default function Suppliers() {
                       name="mobileNumber"
                       value={newDriver.mobileNumber}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                      className={`${
+                        errors.mobileNumber
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.mobileNumber && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.mobileNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1701,7 +1755,14 @@ export default function Suppliers() {
               <div className="flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
-                  onClick={() => setIsAddSupplierModalOpen(false)}
+                  onClick={() => {
+                    setErrors({
+                      supplierName: "",
+                      mobileNumber: "",
+                    });
+                    resetNewDriverForm();
+                    setIsAddSupplierModalOpen(false);
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Cancel
@@ -1727,7 +1788,14 @@ export default function Suppliers() {
                 Edit Supplier
               </h2>
               <button
-                onClick={() => setIsEditSupplierModalOpen(false)}
+                onClick={() => {
+                  setErrors({
+                    supplierName: "",
+                    mobileNumber: "",
+                  });
+                  resetNewDriverForm();
+                  setIsEditSupplierModalOpen(false);
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <svg
@@ -1759,9 +1827,17 @@ export default function Suppliers() {
                       name="supplierName"
                       value={newDriver.supplierName}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                      required
+                      className={`${
+                        errors.supplierName
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.supplierName && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.supplierName}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1772,8 +1848,17 @@ export default function Suppliers() {
                       name="mobileNumber"
                       value={newDriver.mobileNumber}
                       onChange={handleDriverChange}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                      className={`${
+                        errors.mobileNumber
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
                     />
+                    {errors.mobileNumber && (
+                      <p className="text-red-500 text-xs absolute mt-1">
+                        {errors.mobileNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1784,6 +1869,10 @@ export default function Suppliers() {
                 <button
                   type="button"
                   onClick={() => {
+                    setErrors({
+                      supplierName: "",
+                      mobileNumber: "",
+                    });
                     resetNewDriverForm();
                     setIsEditSupplierModalOpen(false);
                   }}

@@ -2,3 +2,6 @@ kattu
 kattuBitoo
 
 G9fL3P5KJ5Q0uNq5Ht6s6_qD2xB0_9Tg45MZCzjU40o=
+
+
+set WEASYPRINT_DLL_DIRECTORIES=E:\College stuff\Kiru Internship\MSYS2\mingw64\bin 

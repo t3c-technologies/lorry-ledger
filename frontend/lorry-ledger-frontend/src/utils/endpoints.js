@@ -80,6 +80,15 @@ export const API_ENDPOINTS = {
     create: `LR/create/`,
     update: (id) => `LR/${id}/update/`,
     delete: (id) => `LR/${id}/delete/`,
+    print: (id) => `lr/pdf/${id}/`,
+  },
+
+  invoices: {
+    listAll: `invoices/`,
+    list: (tripId) => `${tripId}/invoices/`,
+    create: `invoices/create/`,
+    update: (id) => `invoices/${id}/update/`,
+    delete: (id) => `invoices/${id}/delete/`,
   },
 };
 

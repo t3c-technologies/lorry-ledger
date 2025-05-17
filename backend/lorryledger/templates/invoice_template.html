@@ -1,0 +1,460 @@
+{% load currency_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fastist Logistic Solutions - Invoice</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 9pt;
+            margin: 0;
+            padding: 10mm;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #000;
+            margin: 0 auto;
+            padding: 0;
+            max-width: 190mm;
+            max-height: 277mm; /* A4 height minus margins */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 2px 5px;
+            vertical-align: top;
+        }
+        .header {
+            text-align: center;
+            padding: 5px 20px;
+            border-bottom: 1px solid #000;
+            position: relative;
+        }
+        .logo-container {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            width: 100px;
+            height: 60px;
+        }
+        .logo {
+            width: 100%;
+            height: auto;
+        }
+        .company-name {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 3px;
+            margin-top: 8px;
+        }
+        .company-address {
+            font-size: 8pt;
+            margin-bottom: 1px;
+        }
+        .company-details {
+            font-size: 8pt;
+            margin-bottom: 1px;
+        }
+        .no-top-border {
+            border-top: none;
+        }
+        .no-bottom-border {
+            border-bottom: none;
+        }
+        .no-left-border {
+            border-left: none;
+        }
+        .no-right-border {
+            border-right: none;
+        }
+        .centered {
+            text-align: center;
+        }
+        .right-aligned {
+            text-align: right;
+        }
+        .section-header {
+            background-color: #e0e0e0;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px;
+        }
+        .total-row {
+            font-weight: bold;
+        }
+        .checkbox {
+            width: 10px;
+            height: 10px;
+            border: 1px solid #000;
+            display: inline-block;
+            position: relative;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        .checkbox.checked:after {
+            content: "✓";
+            position: absolute;
+            top: -3px;
+            left: 1px;
+        }
+        .account-details {
+            font-size: 8.5pt;
+            padding: 5px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 8pt;
+            border-top: 1px solid #000;
+            padding: 3px;
+            margin-top: 2px;
+        }
+        .thank-you {
+            text-align: center;
+            font-weight: bold;
+            padding: 3px 0;
+        }
+        .invoice-footer {
+            font-size: 9pt;
+            padding: 5px;
+        }
+        .signature {
+            text-align: center;
+        }
+        .signature-text {
+            font-size: 9pt;
+            font-weight: bold;
+        }
+        .goods-table td {
+            height: 90px;
+        }
+        .tariff-declaration {
+            font-size: 8pt;
+            padding: 5px;
+        }
+        .signature-image {
+            height: 30px;
+            margin: 2px 0;
+        }
+        .signature-block {
+            text-align: right;
+            padding-right: 10px;
+            vertical-align: top;
+        }
+        .signature-name {
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        .signature-title {
+            font-size: 7pt;
+            margin-top: 0;
+        }
+        .bank-details {
+            padding: 0;
+            margin: 0;
+        }
+        .empty-row td {
+            height: 20px;
+        }
+        .amount-words {
+            padding: 10px 18px;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
+        }
+        .top-label {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        .tax-row td {
+            padding: 1px 5px;
+        }
+        .customer-block {
+            vertical-align: top;
+        }
+        .small-title {
+            font-weight: bold;
+            margin-bottom: 2px;
+            font-size: 8.5pt;
+        }
+        .tax-table td {
+            padding: 2px 5px;
+            height: auto;
+        }
+        .invoice-details td {
+            height: 35px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="logo-container">
+                <img src="{{ logo_path }}" alt="Fastist Logo" class="logo">
+            </div>
+            <div class="company-name">Fastist Logistic Solutions Private Limited</div>
+            <div class="company-address">242,First Street, Jothipuram, Coimbatore- 641047, Tamil Nadu, India</div>
+            <div class="company-details">Phone : +91-86808 75727 / E-mail : info@fastist.in</div>
+            <div class="company-details">CIN:U63000TZ2016OPC028216 / PAN:AACCF9515A</div>
+            <div class="company-details">UDYAM NO: UDYAM-TN-03-0018098</div>
+            <div class="company-details">GSTIN:33AACCF9515A1Z4</div>
+        </div>
+
+        <!-- Customer and Invoice Details -->
+        <table class="invoice-details">
+            <tr>
+                <td style="width: 40%;" rowspan="2">
+                    <div class="small-title">Customer Details</div>
+                    {{ data.party.partyName }}<br>
+                    {{ data.party.address }}<br>
+                    {{ data.party.state }}<br>
+                    {{ data.party.pincode }}<br>
+                    GSTIN: {{ data.party.gstNumber }}
+                </td>
+                <td style="width: 30%;">
+                    <div class="small-title">Invoice No.</div>
+                    {{ data.invoiceNumber }}
+                </td>
+                <td style="width: 30%;">
+                    <div class="small-title">Dated</div>
+                    {{ data.invoiceDate }}
+                </td>
+            </tr>
+            <tr>
+                
+                <td>
+                    <div class="small-title">Booking ID</div>
+                    {{ invoice.booking_id|default:"--" }}
+                </td>
+                <td>
+                    <div class="small-title">Dated</div>
+                    {{ data.startDate|default:"--" }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="small-title">Source</div>
+                    {{ data.from }}
+                </td>
+                <td>
+                    <div class="small-title">Reference no.</div>
+                    {{ invoice.reference_number|default:"--" }}
+                </td>
+                <td>
+                    <div class="small-title">Dated</div>
+                    {{ invoice.reference_date|default:"--" }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="small-title">Destination</div>
+                    {{ data.to }}
+                </td>
+                <td>
+                    <div class="small-title">Service Starting Date</div>
+                    {{ data.startDate }}
+                </td>
+                <td>
+                    <div class="small-title">Motor Vehicle No.</div>
+                    {{ data.vehicle|default:"--" }}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="small-title">Distance (Km)</div>
+                    {{ data.totalDistance|default:"--" }}
+                </td>
+                <td>
+                    <div class="small-title">Service Ending Date</div>
+                    {{ data.endDate }}
+                </td>
+                <td rowspan="2">
+                    <div class="small-title">Trip Type</div>
+                    <div class="checkbox {% if invoice.pickup_only %}checked{% endif %}"></div> Pick up only<br>
+                    <div class="checkbox {% if invoice.delivery_only %}checked{% endif %}"></div> Delivery only<br>
+                    <div class="checkbox {% if invoice.pickup_and_drop %}checked{% endif %}"></div> Pick up and Drop
+                </td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td>
+                <td>
+                    <div class="small-title">Mode/Terms of Payment</div>
+                    {{ data.paymentTerms }}
+                </td>
+            </tr>
+        </table>
+
+        <!-- Invoice Items -->
+        <table>
+            <tr class="section-header">
+                <th style="width: 15%;">HSN/SAC</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 12%;">Quantity</th>
+                <th style="width: 13%;">Unit Price</th>
+                <th style="width: 15%;">Amount</th>
+            </tr>
+            <tr>
+                <td class="centered">{{ data.hsn_code }}</td>
+                <td>{{ data.materialCategory }}</td>
+                <td class="centered">{{ data.noOfPackages }}</td>
+                <td class="right-aligned">{{ data.ratePerUnit|indian_currency }}</td>
+                <td class="right-aligned">{{ data.freightAmount|indian_currency }}</td>
+            </tr>
+            <!-- Empty rows for additional items -->
+            <tr class="empty-row">
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+            <tr class="empty-row">
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+            <tr class="empty-row">
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+            <tr class="empty-row">
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+            <tr class="empty-row">
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+            
+        </table>
+
+        <!-- Totals and Bank Details -->
+        <table class="tax-table">
+            <tr>
+                <td style="width: 60%;" colspan="2" class="section-header">ACCOUNT DETAILS</td>
+                <td style="width: 25%;" class="right-aligned">Total</td>
+                <td style="width: 15%;" class="right-aligned">{{ data.freightAmount|indian_currency }}</td>
+            </tr>
+            <tr>
+                <td width="38%" rowspan="6" class="bank-details">
+                    <div class="account-details">
+                        <strong>STATE BANK OF INDIA</strong><br>
+                        Account Name: FASTIST LOGISTIC SOLUTIONS<br>
+                        Account Number: 36497272732<br>
+                        Branch Name: RAMAKRISHNA VIDYALAYA<br>
+                        IFSC Code: SBIN0001154
+                    </div>
+                </td>
+                <td width="38%" rowspan="6" class="bank-details">
+                    <div class="account-details">
+                        <strong>HDFC BANK</strong><br>
+                        Account Name: FASTIST LOGISTIC SOLUTIONS<br>
+                        Account Number: 50200097338349<br>
+                        Branch Name: PERIYANAICKENPALAYAM<br>
+                        IFSC Code: HDFC0003823
+                    </div>
+                </td>
+                
+            </tr>
+            <tr class="tax-row">
+                <td class="right-aligned">SGST @ {{ data.sgstPercentage }}%</td>
+                <td class="right-aligned">{{ data.sgst|indian_currency }}</td>
+            </tr>
+            <tr class="tax-row">
+                <td class="right-aligned">CGST @ {{ data.cgstPercentage }}%</td>
+                <td class="right-aligned">{{ data.cgst|indian_currency }}</td>
+            </tr>
+            <tr class="tax-row">
+                <td class="right-aligned">IGST @ {{ data.igstPercentage }}%</td>
+                <td class="right-aligned">{{ data.igst|indian_currency }}</td>
+            </tr>
+            <tr class="tax-row">
+                <td class="right-aligned"><strong>Grand Total</strong></td>
+                <td class="right-aligned"><strong>{{ data.totalAmount|indian_currency }}</strong></td>
+            </tr>
+            <tr><td colspan="2">
+                <div class="thank-you">
+            Thank You!<br>
+            We appreciate your business.
+        </div>
+        </td>
+            </tr>
+        </table>
+
+        <!-- Thank You Message -->
+        
+
+        <!-- Amount in Words -->
+        <div class="amount-words">
+            <strong>Amount Chargeable (in words) :</strong> {{ data.totalAmount|amount_in_words }}
+        </div>
+
+        <!-- Goods Details -->
+        <table class="goods-table">
+            <tr>
+                <th width="35%">Description Of Goods</th>
+                <th width="20%">Weight(In Kg)</th>
+                <th width="25%">Dimension(LxBxH)(in)</th>
+                <th width="20%">Goods Value(Rs)</th>
+            </tr>
+            <tr>
+                <td>{{ data.materialCategory}}</td>
+                <td>{{ data.weight }}</td>
+                <td>&nbsp;</td>
+                <td>{{ data.freightAmount|indian_currency }}</td>
+            </tr>
+        </table>
+
+        <!-- Declaration and Signature -->
+        <table>
+            <tr>
+                <td width="70%" class="tariff-declaration">
+                    <strong>Tariff Declaration</strong><br>
+                    We declare to the best of our knowledge and belief that the particulars stated herein are 
+                    true and correct and there is no additional consideration accruing to us either directly or 
+                    indirectly in any manner other than the amount indicated here.
+                </td>
+                <td width="30%" class="signature-block">
+                    <div>for <strong>Fastist Logistic Solutions</strong></div>
+                    <img src="{{ signature_path }}" alt="Signature" class="signature-image">
+                    <div class="signature-name">Gowtham Balasubramaniam</div>
+                    <div class="signature-title">Digitally signed by Gowtham Balasubramaniam<br>Date: {{ invoice.invoice_date }}<br>Reason: I am approving this document</div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Footer -->
+        <div class="footer">
+            This is a Computer Generated Invoice
+        </div>
+    </div>
+</body>
+</html>

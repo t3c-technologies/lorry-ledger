@@ -31,6 +31,12 @@ export default function TripsDetail({ trip, onBack }) {
   const [isViewLRModalOpen, setIsViewLRModalOpen] = useState(false);
   const [isLRListModalOpen, setIsLRListModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isAddInvoiceModalOpen, setIsAddInvoiceModalOpen] = useState(false);
+  const [isEditInvoiceModalOpen, setIsEditInvoiceModalOpen] = useState(false);
+  const [isViewInvoiceModalOpen, setIsViewInvoiceModalOpen] = useState(false);
+  const [isInvoiceListModalOpen, setIsInvoiceListModalOpen] = useState(false);
+  const [isDeleteInvoiceConfirmOpen, setIsDeleteInvoiceConfirmOpen] =
+    useState(false);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [transactionsList, setTransactionsList] = useState([]);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
@@ -73,7 +79,13 @@ export default function TripsDetail({ trip, onBack }) {
 
   //Routes
   const [routesList, setRoutesList] = useState(trip.routes);
-  const [newRoute, setNewRoute] = useState({ consigner: "", consignee: "" });
+  const [newRoute, setNewRoute] = useState({
+    consigner: "",
+    consignee: "",
+    units: "",
+    lrNumber: "",
+    invoiceNumber: "",
+  });
   const [routeIndex, setRouteIndex] = useState(-1);
 
   const [showModal, setShowModal] = useState(false);
@@ -86,6 +98,7 @@ export default function TripsDetail({ trip, onBack }) {
   const [showMoreDetails, setShowMoreDetails] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchTermInvoice, setSearchTermInvoice] = useState("");
 
   const [progressBarNumber, setProgressBarNumber] = useState(1);
   const [progressButtonText, setProgressButtonText] =
@@ -101,27 +114,37 @@ export default function TripsDetail({ trip, onBack }) {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [currentPageInvoice, setCurrentPageInvoice] = useState(1);
+  const [recordsPerPageLR, setRecordsPerPageLR] = useState(10);
+  const [recordsPerPageInvoice, setRecordsPerPageInvoice] = useState(10);
   const [nextPage, setNextPage] = useState(null);
   const [prevPage, setPrevPage] = useState(null);
-  const [driverFilters, setDriverFilters] = useState([]);
-  const [currentFormSection, setCurrentFormSection] = useState(0);
+  const [nextPageInvoice, setNextPageInvoice] = useState(null);
+  const [prevPageInvoice, setPrevPageInvoice] = useState(null);
+  const [LRFilters, setLRFilters] = useState([]);
+  const [invoiceFilters, setInvoiceFilters] = useState([]);
+  const [currentLRFormSection, setCurrentLRFormSection] = useState(0);
+  const [currentInvoiceFormSection, setCurrentInvoiceFormSection] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalPagesInvoice, setTotalPagesInvoice] = useState(0);
 
   const [showAddConsignerPopup, setShowAddConsignerPopup] = useState(false);
   const [showAddConsigneePopup, setShowAddConsigneePopup] = useState(false);
   const [LRList, setLRList] = useState([]);
+  const [invoiceList, setInvoiceList] = useState([]);
   const [consigners, setConsigners] = useState([]);
   const [consignees, setConsignees] = useState([]);
   const [selectedConsigner, setSelectedConsigner] = useState("");
   const [selectedConsignee, setSelectedConsignee] = useState("");
   const [currentLR, setCurrentLR] = useState("");
-  const [nextLrNumber, setNextLrNumber] = useState("LRN-003");
+  const [currentInvoice, setCurrentInvoice] = useState("");
+  const [nextLrNumber, setNextLrNumber] = useState("LRN-001");
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1");
 
   // Form data state
   const [formData, setFormData] = useState({
     lrDate: new Date().toISOString().split("T")[0],
-    lrNumber: "LRN-",
+    lrNumber: "",
     consigner_id: "",
     consignee_id: "",
     materialCategory: "",
@@ -133,10 +156,41 @@ export default function TripsDetail({ trip, onBack }) {
     trip_id: trip.id,
   });
 
+  const [formDataInvoice, setFormDataInvoice] = useState({
+    invoiceDate: new Date().toISOString().split("T")[0],
+    invoiceNumber: "",
+    consigner_id: "",
+    consignee_id: "",
+    materialCategory: "",
+    weight: "",
+    unit: "Tonnes",
+    numberOfPackages: "",
+    freightPaidBy: "Consigner",
+    gstPercentage: "",
+    trip_id: trip.id,
+  });
+
+  const resetAddInvoice = () => {
+    setFormData({
+      invoiceDate: new Date().toISOString().split("T")[0],
+      invoiceNumber: "",
+      consigner_id: "",
+      consignee_id: "",
+      materialCategory: "",
+      weight: "",
+      unit: "Tonnes",
+      numberOfPackages: "",
+      freightPaidBy: "Consigner",
+      gstPercentage: "",
+      trip_id: trip.id,
+    });
+  };
+
   const resetAddLR = () => {
     setFormData({
       lrDate: new Date().toISOString().split("T")[0],
-      lrNumber: "LRN-",
+      invoiceDate: new Date().toISOString().split("T")[0],
+      lrNumber: "",
       consigner_id: "",
       consignee_id: "",
       materialCategory: "",
@@ -188,8 +242,11 @@ export default function TripsDetail({ trip, onBack }) {
     { label: "Settled", date: formatDate(trip.settlementDate) },
   ]);
 
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const indexOfLastRecord = currentPage * recordsPerPageLR;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPageLR;
+  const indexOfLastRecordInvoice = currentPageInvoice * recordsPerPageInvoice;
+  const indexOfFirstRecordInvoice =
+    indexOfLastRecordInvoice - recordsPerPageInvoice;
   const currentRecords = [];
 
   const handleInputConsignerChange = (e) => {
@@ -243,14 +300,30 @@ export default function TripsDetail({ trip, onBack }) {
   const extractNextPage = (fullUrl) => {
     if (!fullUrl) return null; // Handle undefined or null cases
 
-    const baseUrl = "http://localhost:8000/api/";
-    const index = fullUrl.indexOf(baseUrl);
+    try {
+      // Parse the URL to get its components
+      const url = new URL(fullUrl);
 
-    if (index !== -1) {
-      return fullUrl.slice(index + baseUrl.length); // Extract everything after base URL
+      // Extract path and query parameters
+      let pathWithQuery = url.pathname + url.search;
+
+      // Remove leading slash if present
+      if (pathWithQuery.startsWith("/")) {
+        pathWithQuery = pathWithQuery.substring(1);
+      }
+
+      // Check if the path contains "api/" and remove it to avoid duplication
+      const apiPattern = /^api\//i;
+      if (apiPattern.test(pathWithQuery)) {
+        pathWithQuery = pathWithQuery.replace(apiPattern, "");
+      }
+
+      return pathWithQuery;
+    } catch (error) {
+      // If URL parsing fails (e.g., if it's not a valid URL), return the original
+      console.warn("Invalid URL format:", error.message);
+      return fullUrl;
     }
-
-    return fullUrl; // Return original if base URL is missing
   };
 
   const requestSort = (key) => {
@@ -259,6 +332,17 @@ export default function TripsDetail({ trip, onBack }) {
       direction = "descending";
     }
     setSortConfig({ key, direction });
+  };
+
+  const requestSortInvoice = (key) => {
+    let direction = "ascending";
+    if (
+      sortConfigInvoice.key === key &&
+      sortConfigInvoice.direction === "ascending"
+    ) {
+      direction = "descending";
+    }
+    setSortConfigInvoice({ key, direction });
   };
 
   const handleAddConsignee = async () => {
@@ -300,6 +384,10 @@ export default function TripsDetail({ trip, onBack }) {
   };
 
   const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "ascending",
+  });
+  const [sortConfigInvoice, setSortConfigInvoice] = useState({
     key: "name",
     direction: "ascending",
   });
@@ -395,6 +483,57 @@ export default function TripsDetail({ trip, onBack }) {
       console.log(progressSteps);
     } catch (error) {
       notifyError("Error updating trip");
+    }
+  };
+
+  //Print LR
+  // Add this function to handle the print button click
+  const handlePrintClick = (lrId) => {
+    // Open the PDF in a new window/tab
+    const url = process.env.NEXT_PUBLIC_API_URL;
+    window.open(`${url}/lr/pdf/${lrId}/`, "_blank");
+  };
+
+  const handlePrintClickInvoice = (invoiceId) => {
+    // Open the PDF in a new window/tab
+    const url = process.env.NEXT_PUBLIC_API_URL;
+    window.open(`${url}/invoices/pdf/${invoiceId}/`, "_blank");
+  };
+
+  // Also add this function to your component
+  const printLR = async (lrId) => {
+    try {
+      const token = localStorage.getItem("authToken"); // Retrieve the authentication token
+
+      const response = await fetch(`/api/lr/pdf/${lrId}/`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/pdf",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      // Create a blob from the PDF stream
+      const blob = await response.blob();
+
+      // Create a link element and trigger a download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `LR_${lrId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error printing LR:", error);
+      toast.error("Failed to print LR. Please try again.");
     }
   };
 
@@ -650,7 +789,7 @@ export default function TripsDetail({ trip, onBack }) {
         API_ENDPOINTS.trucks.expenses(trip.truck.id),
         {
           page: currentPage,
-          page_size: recordsPerPage, // Use dynamic value instead of ITEMS_PER_PAGE
+          page_size: recordsPerPageLR, // Use dynamic value instead of ITEMS_PER_PAGE
         }
       );
       setExpensesList(response.data);
@@ -778,14 +917,25 @@ export default function TripsDetail({ trip, onBack }) {
     }
   };
 
+  const handleSearchInvoice = (e) => {
+    setSearchTermInvoice(e.target.value);
+    setCurrentPageInvoice(1); // Reset to first page when searching
+  };
+
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1); // Reset to first page when searching
   };
 
   // Handle records per page change
-  const handleRecordsPerPageChange = (e) => {
-    setRecordsPerPage(Number(e.target.value));
+  const handleRecordsPerPageInvoiceChange = (e) => {
+    setRecordsPerPageInvoice(Number(e.target.value));
+    setCurrentPageInvoice(1); // Reset to first page when changing records per page
+  };
+
+  // Handle records per page change
+  const handleRecordsPerPageLRChange = (e) => {
+    setRecordsPerPageLR(Number(e.target.value));
     setCurrentPage(1); // Reset to first page when changing records per page
   };
 
@@ -821,21 +971,51 @@ export default function TripsDetail({ trip, onBack }) {
       notifyError("Error fetching consignees");
     }
   };
+  const handleAddInvoiceClick = (route) => {
+    if (route.lrNumber != "") {
+      const lr = LRList.find((lr) => lr.id == route.lrNumber);
+      console.log(lr);
+      setFormDataInvoice((prevFormData) => ({
+        ...prevFormData,
+        freightPaidBy: lr.freightPaidBy,
+        materialCategory: lr.materialCategory,
+        unit: lr.unit,
+        weight: lr.weight,
+        gstPercentage: lr.gstPercentage,
+      }));
+      setCurrentInvoiceFormSection(0);
+    } else {
+      setCurrentInvoiceFormSection(3);
+    }
+    setIsAddInvoiceModalOpen(true); // Reset to first section when opening
+  };
 
   const handleAddLRClick = () => {
     setIsAddLRModalOpen(true);
-    setCurrentFormSection(3); // Reset to first section when opening
+    setCurrentLRFormSection(3); // Reset to first section when opening
   };
 
   const handleNextSection = () => {
-    if (currentFormSection < formSections.length - 1) {
-      setCurrentFormSection(currentFormSection + 1);
+    if (currentLRFormSection < formSections.length - 1) {
+      setCurrentLRFormSection(currentLRFormSection + 1);
     }
   };
 
   const handlePrevSection = () => {
-    if (currentFormSection > 0) {
-      setCurrentFormSection(currentFormSection - 1);
+    if (currentLRFormSection > 0) {
+      setCurrentLRFormSection(currentLRFormSection - 1);
+    }
+  };
+
+  const handleNextSectionInvoice = () => {
+    if (currentInvoiceFormSection < formSections.length - 1) {
+      setCurrentInvoiceFormSection(currentInvoiceFormSection + 1);
+    }
+  };
+
+  const handlePrevSectionInvoice = () => {
+    if (currentInvoiceFormSection > 0) {
+      setCurrentInvoiceFormSection(currentInvoiceFormSection - 1);
     }
   };
 
@@ -846,16 +1026,39 @@ export default function TripsDetail({ trip, onBack }) {
     }));
   };
 
+  const handleInputChangeInvoice = (field, value) => {
+    setFormDataInvoice((prevFormData) => ({
+      ...prevFormData,
+      [field]: value,
+    }));
+  };
+
   useEffect(() => {
     getTransactions();
     getConsigners();
     getConsignees();
     getLR();
+    getLRAll();
+    getInvoices();
+    getInvoicesAll();
   }, []);
 
   useEffect(() => {
+    getInvoices();
+  }, [recordsPerPageInvoice]);
+  useEffect(() => {
+    getInvoices();
+  }, [sortConfigInvoice]);
+  useEffect(() => {
+    getInvoices();
+  }, [searchTermInvoice]);
+  useEffect(() => {
+    getInvoices();
+  }, [invoiceFilters]);
+
+  useEffect(() => {
     getLR();
-  }, [recordsPerPage]);
+  }, [recordsPerPageLR]);
   useEffect(() => {
     getLR();
   }, [sortConfig]);
@@ -864,7 +1067,7 @@ export default function TripsDetail({ trip, onBack }) {
   }, [searchTerm]);
   useEffect(() => {
     getLR();
-  }, [driverFilters]);
+  }, [LRFilters]);
 
   const generateNextLrNumber = (lrs) => {
     if (!lrs || lrs.length === 0) {
@@ -890,21 +1093,116 @@ export default function TripsDetail({ trip, onBack }) {
     setNextLrNumber(`LRN-${String(nextNumber).padStart(3, "0")}`);
   };
 
+  const generateNextInvoiceNumber = (invoices) => {
+    if (!invoices || invoices.length === 0) {
+      setNextInvoiceNumber("1");
+      return;
+    }
+
+    // Find the highest LR number
+    let highestNumber = 0;
+
+    invoices.forEach((invoice) => {
+      if (invoice.invoiceNumber) {
+        const numPart = invoice.invoiceNumber;
+        const num = parseInt(numPart, 10);
+        if (!isNaN(num) && num > highestNumber) {
+          highestNumber = num;
+        }
+      }
+    });
+
+    // Generate the next number with leading zeros
+    const nextNumber = highestNumber + 1;
+    setNextInvoiceNumber(nextNumber);
+  };
+
+  const getInvoices = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.invoices.list(trip.id), {
+        search: searchTermInvoice,
+        page_size: recordsPerPageInvoice,
+        filters: JSON.stringify(invoiceFilters),
+        sorting: JSON.stringify(sortConfigInvoice),
+      });
+      setInvoiceList(response.data);
+      setTotalPagesInvoice(response.total_pages);
+      setPrevPageInvoice(extractNextPage(response.previous));
+      setNextPageInvoice(extractNextPage(response.next));
+    } catch (error) {
+      notifyError("Error fetching invoices");
+    }
+  };
+
   const getLR = async () => {
     try {
       const response = await api.get(API_ENDPOINTS.LR.list(trip.id), {
         search: searchTerm,
-        page_size: recordsPerPage,
-        filters: JSON.stringify(driverFilters),
+        page_size: recordsPerPageLR,
+        filters: JSON.stringify(LRFilters),
         sorting: JSON.stringify(sortConfig),
       });
       setLRList(response.data);
       setTotalPages(response.total_pages);
       setPrevPage(extractNextPage(response.previous));
       setNextPage(extractNextPage(response.next));
-      generateNextLrNumber(response.data);
     } catch (error) {
       notifyError("Error fetching LRs");
+    }
+  };
+
+  const getLRAll = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.LR.listAll, {
+        search: searchTerm,
+        page_size: recordsPerPageLR,
+        filters: JSON.stringify(LRFilters),
+        sorting: JSON.stringify(sortConfig),
+      });
+      generateNextLrNumber(response.data);
+    } catch (error) {
+      notifyError("Error fetching LRs ALl");
+    }
+  };
+
+  const getInvoicesAll = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.invoices.listAll, {
+        search: searchTermInvoice,
+        page_size: recordsPerPageInvoice,
+        filters: JSON.stringify(invoiceFilters),
+        sorting: JSON.stringify(sortConfigInvoice),
+      });
+      generateNextInvoiceNumber(response.data);
+    } catch (error) {
+      notifyError("Error fetching all invoices");
+    }
+  };
+
+  // Previous page
+  const prevPageClickInvoice = async () => {
+    try {
+      const response = await api.get(prevPageInvoice);
+      setInvoiceList(response.data);
+      setNextPageInvoice(extractNextPage(response.next)); // Store next page URL
+      setPrevPageInvoice(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPagesInvoice(response.total_pages);
+      setCurrentPageInvoice((prev) => prev - 1);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  // Next page
+  const nextPageClickInvoice = async () => {
+    try {
+      const response = await api.get(nextPageInvoice);
+      setInvoiceList(response.data);
+      setNextPageInvoice(extractNextPage(response.next)); // Store next page URL
+      setPrevPageInvoice(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPagesInvoice(response.total_pages);
+      setCurrentPageInvoice((prev) => prev + 1);
+    } catch (error) {
+      console.log(error);
     }
   };
 
@@ -939,6 +1237,28 @@ export default function TripsDetail({ trip, onBack }) {
     console.log(currentPage);
   };
 
+  const updateInvoice = async () => {
+    try {
+      const response = await api.put(
+        API_ENDPOINTS.invoices.update(currentInvoice.id),
+        formDataInvoice,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      setIsEditInvoiceModalOpen(false);
+      resetAddInvoice();
+      setSelectedConsigner("");
+      setSelectedConsignee("");
+      notifySuccess("Invoice Updated Successfully");
+      getInvoices();
+    } catch (error) {
+      notifyError("Error updating invoice");
+    }
+  };
+
   const updateLR = async () => {
     try {
       const response = await api.put(
@@ -961,15 +1281,51 @@ export default function TripsDetail({ trip, onBack }) {
     }
   };
 
+  const submitInvoice = async () => {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.invoices.create,
+        formDataInvoice,
+        {
+          headers: {
+            "Content-Type": "application/json", // Explicitly set header
+          },
+        }
+      );
+      setIsAddInvoiceModalOpen(false);
+      resetAddInvoice();
+      setSelectedConsigner("");
+      setSelectedConsignee("");
+      getInvoices();
+      getInvoicesAll();
+      const updatedRoutes = [...routesList];
+      updatedRoutes[routeIndex].invoiceNumber = response.data.id;
+      setRoutesList(updatedRoutes);
+      const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+      console.log(tripToUpdate);
+
+      setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
+      setRouteIndex(-1);
+      notifySuccess("Invoice Created Successfully");
+    } catch (error) {
+      notifyError("Error creating Invoice");
+    }
+    // Reset form
+    // console.log(formData);
+  };
+
   const submitLR = async () => {
     try {
       const response = await api.post(API_ENDPOINTS.LR.create, formData, {
-        headers: {
-          "Content-Type": "application/json", // Explicitly set header
-        },
-      });
-      trip.LRCount = Number(trip.LRCount) + 1;
-      const res = await api.put(API_ENDPOINTS.trips.update(trip.id), trip, {
         headers: {
           "Content-Type": "application/json", // Explicitly set header
         },
@@ -979,12 +1335,37 @@ export default function TripsDetail({ trip, onBack }) {
       setSelectedConsigner("");
       setSelectedConsignee("");
       getLR();
+      getLRAll();
+      const updatedRoutes = [...routesList];
+      updatedRoutes[routeIndex].lrNumber = response.data.id;
+      console.log(updatedRoutes);
+      setRoutesList(updatedRoutes);
+      const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+      setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      console.log(tripToUpdate);
+      console.log(response.data);
+
+      notifyInfo("Trip updated successfully");
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
+      setRouteIndex(-1);
       notifySuccess("LR Created Successfully");
     } catch (error) {
       notifyError("Error creating LR");
     }
     // Reset form
     // console.log(formData);
+  };
+  const handleUpdateInvoice = () => {
+    formDataInvoice.consignee_id = selectedConsignee;
+    formDataInvoice.consigner_id = selectedConsigner;
+    updateInvoice();
   };
 
   const handleUpdateLR = () => {
@@ -994,11 +1375,42 @@ export default function TripsDetail({ trip, onBack }) {
     updateLR();
   };
 
+  const handleSubmitInvoice = () => {
+    formDataInvoice.consignee_id = selectedConsignee;
+    formDataInvoice.consigner_id = selectedConsigner;
+    //console.log(formDataInvoice);
+    //submitLR();
+    submitInvoice();
+  };
+
   const handleSubmitLR = () => {
     formData.consignee_id = selectedConsignee;
     formData.consigner_id = selectedConsigner;
     console.log(formData);
     submitLR();
+  };
+
+  const handleRowClickInvoice = (invoice) => {
+    setCurrentInvoice(invoice);
+    setFormDataInvoice({
+      trip_id: invoice.trip.id,
+      invoiceDate: invoice.invoiceDate,
+      invoiceNumber: invoice.invoiceNumber,
+      materialCategory: invoice.materialCategory,
+      numberOfPackages: invoice.numberOfPackages,
+      unit: invoice.unit,
+      weight: invoice.weight,
+      freightPaidBy: invoice.freightPaidBy,
+      gstPercentage: invoice.gstPercentage,
+      consignee_id: invoice.consignee.id,
+      consigner_id: invoice.consigner.id,
+    });
+    getConsigners();
+    getConsignees();
+    setSelectedConsignee(invoice.consignee.id);
+    setSelectedConsigner(invoice.consigner.id);
+    setCurrentInvoiceFormSection(0);
+    setIsViewInvoiceModalOpen(true);
   };
 
   const handleRowClick = (LR) => {
@@ -1022,7 +1434,7 @@ export default function TripsDetail({ trip, onBack }) {
     setSelectedConsigner(LR.consigner.id);
     console.log(formData);
     console.log(currentLR);
-    setCurrentFormSection(0);
+    setCurrentLRFormSection(0);
     setIsViewLRModalOpen(true);
   };
 
@@ -1047,7 +1459,13 @@ export default function TripsDetail({ trip, onBack }) {
     try {
       await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
       notifyInfo("Trip updated successfully");
-      setNewRoute({ consigner: "", consignee: "" });
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
       setIsAddRouteModalOpen(false);
     } catch (error) {
       console.error("Error updating Trip:", error);
@@ -1065,6 +1483,7 @@ export default function TripsDetail({ trip, onBack }) {
     const updatedRoutes = [...routesList];
     updatedRoutes[routeIndex].consigner = newRoute.consigner;
     updatedRoutes[routeIndex].consignee = newRoute.consignee;
+    updatedRoutes[routeIndex].units = newRoute.units;
     console.log(updatedRoutes);
     setRoutesList(updatedRoutes);
     const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
@@ -1072,7 +1491,13 @@ export default function TripsDetail({ trip, onBack }) {
     try {
       await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
       notifyInfo("Trip updated successfully");
-      setNewRoute({ consigner: "", consignee: "" });
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
       setRouteIndex(-1);
       setIsEditRouteModalOpen(false);
     } catch (error) {
@@ -1097,13 +1522,42 @@ export default function TripsDetail({ trip, onBack }) {
     try {
       await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
       notifyInfo("Trip updated successfully");
-      setNewRoute({ consigner: "", consignee: "" });
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
       setRouteIndex(-1);
       setIsDeleteRouteConfirmOpen(false);
     } catch (error) {
       console.error("Error updating Trip:", error);
       notifyError("Error updating Trip");
     }
+  };
+
+  const handleEditClickInvoice = (invoice) => {
+    setCurrentInvoice(invoice);
+    setFormDataInvoice({
+      trip_id: invoice.trip.id,
+      invoiceDate: invoice.invoiceDate,
+      invoiceNumber: invoice.invoiceNumber,
+      materialCategory: invoice.materialCategory,
+      numberOfPackages: invoice.numberOfPackages,
+      unit: invoice.unit,
+      weight: invoice.weight,
+      freightPaidBy: invoice.freightPaidBy,
+      gstPercentage: invoice.gstPercentage,
+      consignee_id: invoice.consignee.id,
+      consigner_id: invoice.consigner.id,
+    });
+    setSelectedConsignee(invoice.consignee.id);
+    setSelectedConsigner(invoice.consigner.id);
+    getConsigners();
+    getConsignees();
+    setCurrentInvoiceFormSection(0);
+    setIsEditInvoiceModalOpen(true);
   };
 
   const handleEditClick = (LR) => {
@@ -1127,8 +1581,13 @@ export default function TripsDetail({ trip, onBack }) {
     console.log(currentLR);
     getConsigners();
     getConsignees();
-    setCurrentFormSection(0);
+    setCurrentLRFormSection(0);
     setIsEditLRModalOpen(true);
+  };
+
+  const handleDeleteClickInvoice = (invoice) => {
+    setCurrentInvoice(invoice);
+    setIsDeleteInvoiceConfirmOpen(true);
   };
 
   const handleDeleteClick = (LR) => {
@@ -1136,16 +1595,77 @@ export default function TripsDetail({ trip, onBack }) {
     setIsDeleteConfirmOpen(true);
   };
 
+  const handleDeleteInvoice = async () => {
+    try {
+      const updatedRoutes = [...routesList];
+      const curIndex = updatedRoutes.findIndex(
+        (route) => route.invoiceNumber == currentInvoice.id
+      );
+      console.log(updatedRoutes);
+      console.log(curIndex);
+
+      updatedRoutes[curIndex].invoiceNumber = "";
+      console.log(updatedRoutes);
+      setRoutesList(updatedRoutes);
+      const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+      setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
+      await api.delete(API_ENDPOINTS.invoices.delete(currentInvoice.id));
+      notifyInfo("LR deleted successfully");
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
+      setIsDeleteInvoiceConfirmOpen(false);
+      setRouteIndex(-1);
+      getInvoices();
+      console.log("HIiiii");
+      getInvoicesAll();
+      console.log(nextInvoiceNumber);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const handleDeleteLR = async () => {
+    const updatedRoutes = [...routesList];
+    const curIndex = updatedRoutes.findIndex(
+      (route) => route.lrNumber == currentLR.id
+    );
+    updatedRoutes[curIndex].lrNumber = "";
+    console.log(updatedRoutes);
+    setRoutesList(updatedRoutes);
+    const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
+    setUpdatedTrip((prev) => ({ ...prev, routes: updatedRoutes }));
     try {
       await api.delete(API_ENDPOINTS.LR.delete(currentLR.id));
       notifyInfo("LR deleted successfully");
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      setNewRoute({
+        consigner: "",
+        consignee: "",
+        units: "",
+        lrNumber: "",
+        invoiceNumber: "",
+      });
+      setRouteIndex(-1);
       getLR();
+      getLRAll();
       setIsDeleteConfirmOpen(false);
       // Extract current page from URL
     } catch (error) {
       console.log(error);
     }
+  };
+
+  const handleViewToEditInvoice = () => {
+    setIsViewInvoiceModalOpen(false);
+    setIsEditInvoiceModalOpen(true);
   };
 
   const handleViewToEdit = () => {
@@ -1156,12 +1676,12 @@ export default function TripsDetail({ trip, onBack }) {
   const paginate = async (page) => {
     const pageUrl = `${API_ENDPOINTS.LR.list(
       trip.id
-    )}?page=${page}&page_size=${recordsPerPage}`;
+    )}?page=${page}&page_size=${recordsPerPageLR}`;
     try {
       const response = await api.get(pageUrl, {
         search: searchTerm,
-        page_size: recordsPerPage,
-        filters: JSON.stringify(driverFilters),
+        page_size: recordsPerPageLR,
+        filters: JSON.stringify(LRFilters),
         sorting: JSON.stringify(sortConfig),
       });
       setLRList(response.data);
@@ -1169,6 +1689,28 @@ export default function TripsDetail({ trip, onBack }) {
       setPrevPage(extractNextPage(response.previous)); // Store previous page URL
       setTotalPages(response.total_pages);
       setCurrentPage(page);
+      // Extract current page from URL
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const paginateInvoice = async (page) => {
+    const pageUrl = `${API_ENDPOINTS.invoices.list(
+      trip.id
+    )}?page=${page}&page_size=${recordsPerPageInvoice}`;
+    try {
+      const response = await api.get(pageUrl, {
+        search: searchTermInvoice,
+        page_size: recordsPerPageInvoice,
+        filters: JSON.stringify(invoiceFilters),
+        sorting: JSON.stringify(sortConfigInvoice),
+      });
+      setInvoiceList(response.data);
+      setNextPageInvoice(extractNextPage(response.next)); // Store next page URL
+      setPrevPageInvoice(extractNextPage(response.previous)); // Store previous page URL
+      setTotalPagesInvoice(response.total_pages);
+      setCurrentPageInvoice(page);
       // Extract current page from URL
     } catch (error) {
       console.log(error);
@@ -1186,8 +1728,65 @@ export default function TripsDetail({ trip, onBack }) {
     setIsRouteListModalOpen(true);
   };
 
+  const AddInvoiceToggle = () => {
+    setIsInvoiceListModalOpen(true);
+    console.log(isInvoiceListModalOpen);
+  };
+
   const AddLRToggle = () => {
     setIsLRListModalOpen(true);
+  };
+
+  const getSortDirectionIconInvoice = (columnName) => {
+    if (sortConfig.key !== columnName) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
+        </svg>
+      );
+    }
+    return sortConfig.direction === "ascending" ? (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-primary"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 15l7-7 7 7"
+        />
+      </svg>
+    ) : (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 text-primary"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    );
   };
 
   const getSortDirectionIcon = (columnName) => {
@@ -1795,7 +2394,7 @@ export default function TripsDetail({ trip, onBack }) {
   );
 
   const renderFormSection = () => {
-    switch (currentFormSection) {
+    switch (currentLRFormSection) {
       case 0:
         return renderTripDetailsSection();
       case 1:
@@ -2298,7 +2897,7 @@ export default function TripsDetail({ trip, onBack }) {
   );
 
   const renderFormSectionView = () => {
-    switch (currentFormSection) {
+    switch (currentLRFormSection) {
       case 0:
         return renderTripDetailsSectionView();
       case 1:
@@ -2312,6 +2911,862 @@ export default function TripsDetail({ trip, onBack }) {
     }
   };
 
+  // Form section components
+  const renderTripDetailsSectionInvoice = () => (
+    <div className="space-y-4">
+      <div className="bg-gray-100 rounded-md p-4 mb-4 text-black">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="font-bold">{trip.origin}</div>
+            <div className="text-sm text-gray-500">21 Apr 2025</div>
+          </div>
+          <ChevronDown
+            size={20}
+            className="text-gray-400 transform rotate -rotate-90"
+          />
+          <div>
+            <div className="font-bold">{trip.destination}</div>
+            <div className="text-sm text-gray-500">-</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 mt-4 gap-4">
+          <div>
+            <div className="text-sm text-gray-500">Party Name</div>
+            <div>{trip.party.partyName}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Billing Type</div>
+            <div>{trip.partyBillingType}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Freight Amount</div>
+            <div>₹ {trip.partyFreightAmount}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Party Balance</div>
+            <div>₹ {trip.party.openingBalance}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          Invoice Date
+        </label>
+        <div className="relative">
+          <input
+            type="date"
+            value={formDataInvoice.invoiceDate}
+            onChange={(e) =>
+              handleInputChangeInvoice("invoiceDate", e.target.value)
+            }
+            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          Invoice Number
+        </label>
+        <input
+          type="text"
+          value={formDataInvoice.invoiceNumber}
+          onChange={(e) =>
+            handleInputChangeInvoice("invoiceNumber", e.target.value)
+          }
+          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+        />
+      </div>
+    </div>
+  );
+
+  const renderConsignerSectionInvoice = () => (
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consigner Details</h2>
+          <button
+            onClick={() => setShowAddConsignerPopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consigner
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consigner</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsigner}
+            onChange={(e) => setSelectedConsigner(e.target.value)}
+          >
+            <option value="">-- Select a consigner --</option>
+            {consigners.map((consigner) => (
+              <option key={consigner.id} value={consigner.id}>
+                {consigner.name} (GST: {consigner.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedConsigner && selectedConsigner !== "0" && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consigner Details</h3>
+            {console.log(selectedConsigner)}
+            {consigners.find((c) => c.id == selectedConsigner) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).gstNumber}
+                </p>
+                {consigners.find((c) => c.id == selectedConsigner)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consigners.find((c) => c.id == selectedConsigner)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderConsigneeSectionInvoice = () => (
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consignee Details</h2>
+          <button
+            onClick={() => setShowAddConsigneePopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consignee
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consignee</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsignee}
+            onChange={(e) => setSelectedConsignee(e.target.value)}
+          >
+            <option value="">-- Select a consignee --</option>
+            {consignees.map((consignee) => (
+              <option key={consignee.id} value={consignee.id}>
+                {consignee.name} (GST: {consignee.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedConsignee && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consignee Details</h3>
+            {consignees.find((c) => c.id == selectedConsignee) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).gstNumber}
+                </p>
+                {consignees.find((c) => c.id == selectedConsignee)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consignees.find((c) => c.id == selectedConsignee)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderLoadDetailsSectionInvoice = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          Material Category*
+        </label>
+        <div className="relative">
+          <select
+            value={formDataInvoice.materialCategory}
+            onChange={(e) =>
+              handleInputChangeInvoice("materialCategory", e.target.value)
+            }
+            className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+          >
+            <option value="">Eg: Steel</option>
+            <option value="Steel">Steel</option>
+            <option value="Wood">Wood</option>
+            <option value="Plastic">Plastic</option>
+          </select>
+          <ChevronDown
+            size={16}
+            className="absolute right-3 top-3 text-black"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Weight
+          </label>
+          <input
+            type="text"
+            placeholder="Eg: 5"
+            value={formDataInvoice.weight}
+            onChange={(e) => handleInputChangeInvoice("weight", e.target.value)}
+            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Unit
+          </label>
+          <div className="relative">
+            <select
+              value={formDataInvoice.unit}
+              onChange={(e) => handleInputChangeInvoice("unit", e.target.value)}
+              className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+            >
+              <option value="Tonnes">Tonnes</option>
+              <option value="Kg">Kg</option>
+              <option value="Quintal">Quintal</option>
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute right-3 top-3 text-black"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          No. of Bags / Box / Shipments
+        </label>
+        <input
+          type="text"
+          placeholder="Eg: 5"
+          value={formDataInvoice.numberOfPackages}
+          onChange={(e) =>
+            handleInputChangeInvoice("numberOfPackages", e.target.value)
+          }
+          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          FREIGHT PAID BY
+        </label>
+        <div className="flex space-x-4 mt-1">
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consigner"
+              checked={formDataInvoice.freightPaidBy === "Consigner"}
+              onChange={(e) =>
+                handleInputChangeInvoice("freightPaidBy", e.target.value)
+              }
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consigner</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consignee"
+              checked={formDataInvoice.freightPaidBy === "Consignee"}
+              onChange={(e) =>
+                handleInputChangeInvoice("freightPaidBy", e.target.value)
+              }
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consignee</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Agent"
+              checked={formDataInvoice.freightPaidBy === "Agent"}
+              onChange={(e) =>
+                handleInputChangeInvoice("freightPaidBy", e.target.value)
+              }
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Agent</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          GST Percentage
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Eg: 5"
+            value={formDataInvoice.gstPercentage}
+            onChange={(e) =>
+              handleInputChangeInvoice("gstPercentage", e.target.value)
+            }
+            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          />
+          <span className="absolute right-3 top-2.5 text-black">%</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFormSectionInvoice = () => {
+    switch (currentInvoiceFormSection) {
+      case 0:
+        return renderTripDetailsSectionInvoice();
+      case 1:
+        return renderConsignerSectionInvoice();
+      case 2:
+        return renderConsigneeSectionInvoice();
+      case 3:
+        return renderLoadDetailsSectionInvoice();
+      default:
+        return renderTripDetailsSectionInvoice();
+    }
+  };
+
+  // Form section components
+  const renderTripDetailsSectionViewInvoice = () => (
+    <div className="space-y-4">
+      <div className="bg-gray-100 rounded-md p-4 mb-4 text-black">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="font-bold">{trip.origin}</div>
+            <div className="text-sm text-gray-500">21 Apr 2025</div>
+          </div>
+          <ChevronDown
+            size={20}
+            className="text-gray-400 transform rotate -rotate-90"
+          />
+          <div>
+            <div className="font-bold">{trip.destination}</div>
+            <div className="text-sm text-gray-500">-</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 mt-4 gap-4">
+          <div>
+            <div className="text-sm text-gray-500">Party Name</div>
+            <div>{trip.party.partyName}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Billing Type</div>
+            <div>{trip.partyBillingType}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Freight Amount</div>
+            <div>₹ {trip.partyFreightAmount}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Party Balance</div>
+            <div>₹ {trip.party.openingBalance}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          Invoice Date
+        </label>
+        <div className="relative">
+          <span className="text-black">{formDataInvoice.invoiceDate}</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-black font-medium mb-1">
+          Invoice Number
+        </label>
+        <span className="text-black">{formDataInvoice.invoiceNumber}</span>
+      </div>
+    </div>
+  );
+
+  const renderConsignerSectionViewInvoice = () => (
+    // <div className="space-y-4 text-black">
+    //   <div>
+    //     <label className="block text-sm text-black font-medium mb-1">
+    //       GST Number
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="GST Number"
+    //       value={formData.consigner.gstNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "gstNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium text-black mb-1">
+    //       Consigner Name*
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Name"
+    //       value={formData.consigner.name}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "name", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consigner Address Line 1
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Address Line 1"
+    //       value={formData.consigner.addressLine1}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "addressLine1", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consigner Address Line 2
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consigner Address Line 2"
+    //       value={formData.consigner.addressLine2}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "addressLine2", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div className="grid grid-cols-2 gap-4">
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">State</label>
+    //       <div className="relative">
+    //         <select
+    //           value={formData.consigner.state}
+    //           onChange={(e) =>
+    //             handleInputChange("consigner", "state", e.target.value)
+    //           }
+    //           className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+    //         >
+    //           <option value="">State</option>
+    //           <option value="Maharashtra">Maharashtra</option>
+    //           <option value="Delhi">Delhi</option>
+    //           <option value="Karnataka">Karnataka</option>
+    //         </select>
+    //         <ChevronDown
+    //           size={16}
+    //           className="absolute right-3 top-3 text-black"
+    //         />
+    //       </div>
+    //     </div>
+
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">Pincode</label>
+    //       <input
+    //         type="text"
+    //         placeholder="Pincode"
+    //         value={formData.consigner.pincode}
+    //         onChange={(e) =>
+    //           handleInputChange("consigner", "pincode", e.target.value)
+    //         }
+    //         className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //       />
+    //     </div>
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">Mobile Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="+91 Mobile Number"
+    //       value={formData.consigner.mobileNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consigner", "mobileNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+    // </div>
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consigner Details</h2>
+          {/* <button
+            onClick={() => setShowAddConsignerPopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consigner
+          </button> */}
+        </div>
+
+        {/* <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consigner</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsigner}
+            onChange={(e) => setSelectedConsigner(e.target.value)}
+          >
+            <option value="">-- Select a consigner --</option>
+            {consigners.map((consigner) => (
+              <option key={consigner.id} value={consigner.id}>
+                {consigner.name} (GST: {consigner.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div> */}
+
+        {selectedConsigner && selectedConsigner !== "0" && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consigner Details</h3>
+            {console.log(selectedConsigner)}
+            {consigners.find((c) => c.id == selectedConsigner) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consigners.find((c) => c.id == selectedConsigner).gstNumber}
+                </p>
+                {consigners.find((c) => c.id == selectedConsigner)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consigners.find((c) => c.id == selectedConsigner)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderConsigneeSectionViewInvoice = () => (
+    // <div className="space-y-4 text-black">
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">GST Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="GST Number"
+    //       value={formData.consignee.gstNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "gstNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Name*
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Name"
+    //       value={formData.consignee.name}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "name", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Address Line 1
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Address Line 1"
+    //       value={formData.consignee.addressLine1}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "addressLine1", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">
+    //       Consignee Address Line 2
+    //     </label>
+    //     <input
+    //       type="text"
+    //       placeholder="Consignee Address Line 2"
+    //       value={formData.consignee.addressLine2}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "addressLine2", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+
+    //   <div className="grid grid-cols-2 gap-4">
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">State</label>
+    //       <div className="relative">
+    //         <select
+    //           value={formData.consignee.state}
+    //           onChange={(e) =>
+    //             handleInputChange("consignee", "state", e.target.value)
+    //           }
+    //           className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+    //         >
+    //           <option value="">State</option>
+    //           <option value="Maharashtra">Maharashtra</option>
+    //           <option value="Delhi">Delhi</option>
+    //           <option value="Karnataka">Karnataka</option>
+    //         </select>
+    //         <ChevronDown
+    //           size={16}
+    //           className="absolute right-3 top-3 text-black"
+    //         />
+    //       </div>
+    //     </div>
+
+    //     <div>
+    //       <label className="block text-sm font-medium mb-1">Pincode</label>
+    //       <input
+    //         type="text"
+    //         placeholder="Pincode"
+    //         value={formData.consignee.pincode}
+    //         onChange={(e) =>
+    //           handleInputChange("consignee", "pincode", e.target.value)
+    //         }
+    //         className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //       />
+    //     </div>
+    //   </div>
+
+    //   <div>
+    //     <label className="block text-sm font-medium mb-1">Mobile Number</label>
+    //     <input
+    //       type="text"
+    //       placeholder="+91 Mobile Number"
+    //       value={formData.consignee.mobileNumber}
+    //       onChange={(e) =>
+    //         handleInputChange("consignee", "mobileNumber", e.target.value)
+    //       }
+    //       className="w-full border border-gray-300 text-black rounded px-3 py-2"
+    //     />
+    //   </div>
+    // </div>
+    <div className="text-black">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Consignee Details</h2>
+          {/* <button
+            onClick={() => setShowAddConsigneePopup(true)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <span className="mr-1">+</span>
+            Add New Consignee
+          </button> */}
+        </div>
+
+        {/* <div className="mb-4">
+          <label className="block mb-2 font-medium">Select Consignee</label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md"
+            value={selectedConsignee}
+            onChange={(e) => setSelectedConsignee(e.target.value)}
+          >
+            <option value="">-- Select a consignee --</option>
+            {consignees.map((consignee) => (
+              <option key={consignee.id} value={consignee.id}>
+                {consignee.name} (GST: {consignee.gstNumber})
+              </option>
+            ))}
+          </select>
+        </div> */}
+
+        {selectedConsignee && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h3 className="font-bold mb-2">Selected Consignee Details</h3>
+            {consignees.find((c) => c.id == selectedConsignee) && (
+              <div>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).name}
+                </p>
+                <p>
+                  <span className="font-medium">GST:</span>{" "}
+                  {consignees.find((c) => c.id == selectedConsignee).gstNumber}
+                </p>
+                {consignees.find((c) => c.id == selectedConsignee)
+                  .addressLine1 && (
+                  <p>
+                    <span className="font-medium">Address:</span>{" "}
+                    {
+                      consignees.find((c) => c.id == selectedConsignee)
+                        .addressLine1
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderLoadDetailsSectionViewInvoice = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          Material Category*
+        </label>
+        <div className="relative">
+          <span className="text-black">{formDataInvoice.materialCategory}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Weight
+          </label>
+          <span className="text-black">{formDataInvoice.weight}</span>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Unit
+          </label>
+          <div className="relative">
+            <span className="text-black">{formDataInvoice.unit}</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          No. of Bags / Box / Shipments
+        </label>
+        <span className="text-black">{formDataInvoice.numberOfPackages}</span>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          FREIGHT PAID BY
+        </label>
+        <div className="flex space-x-4 mt-1">
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consigner"
+              disabled
+              checked={formDataInvoice.freightPaidBy === "Consigner"}
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consigner</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Consignee"
+              disabled
+              checked={formDataInvoice.freightPaidBy === "Consignee"}
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Consignee</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="freight"
+              value="Agent"
+              disabled
+              checked={formDataInvoice.freightPaidBy === "Agent"}
+              className="text-blue-600"
+            />
+            <span className="ml-2 text-black">Agent</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-black">
+          GST Percentage
+        </label>
+        <div className="relative">
+          <span className="text-black">% {formDataInvoice.gstPercentage}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFormSectionViewInvoice = () => {
+    switch (currentInvoiceFormSection) {
+      case 0:
+        return renderTripDetailsSectionViewInvoice();
+      case 1:
+        return renderConsignerSectionViewInvoice();
+      case 2:
+        return renderConsigneeSectionViewInvoice();
+      case 3:
+        return renderLoadDetailsSectionViewInvoice();
+      default:
+        return renderTripDetailsSectionViewInvoice();
+    }
+  };
+
   const ProgressIndicator = () => (
     <div className="flex justify-between items-center px-6 py-3 border-b text-black">
       {formSections.map((section, index) => (
@@ -2320,13 +3775,13 @@ export default function TripsDetail({ trip, onBack }) {
             {index > 0 && (
               <div
                 className={`h-1 w-16 ${
-                  index <= currentFormSection ? "bg-blue-600" : "bg-gray-300"
+                  index <= currentLRFormSection ? "bg-blue-600" : "bg-gray-300"
                 }`}
               />
             )}
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                index <= currentFormSection
+                index <= currentLRFormSection
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 text-black"
               }`}
@@ -2336,7 +3791,46 @@ export default function TripsDetail({ trip, onBack }) {
             {index < formSections.length - 1 && (
               <div
                 className={`h-1 w-16 ${
-                  index < currentFormSection ? "bg-blue-600" : "bg-gray-300"
+                  index < currentLRFormSection ? "bg-blue-600" : "bg-gray-300"
+                }`}
+              />
+            )}
+          </div>
+          <span className="text-xs mt-2">{section}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const ProgressIndicatorInvoice = () => (
+    <div className="flex justify-between items-center px-6 py-3 border-b text-black">
+      {formSections.map((section, index) => (
+        <div key={index} className="flex flex-col items-center">
+          <div className="flex items-center">
+            {index > 0 && (
+              <div
+                className={`h-1 w-16 ${
+                  index <= currentInvoiceFormSection
+                    ? "bg-blue-600"
+                    : "bg-gray-300"
+                }`}
+              />
+            )}
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                index <= currentInvoiceFormSection
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-black"
+              }`}
+            >
+              {index + 1}
+            </div>
+            {index < formSections.length - 1 && (
+              <div
+                className={`h-1 w-16 ${
+                  index < currentInvoiceFormSection
+                    ? "bg-blue-600"
+                    : "bg-gray-300"
                 }`}
               />
             )}
@@ -2358,6 +3852,14 @@ export default function TripsDetail({ trip, onBack }) {
               resetAddLR();
               setSelectedConsigner("");
               setSelectedConsignee("");
+              setNewRoute({
+                consigner: "",
+                consignee: "",
+                units: "",
+                lrNumber: "",
+                invoiceNumber: "",
+              });
+              setRouteIndex(-1);
               setIsAddLRModalOpen(false);
             }}
             className="text-gray-500 hover:text-gray-700"
@@ -2389,16 +3891,16 @@ export default function TripsDetail({ trip, onBack }) {
           <button
             onClick={handlePrevSection}
             className={`px-4 py-2 rounded-md border ${
-              currentFormSection === 0
+              currentLRFormSection === 0
                 ? "text-gray-400 border-gray-300 cursor-not-allowed"
                 : "text-blue-600 border-blue-600 hover:bg-blue-50"
             }`}
-            disabled={currentFormSection === 0}
+            disabled={currentLRFormSection === 0}
           >
             Previous
           </button>
 
-          {currentFormSection < formSections.length - 1 ? (
+          {currentLRFormSection < formSections.length - 1 ? (
             <button
               onClick={handleNextSection}
               className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
@@ -2434,6 +3936,14 @@ export default function TripsDetail({ trip, onBack }) {
               resetAddLR();
               setSelectedConsigner("");
               setSelectedConsignee("");
+              setNewRoute({
+                consigner: "",
+                consignee: "",
+                units: "",
+                lrNumber: "",
+                invoiceNumber: "",
+              });
+              setRouteIndex(-1);
               setIsEditLRModalOpen(false);
             }}
             className="text-gray-500 hover:text-gray-700"
@@ -2465,16 +3975,16 @@ export default function TripsDetail({ trip, onBack }) {
           <button
             onClick={handlePrevSection}
             className={`px-4 py-2 rounded-md border ${
-              currentFormSection === 0
+              currentLRFormSection === 0
                 ? "text-gray-400 border-gray-300 cursor-not-allowed"
                 : "text-blue-600 border-blue-600 hover:bg-blue-50"
             }`}
-            disabled={currentFormSection === 0}
+            disabled={currentLRFormSection === 0}
           >
             Previous
           </button>
 
-          {currentFormSection < formSections.length - 1 ? (
+          {currentLRFormSection < formSections.length - 1 ? (
             <button
               onClick={handleNextSection}
               className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
@@ -2541,16 +4051,16 @@ export default function TripsDetail({ trip, onBack }) {
           <button
             onClick={handlePrevSection}
             className={`px-4 py-2 rounded-md border ${
-              currentFormSection === 0
+              currentLRFormSection === 0
                 ? "text-gray-400 border-gray-300 cursor-not-allowed"
                 : "text-blue-600 border-blue-600 hover:bg-blue-50"
             }`}
-            disabled={currentFormSection === 0}
+            disabled={currentLRFormSection === 0}
           >
             Previous
           </button>
 
-          {currentFormSection < formSections.length - 1 ? (
+          {currentLRFormSection < formSections.length - 1 ? (
             <button
               onClick={handleNextSection}
               className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
@@ -2561,6 +4071,251 @@ export default function TripsDetail({ trip, onBack }) {
             <button
               onClick={() => {
                 handleViewToEdit();
+                //resetAddLR();
+                //setIsAddLRModalOpen(false);
+              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const AddInvoiceFormModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+        {/* Form Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-800">
+            Add New Invoice
+          </h2>
+          <button
+            onClick={() => {
+              resetAddInvoice();
+              setSelectedConsigner("");
+              setSelectedConsignee("");
+              setNewRoute({
+                consigner: "",
+                consignee: "",
+                units: "",
+                lrNumber: "",
+                invoiceNumber: "",
+              });
+              setRouteIndex(-1);
+              setIsAddInvoiceModalOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <ProgressIndicatorInvoice />
+
+        {/* Form Content */}
+        <div className="p-6">{renderFormSectionInvoice()}</div>
+
+        {/* Form Footer */}
+        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+          <button
+            onClick={handlePrevSectionInvoice}
+            className={`px-4 py-2 rounded-md border ${
+              currentInvoiceFormSection === 0
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            }`}
+            disabled={currentInvoiceFormSection === 0}
+          >
+            Previous
+          </button>
+
+          {currentInvoiceFormSection < formSections.length - 1 ? (
+            <button
+              onClick={handleNextSectionInvoice}
+              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                handleSubmitInvoice();
+                console.log("Form submitted:", formDataInvoice);
+                //resetAddLR();
+                //setIsAddLRModalOpen(false);
+              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              Submit
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const EditInvoiceFormModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+        {/* Form Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-800">Edit Invoice</h2>
+          <button
+            onClick={() => {
+              resetAddInvoice();
+              setSelectedConsigner("");
+              setSelectedConsignee("");
+              setNewRoute({
+                consigner: "",
+                consignee: "",
+                units: "",
+                lrNumber: "",
+                invoiceNumber: "",
+              });
+              setRouteIndex(-1);
+              setIsEditInvoiceModalOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <ProgressIndicatorInvoice />
+
+        {/* Form Content */}
+        <div className="p-6">{renderFormSectionInvoice()}</div>
+
+        {/* Form Footer */}
+        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+          <button
+            onClick={handlePrevSectionInvoice}
+            className={`px-4 py-2 rounded-md border ${
+              currentInvoiceFormSection === 0
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            }`}
+            disabled={currentInvoiceFormSection === 0}
+          >
+            Previous
+          </button>
+
+          {currentInvoiceFormSection < formSections.length - 1 ? (
+            <button
+              onClick={handleNextSectionInvoice}
+              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                handleUpdateInvoice();
+                console.log("Form submitted:", formDataInvoice);
+                //resetAddLR();
+                //setIsAddLRModalOpen(false);
+              }}
+              className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
+            >
+              Submit
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ViewInvoiceFormModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+        {/* Form Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-800">LR Details</h2>
+          <button
+            onClick={() => {
+              resetAddInvoice();
+              setSelectedConsigner("");
+              setSelectedConsignee("");
+              setIsViewInvoiceModalOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Progress Indicator */}
+        <ProgressIndicatorInvoice />
+
+        {/* Form Content */}
+        <div className="p-6">{renderFormSectionViewInvoice()}</div>
+
+        {/* Form Footer */}
+        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+          <button
+            onClick={handlePrevSectionInvoice}
+            className={`px-4 py-2 rounded-md border ${
+              currentInvoiceFormSection === 0
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-blue-600 border-blue-600 hover:bg-blue-50"
+            }`}
+            disabled={currentInvoiceFormSection === 0}
+          >
+            Previous
+          </button>
+
+          {currentInvoiceFormSection < formSections.length - 1 ? (
+            <button
+              onClick={handleNextSectionInvoice}
+              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                handleViewToEditInvoice();
                 //resetAddLR();
                 //setIsAddLRModalOpen(false);
               }}
@@ -2783,12 +4538,31 @@ export default function TripsDetail({ trip, onBack }) {
                   <FileText className="text-green-600" />
                   <span>Routes</span>
                 </div>
-                <button
-                  onClick={viewRoutesToggle}
-                  className="border border-blue-600 text-blue-600 px-4 py-1 rounded hover:bg-blue-600 hover:text-white transition text-sm"
-                >
-                  View Routes
-                </button>
+                {/* Calculate total units and check if less than trip.noOfUnits */}
+                {(() => {
+                  const totalUnits = routesList.reduce((sum, route) => {
+                    // Convert units to number and handle empty strings or non-numeric values
+                    const routeUnits = parseInt(route.units) || 0;
+                    return sum + routeUnits;
+                  }, 0);
+
+                  const isIncomplete = totalUnits != trip.noOfUnits;
+
+                  return (
+                    <button
+                      onClick={viewRoutesToggle}
+                      className={`px-4 py-1 rounded transition text-sm ${
+                        isIncomplete
+                          ? "border border-red-600 text-white bg-red-600 hover:bg-red-700"
+                          : "border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                      }`}
+                    >
+                      {isIncomplete
+                        ? `View Routes (${totalUnits}/${trip.noOfUnits})`
+                        : "View Routes"}
+                    </button>
+                  );
+                })()}
               </div>
               <div className="flex items-center justify-between border p-2 rounded">
                 <div className="flex items-center space-x-2">
@@ -2800,6 +4574,18 @@ export default function TripsDetail({ trip, onBack }) {
                   className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
                 >
                   View LRs
+                </button>
+              </div>
+              <div className="flex items-center justify-between border p-2 rounded">
+                <div className="flex items-center space-x-2">
+                  <FileText className="text-green-600" />
+                  <span>Invoices</span>
+                </div>
+                <button
+                  onClick={AddInvoiceToggle}
+                  className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
+                >
+                  View Invoices
                 </button>
               </div>
               <div className="flex items-center justify-between border p-2 rounded">
@@ -2881,9 +4667,9 @@ export default function TripsDetail({ trip, onBack }) {
                     onChange={handleSearch}
                     className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
                   />
-                  {driverFilters.length > 0 && (
+                  {LRFilters.length > 0 && (
                     <button
-                      onClick={() => setDriverFilters([])}
+                      onClick={() => setLRFilters([])}
                       className="flex items-center justify-center whitespace-nowrap px-4 py-2 mx-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-md transition-colors duration-200 text-sm"
                     >
                       Clear Filters
@@ -2896,7 +4682,7 @@ export default function TripsDetail({ trip, onBack }) {
                     Records per page:
                   </label>
                   <select
-                    value={recordsPerPage}
+                    value={recordsPerPageLR}
                     onChange={handleRecordsPerPageChange}
                     className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
                   >
@@ -2958,6 +4744,17 @@ export default function TripsDetail({ trip, onBack }) {
                           {getSortDirectionIcon("consignee.name")}
                         </div>
                       </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("consignee.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            No.of Units
+                          </span>
+                          {getSortDirectionIcon("consignee.name")}
+                        </div>
+                      </th>
                       <th className="px-6 py-3 text-right">
                         <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                           Actions
@@ -2997,68 +4794,109 @@ export default function TripsDetail({ trip, onBack }) {
                             }
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {route.units}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              className="border border-blue-600 text-blue-600 px-4 py-1 rounded hover:bg-blue-600 hover:text-white transition text-sm"
-                            >
-                              Create Invoice
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNewRoute(route);
-                                setRouteIndex(index);
-                                setSelectedConsigner(route.consigner);
-                                setSelectedConsignee(route.consignee);
-                                setFormData({
-                                  lrDate: new Date()
-                                    .toISOString()
-                                    .split("T")[0],
-                                  lrNumber: nextLrNumber,
-                                  consigner_id: route.consigner,
-                                  consignee_id: route.consignee,
-                                  materialCategory: "",
-                                  weight: "",
-                                  unit: "Tonnes",
-                                  numberOfPackages: "",
-                                  freightPaidBy: "Consigner",
-                                  gstPercentage: "",
-                                  trip_id: trip.id,
-                                });
-                                handleAddLRClick();
-                              }}
-                              className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
-                            >
-                              Create LR
-                            </button>
-                            {/* <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                //handleRowClick(LR);
-                              }}
-                              className="text-primary hover:text-blue-700 transition-colors"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="bi bi-eye h-5 w-5"
-                                fill="currentColor"
-                                stroke="currentColor"
-                                viewBox="0 0 16 16"
+                            {route.invoiceNumber ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRowClickInvoice(
+                                    invoiceList.find(
+                                      (LR) => LR.id === route.invoiceNumber
+                                    )
+                                  );
+                                }}
+                                className="border border-indigo-600 text-indigo-600 px-4 py-1 rounded hover:bg-indigo-600 hover:text-white transition text-sm"
                               >
-                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
-                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
-                              </svg>
-                            </button> */}
+                                View Invoice
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewRoute(route);
+                                  setRouteIndex(index);
+                                  setSelectedConsigner(route.consigner);
+                                  setSelectedConsignee(route.consignee);
+                                  setFormDataInvoice({
+                                    invoiceDate: new Date()
+                                      .toISOString()
+                                      .split("T")[0],
+                                    invoiceNumber: nextInvoiceNumber,
+                                    consigner_id: route.consigner,
+                                    consignee_id: route.consignee,
+                                    materialCategory: "",
+                                    weight: "",
+                                    unit: "Tonnes",
+                                    numberOfPackages: route.units,
+                                    freightPaidBy: "Consigner",
+                                    gstPercentage: "",
+                                    trip_id: trip.id,
+                                  });
+                                  handleAddInvoiceClick(route);
+                                }}
+                                className="border border-blue-600 text-blue-600 px-4 py-1 rounded hover:bg-blue-600 hover:text-white transition text-sm"
+                              >
+                                Create Invoice
+                              </button>
+                            )}
+
+                            {route.lrNumber ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRowClick(
+                                    LRList.find(
+                                      (LR) => LR.id === route.lrNumber
+                                    )
+                                  );
+                                }}
+                                className="border border-indigo-600 text-indigo-600 px-4 py-1 rounded hover:bg-indigo-600 hover:text-white transition text-sm"
+                              >
+                                View LR
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewRoute(route);
+                                  setRouteIndex(index);
+                                  setSelectedConsigner(route.consigner);
+                                  setSelectedConsignee(route.consignee);
+                                  setFormData({
+                                    lrDate: new Date()
+                                      .toISOString()
+                                      .split("T")[0],
+                                    lrNumber: nextLrNumber,
+                                    consigner_id: route.consigner,
+                                    consignee_id: route.consignee,
+                                    materialCategory: "",
+                                    weight: "",
+                                    unit: "Tonnes",
+                                    numberOfPackages: route.units,
+                                    freightPaidBy: "Consigner",
+                                    gstPercentage: "",
+                                    trip_id: trip.id,
+                                  });
+                                  handleAddLRClick();
+                                }}
+                                className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
+                              >
+                                Create LR
+                              </button>
+                            )}
 
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditRouteClick(route, index);
                               }}
+                              disabled={route.lrNumber != ""}
                               className="text-primary hover:text-blue-700 transition-colors"
                               title="Edit Driver"
                             >
@@ -3082,6 +4920,7 @@ export default function TripsDetail({ trip, onBack }) {
                                 e.stopPropagation();
                                 handleDeleteRouteClick(route, index);
                               }}
+                              disabled={route.lrNumber != ""}
                               className="text-danger hover:text-red-600 transition-colors"
                               title="Delete Driver"
                             >
@@ -3227,12 +5066,12 @@ export default function TripsDetail({ trip, onBack }) {
             {/* Modal Header */}
             <div className="flex justify-between items-center mb-6 pr-10">
               <h1 className="text-2xl font-semibold text-gray-800">LR</h1>
-              <button
+              {/* <button
                 onClick={handleAddLRClick}
                 className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm transition-colors hover:bg-opacity-90"
               >
                 <span className="mr-1">+</span> Add LR
-              </button>
+              </button> */}
             </div>
 
             {/* Close Button */}
@@ -3281,9 +5120,9 @@ export default function TripsDetail({ trip, onBack }) {
                     onChange={handleSearch}
                     className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
                   />
-                  {driverFilters.length > 0 && (
+                  {LRFilters.length > 0 && (
                     <button
-                      onClick={() => setDriverFilters([])}
+                      onClick={() => setLRFilters([])}
                       className="flex items-center justify-center whitespace-nowrap px-4 py-2 mx-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-md transition-colors duration-200 text-sm"
                     >
                       Clear Filters
@@ -3296,8 +5135,8 @@ export default function TripsDetail({ trip, onBack }) {
                     Records per page:
                   </label>
                   <select
-                    value={recordsPerPage}
-                    onChange={handleRecordsPerPageChange}
+                    value={recordsPerPageLR}
+                    onChange={handleRecordsPerPageLRChange}
                     className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
                   >
                     <option value={1}>1</option>
@@ -3393,12 +5232,48 @@ export default function TripsDetail({ trip, onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
+                            {/* New Print Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePrintClick(LR.id);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 transition-colors"
+                              title="Print LR"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                                />
+                              </svg>
+                            </button>
+
+                            {/* <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                printLR(LR.id); // Change this line to use printLR instead of handlePrintClick
+                              }}
+                              className="text-blue-600 hover:text-blue-800 transition-colors"
+                              title="Print LR"
+                            >
+                              Hi
+                            </button> */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRowClick(LR);
                               }}
                               className="text-primary hover:text-blue-700 transition-colors"
+                              title="View LR"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -3418,7 +5293,7 @@ export default function TripsDetail({ trip, onBack }) {
                                 handleEditClick(LR);
                               }}
                               className="text-primary hover:text-blue-700 transition-colors"
-                              title="Edit Driver"
+                              title="Edit LR"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -3435,13 +5310,14 @@ export default function TripsDetail({ trip, onBack }) {
                                 />
                               </svg>
                             </button>
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteClick(LR);
                               }}
                               className="text-danger hover:text-red-600 transition-colors"
-                              title="Delete Driver"
+                              title="Delete LR"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -3554,26 +5430,6 @@ export default function TripsDetail({ trip, onBack }) {
                 </div>
               )}
             </div>
-
-            {/* Close Button */}
-            <button
-              onClick={() => setIsLRListModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
           </div>
         </div>
       )}
@@ -3636,6 +5492,442 @@ export default function TripsDetail({ trip, onBack }) {
       {isEditLRModalOpen && EditLRFormModal()}
 
       {isViewLRModalOpen && ViewLRFormModal()}
+
+      {isInvoiceListModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg p-6 relative">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-6 pr-10">
+              <h1 className="text-2xl font-semibold text-gray-800">Invoices</h1>
+              {/* <button
+                onClick={handleAddLRClick}
+                className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm transition-colors hover:bg-opacity-90"
+              >
+                <span className="mr-1">+</span> Add LR
+              </button> */}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsInvoiceListModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 z-10"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Modal Content */}
+            <div className="bg-white rounded-md p-6">
+              {/* Search Input */}
+              <div className="mb-6 flex flex-wrap justify-end items-center">
+                <div className="flex items-center relative w-full md:w-80 mx-3">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg
+                      className="h-5 w-5 text-gray-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search Invoices"
+                    value={searchTermInvoice}
+                    onChange={handleSearchInvoice}
+                    className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
+                  />
+                  {invoiceFilters.length > 0 && (
+                    <button
+                      onClick={() => setInvoiceFilters([])}
+                      className="flex items-center justify-center whitespace-nowrap px-4 py-2 mx-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-md transition-colors duration-200 text-sm"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-4 md:mt-0 flex items-center">
+                  <label className="mr-2 text-sm text-gray-600">
+                    Records per page:
+                  </label>
+                  <select
+                    value={recordsPerPageInvoice}
+                    onChange={handleRecordsPerPageInvoiceChange}
+                    className="border border-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-black"
+                  >
+                    <option value={1}>1</option>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Drivers Table */}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSortInvoice("invoiceNumber")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Invoice Number
+                          </span>
+                          {getSortDirectionIconInvoice("invoiceNumber")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSortInvoice("invoiceDate")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Invoice Date
+                          </span>
+                          {getSortDirectionIconInvoice("invoiceDate")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSortInvoice("consigner.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Consigner Name
+                          </span>
+                          {getSortDirectionIconInvoice("consigner.name")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        onClick={() => requestSortInvoice("consignee.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Consignee Name
+                          </span>
+                          {getSortDirectionIconInvoice("consignee.name")}
+                        </div>
+                      </th>
+                      <th className="px-6 py-3 text-right">
+                        <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                          Actions
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {invoiceList.map((LR) => (
+                      <tr
+                        key={LR.id}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base font-medium text-gray-900">
+                            {LR.invoiceNumber}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.invoiceDate}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.consigner.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {LR.consignee.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            {/* New Print Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePrintClickInvoice(LR.id);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 transition-colors"
+                              title="Print LR"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                                />
+                              </svg>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                printLR(LR.id); // Change this line to use printLR instead of handlePrintClick
+                              }}
+                              className="text-blue-600 hover:text-blue-800 transition-colors"
+                              title="Print LR"
+                            >
+                              {/* SVG icon */}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClickInvoice(LR);
+                              }}
+                              className="text-primary hover:text-blue-700 transition-colors"
+                              title="View LR"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="bi bi-eye h-5 w-5"
+                                fill="currentColor"
+                                stroke="currentColor"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
+                              </svg>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClickInvoice(LR);
+                              }}
+                              className="text-primary hover:text-blue-700 transition-colors"
+                              title="Edit LR"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClickInvoice(LR);
+                              }}
+                              className="text-danger hover:text-red-600 transition-colors"
+                              title="Delete LR"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Empty state */}
+                {invoiceList.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-700 text-base">
+                      No Invoices found. Try a different search term or add a
+                      new Invoice.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {invoiceList.length > 0 && (
+                <div className="flex items-center justify-between mt-4 px-2">
+                  <div className="text-sm text-gray-600">
+                    Showing {indexOfFirstRecordInvoice + 1} to{" "}
+                    {Math.min(indexOfLastRecordInvoice, invoiceList.length)} of{" "}
+                    {invoiceList.length} entries
+                  </div>
+
+                  <nav className="flex items-center">
+                    <button
+                      onClick={prevPageClickInvoice}
+                      disabled={currentPageInvoice === 1}
+                      className={`px-3 py-1 rounded-md mx-1 ${
+                        currentPageInvoice === 1
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPagesInvoice }, (_, i) => i + 1)
+                      .filter(
+                        (page) =>
+                          page === 1 ||
+                          page === totalPagesInvoice ||
+                          (page >= currentPageInvoice - 1 &&
+                            page <= currentPageInvoice + 1)
+                      )
+                      .map((page, index, array) => {
+                        const showEllipsisBefore =
+                          index > 0 && array[index - 1] !== page - 1;
+                        const showEllipsisAfter =
+                          index < array.length - 1 &&
+                          array[index + 1] !== page + 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsisBefore && (
+                              <span className="px-3 py-1 text-gray-500">
+                                ...
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => paginateInvoice(page)}
+                              className={`px-3 py-1 rounded-md mx-1 ${
+                                currentPageInvoice === page
+                                  ? "bg-primary text-white"
+                                  : "text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {page}
+                            </button>
+
+                            {showEllipsisAfter && (
+                              <span className="px-3 py-1 text-gray-500">
+                                ...
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                    <button
+                      onClick={nextPageClickInvoice}
+                      disabled={currentPageInvoice === totalPagesInvoice}
+                      className={`px-3 py-1 rounded-md mx-1 ${
+                        currentPageInvoice === totalPagesInvoice
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddInvoiceModalOpen && AddInvoiceFormModal()}
+
+      {isEditInvoiceModalOpen && EditInvoiceFormModal()}
+
+      {isViewInvoiceModalOpen && ViewInvoiceFormModal()}
+
+      {isDeleteInvoiceConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setIsDeleteInvoiceConfirmOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete Invoice{" "}
+                <span className="font-semibold">
+                  {currentInvoice?.invoiceNumber}
+                </span>
+                ? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setIsDeleteInvoiceConfirmOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteInvoice}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showTransactionsModal && (
         <div className="fixed inset-y-0 right-0 z-50 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
@@ -5752,7 +8044,13 @@ export default function TripsDetail({ trip, onBack }) {
               <button
                 onClick={() => {
                   setIsAddRouteModalOpen(false);
-                  setNewRoute({ consigner: "", consignee: "" });
+                  setNewRoute({
+                    consigner: "",
+                    consignee: "",
+                    units: "",
+                    lrNumber: "",
+                    invoiceNumber: "",
+                  });
                 }}
                 className="text-gray-400 hover:text-gray-500"
               >
@@ -5884,6 +8182,19 @@ export default function TripsDetail({ trip, onBack }) {
                     </div>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Units <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoute.units}
+                    name="units"
+                    onChange={handleNewRouteChange}
+                    placeholder="Enter number of units"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 mt-8">
@@ -5891,7 +8202,13 @@ export default function TripsDetail({ trip, onBack }) {
                   type="button"
                   onClick={() => {
                     setIsAddRouteModalOpen(false);
-                    setNewRoute({ consigner: "", consignee: "" });
+                    setNewRoute({
+                      consigner: "",
+                      consignee: "",
+                      units: "",
+                      lrNumber: "",
+                      invoiceNumber: "",
+                    });
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
@@ -5919,7 +8236,13 @@ export default function TripsDetail({ trip, onBack }) {
               <button
                 onClick={() => {
                   setIsEditRouteModalOpen(false);
-                  setNewRoute({ consigner: "", consignee: "" });
+                  setNewRoute({
+                    consigner: "",
+                    consignee: "",
+                    units: "",
+                    lrNumber: "",
+                    invoiceNumber: "",
+                  });
                   setRouteIndex(-1);
                 }}
                 className="text-gray-400 hover:text-gray-500"
@@ -6052,6 +8375,19 @@ export default function TripsDetail({ trip, onBack }) {
                     </div>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Units <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoute.units}
+                    name="units"
+                    onChange={handleNewRouteChange}
+                    placeholder="Enter number of units"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 mt-8">
@@ -6059,7 +8395,13 @@ export default function TripsDetail({ trip, onBack }) {
                   type="button"
                   onClick={() => {
                     setIsEditRouteModalOpen(false);
-                    setNewRoute({ consigner: "", consignee: "" });
+                    setNewRoute({
+                      consigner: "",
+                      consignee: "",
+                      units: "",
+                      lrNumber: "",
+                      invoiceNumber: "",
+                    });
                     setRouteIndex(-1);
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
@@ -6327,7 +8669,13 @@ export default function TripsDetail({ trip, onBack }) {
               <button
                 onClick={() => {
                   setIsDeleteRouteConfirmOpen(false);
-                  setNewRoute({ consigner: "", consignee: "" });
+                  setNewRoute({
+                    consigner: "",
+                    consignee: "",
+                    units: "",
+                    lrNumber: "",
+                    invoiceNumber: "",
+                  });
                   setRouteIndex(-1);
                 }}
                 className="text-gray-400 hover:text-gray-500"
@@ -6367,7 +8715,13 @@ export default function TripsDetail({ trip, onBack }) {
               <button
                 onClick={() => {
                   setIsDeleteRouteConfirmOpen(false);
-                  setNewRoute({ consigner: "", consignee: "" });
+                  setNewRoute({
+                    consigner: "",
+                    consignee: "",
+                    units: "",
+                    lrNumber: "",
+                    invoiceNumber: "",
+                  });
                   setRouteIndex(-1);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"

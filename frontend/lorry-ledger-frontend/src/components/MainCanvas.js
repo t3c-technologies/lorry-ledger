@@ -7,6 +7,7 @@ import Trucks from "@/app/modules/Trucks";
 import Suppliers from "@/app/modules/Suppliers";
 import TripsMain from "@/app/modules/TripsMain";
 import LorryReceipt from "@/app/modules/LorryReceipt";
+import Invoice from "@/app/modules/Invoice";
 
 const MainCanvas = ({ activeItem = "drivers" }) => {
   const renderContent = () => {
@@ -25,6 +26,8 @@ const MainCanvas = ({ activeItem = "drivers" }) => {
         return <Suppliers />;
       case "lorryReceipts":
         return <LorryReceipt />;
+      case "invoice":
+        return <Invoice />;
       case "settings":
         return <h2>Settings</h2>;
       default:

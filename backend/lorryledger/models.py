@@ -186,13 +186,13 @@ class Trip(models.Model):
     tripType = models.CharField(choices=tripTypeChoices, default='Single Route')
     partyBillingType = models.CharField(choices=partyBillingOptions)
     ratePerUnit = models.CharField(
-        validators=[RegexValidator(regex=r'^\d+$', message="Rate must be in digits.")], default=0 
+        validators=[RegexValidator(regex=r'^\d+(\.\d+)?$', message="Rate must be in digits.")], default=0 
     )
     noOfUnits = models.CharField(
         validators=[RegexValidator(regex=r'^\d+$', message="Number of Units must be in digits.")], default=0
     )
     partyFreightAmount = models.CharField(
-        validators=[RegexValidator(regex=r'^\d+$', message="Amount must be in digits.")], 
+        validators=[RegexValidator(regex=r'^\d+(\.\d+)?$', message="Amount must be in digits.")], 
     )
     tripStatus = models.CharField(choices=tripStatusChoices, default='Started')
     startDate = models.DateField(default="2025-01-01")
@@ -282,5 +282,35 @@ class LR(models.Model):
         'Trip',
         on_delete= models.PROTECT,
         related_name= 'LR',
+        default='1'
+    )
+
+class Invoice(models.Model):
+    paymentOptions = [('Consigner', 'Consigner'), ('Consignee', 'Consignee'), ('Agent', 'Agent')]
+    unitChoices = [('Tonnes', 'Tonnes'), ('Kg','Kg'), ('Quintal', 'Quintal')]
+    freightPaidBy = models.CharField(choices=paymentOptions, default='Consigner')
+    gstPercentage = models.CharField(max_length=3,
+        validators=[RegexValidator(regex=r'^\d*$', message="Percentage must be within 100.")], blank=True)
+    invoiceDate = models.DateField(default="2025-01-01")
+    invoiceNumber = models.CharField(max_length = 30)
+    materialCategory = models.CharField(max_length=50)
+    numberOfPackages = models.CharField(max_length=20, validators=[RegexValidator(regex=r'^\d*$', message="Number of Packages should be a number")], blank=True)
+    unit = models.CharField(choices=unitChoices, default='Tonnes')
+    weight = models.CharField(max_length=30, validators=[RegexValidator(regex=r'^\d*$', message="Weight must be a number")],)
+
+    consignerId = models.ForeignKey(
+        'Consigner',
+        on_delete= models.PROTECT,
+        related_name= 'Invoice'
+    )
+    consigneeId = models.ForeignKey(
+        'Consignee',
+        on_delete= models.PROTECT,
+        related_name= 'Invoice'
+    )
+    tripId = models.ForeignKey(
+        'Trip',
+        on_delete= models.PROTECT,
+        related_name= 'Invoice',
         default='1'
     )
