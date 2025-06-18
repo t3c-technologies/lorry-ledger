@@ -60,28 +60,30 @@ export const api = {
   get: async (endpoint, params = {}, options = {}) => {
     const response = await axiosInstance.get(getApiUrl(endpoint), {
       params,
+      withCredentials: true, // ✅ fixed here
       ...options,
     });
     return response.data;
   },
   post: async (endpoint, data, options = {}) => {
-    const response = await axiosInstance.post(
-      getApiUrl(endpoint),
-      data,
-      options
-    );
+    const response = await axiosInstance.post(getApiUrl(endpoint), data, {
+      withCredentials: true,
+      ...options,
+    });
     return response.data;
   },
   put: async (endpoint, data, options = {}) => {
-    const response = await axiosInstance.put(
-      getApiUrl(endpoint),
-      data,
-      options
-    );
+    const response = await axiosInstance.put(getApiUrl(endpoint), data, {
+      withCredentials: true,
+      ...options,
+    });
     return response.data;
   },
   delete: async (endpoint, options = {}) => {
-    const response = await axiosInstance.delete(getApiUrl(endpoint), options);
+    const response = await axiosInstance.delete(getApiUrl(endpoint), {
+      withCredentials: true,
+      ...options,
+    });
     return response.data;
   },
 };

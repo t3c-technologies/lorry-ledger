@@ -36,7 +36,10 @@ SECRET_KEY = 'django-insecure-u-==h(uislktz4uwgk&fo5j4#_n(n1xbo-@0xu+bdnb$(b6k_v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "http://ll.tmmc.ai",
+    "localhost",
+]
 
 
 # Application definition
@@ -72,7 +75,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # React Dev Server
     "http://127.0.0.1:3000",
-    "https://example.com",   # Production URL
+    "http://ll.tmmc.ai",   # Production URL
 ]
 
 CORS_ALLOW_METHODS = [
@@ -101,6 +104,7 @@ CORS_ALLOW_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://ll.tmmc.ai",
 ]
 
 ROOT_URLCONF = 'lorryledger.urls'

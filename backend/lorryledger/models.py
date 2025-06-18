@@ -1,6 +1,13 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.core.validators import MinLengthValidator
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import base64
+import os
+import uuid
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 def driver_photo_upload_path(instance, filename):
     return f"drivers/{instance.aadhar_number}/photo/{filename}"
@@ -66,30 +73,137 @@ class Transactions(models.Model):
     driverId = models.CharField()
 
 class Truck(models.Model):
-    truckChoices = [('Mini Truck / LCV','Mini Truck / LCV'),
-                    ('Open Body Truck', 'Open Body Truck'),
-                    ('Closed Container', 'Closed Container'),
-                    ('Trailer', 'Trailer'),
-                    ('Tanker', 'Tanker'),
-                    ('Tipper', 'Tipper'),
-                    ('Other', 'Other')]
-    
-    ownershipChoices = [('Market Truck', 'Market Truck'),
-                        ('My Truck', 'My Truck')]
-
+    truckChoices = [
+        ('Mini Truck / LCV','Mini Truck / LCV'), 
+        ('Open Body Truck', 'Open Body Truck'), 
+        ('Closed Container', 'Closed Container'), 
+        ('Trailer', 'Trailer'), 
+        ('Tanker', 'Tanker'), 
+        ('Tipper', 'Tipper'), 
+        ('Other', 'Other')
+    ]
+    ownershipChoices = [
+        ('Market Truck', 'Market Truck'), 
+        ('My Truck', 'My Truck')
+    ]
     STATUS_CHOICES = [
-            ('available', 'Available'),
-            ('on_trip', 'On Trip'),
-            ('off_duty', 'Off Duty'),
-        ]
-
+        ('available', 'Available'), 
+        ('on_trip', 'On Trip'), 
+        ('off_duty', 'Off Duty'),
+    ]
+    
     truckNo = models.CharField(max_length=10)
-
     truckType = models.CharField(choices=truckChoices, default='Tanker')
-
     ownership = models.CharField(choices=ownershipChoices, default='My Truck')
-
     truckStatus = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
+    
+    # Add documents field as JSONField
+    documents = models.JSONField(default=dict, blank=True)
+    
+    # Add EMI field as JSONField
+    emi = models.JSONField(default=list, blank=True)
+    
+    def save_document_file(self, document_data):
+        """
+        Save uploaded file and return file path
+        """
+        if 'uploadedFile' in document_data and document_data['uploadedFile']:
+            file_data = document_data['uploadedFile']
+            
+            # If it's base64 data
+            if isinstance(file_data, dict) and 'data' in file_data:
+                file_content = base64.b64decode(file_data['data'])
+                file_name = file_data.get('name', f"{uuid.uuid4()}.pdf")
+                
+                # Create directory path
+                file_path = f"truck_documents/{self.truckNo}/{document_data['type']}/{file_name}"
+                
+                # Save file
+                saved_path = default_storage.save(file_path, ContentFile(file_content))
+                return saved_path
+                
+        return None
+    
+    def get_document_file_url(self, file_path):
+        """
+        Get URL for downloading document file
+        """
+        if file_path and default_storage.exists(file_path):
+            return default_storage.url(file_path)
+        return None
+    
+    def update_upcoming_payments(self):
+        """
+        Update upcoming payments for all EMIs based on due dates
+        """
+        if not self.emi:
+            return
+        
+        current_date = datetime.now().date()
+        updated_emis = []
+        
+        for emi in self.emi:
+            due_day = int(emi.get('dueOn', 1))
+            
+            # Check if we need to generate new upcoming payments
+            upcoming_payments = emi.get('upcomingPayments', [])
+            
+            # Find the latest upcoming payment date
+            latest_due_date = None
+            if upcoming_payments:
+                latest_due_date = max([
+                    datetime.strptime(payment['dueDate'], '%Y-%m-%d').date()
+                    for payment in upcoming_payments
+                ])
+            
+            # Generate next payment if within 20 days
+            next_due_date = self._get_next_due_date(due_day, latest_due_date)
+            
+            if next_due_date and (next_due_date - current_date).days <= 20:
+                # Check if this payment already exists
+                payment_exists = any(
+                    payment['dueDate'] == next_due_date.strftime('%Y-%m-%d')
+                    for payment in upcoming_payments
+                )
+                
+                if not payment_exists:
+                    new_payment = {
+                        'id': int(datetime.now().timestamp() * 1000),
+                        'amount': float(emi.get('monthlyEMI', 0)),
+                        'dueDate': next_due_date.strftime('%Y-%m-%d'),
+                        'status': 'due'
+                    }
+                    upcoming_payments.append(new_payment)
+            
+            emi['upcomingPayments'] = upcoming_payments
+            updated_emis.append(emi)
+        
+        self.emi = updated_emis
+    
+    def _get_next_due_date(self, due_day, last_due_date=None):
+        """
+        Get the next due date based on the due day of the month
+        """
+        current_date = datetime.now().date()
+        
+        if last_due_date:
+            # Get next month from the last due date
+            next_month = last_due_date + relativedelta(months=1)
+            next_due_date = next_month.replace(day=min(due_day, 28))  # Ensure valid day
+        else:
+            # Calculate next due date from current date
+            current_month = current_date.replace(day=min(due_day, 28))
+            if current_month <= current_date:
+                next_due_date = current_month + relativedelta(months=1)
+            else:
+                next_due_date = current_month
+        
+        return next_due_date
+    
+    def save(self, *args, **kwargs):
+        # Update upcoming payments before saving
+        self.update_upcoming_payments()
+        super().save(*args, **kwargs)
 
 class Expense(models.Model):
     expenseTypeChoices = [('Showroom Service', 'Showroom Service'),('Regular Service','Regular Service'),('Minor Repair','Minor Repair'),('Gear Maintenance','Gear Maintenance'),('Brake Oil Change', 'Brake Oil Change'), ('Grease Oil Change', 'Grease Oil Change'), ('Engine Oil Change', 'Engine Oil Change'),
@@ -212,6 +326,14 @@ class Trip(models.Model):
 
     # Add JSONField for consigner-consignee data
     routes = models.JSONField(default=list, blank=True)
+
+    #Trip Expenses
+    expenses = models.JSONField(default=list, blank=True, null=True)
+
+    #Party Bill Charges
+    advances = models.JSONField(default=list, blank=True, null=True)
+    charges = models.JSONField(default=list, blank=True, null=True)
+    payments = models.JSONField(default=list, blank=True, null=True)
 
     @property
     def LRCount(self):

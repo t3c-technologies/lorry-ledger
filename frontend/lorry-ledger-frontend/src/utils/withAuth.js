@@ -20,7 +20,7 @@ const withAuth = (WrappedComponent) => {
       const checkAuth = async () => {
         try {
           // Verify authentication with the backend
-          await api.get(API_ENDPOINTS.auth.verify); 
+          await api.get(API_ENDPOINTS.auth.verify);
           setIsAuthenticated(true);
         } catch (error) {
           setIsAuthenticated(false);

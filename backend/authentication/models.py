@@ -77,7 +77,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Optional fields
     first_name = models.CharField(max_length=50, blank=True, null=True)
     last_name = models.CharField(max_length=50, blank=True, null=True)
-    email = models.EmailField(unique=True, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
     company_name = models.CharField(max_length=100, blank=True, null=True)
 
     # Permissions fields

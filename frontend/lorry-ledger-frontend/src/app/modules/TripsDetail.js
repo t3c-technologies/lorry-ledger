@@ -77,8 +77,14 @@ export default function TripsDetail({ trip, onBack }) {
 
   const [showDeleteExpenseModal, setShowDeleteExpenseModal] = useState(false);
 
+  const [tripExpensePaymentMode, setTripExpensePaymentMode] = useState("Cash");
+
   //Routes
   const [routesList, setRoutesList] = useState(trip.routes);
+  const [tripExpensesList, setTripExpensesList] = useState(trip.expenses);
+  const [selectedExpense, setSelectedExpense] = useState(null);
+  const [selectedExpenseIndex, setSelectedExpenseIndex] = useState(-1);
+  const [isExpenseSidebarOpen, setIsExpenseSidebarOpen] = useState(false);
   const [newRoute, setNewRoute] = useState({
     consigner: "",
     consignee: "",
@@ -91,8 +97,6 @@ export default function TripsDetail({ trip, onBack }) {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [modalType, setModalType] = useState(null);
-
-  const [showSidebar, setShowSidebar] = useState(false);
   const [billingType, setBillingType] = useState("Fixed");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [showMoreDetails, setShowMoreDetails] = useState(false);
@@ -141,6 +145,20 @@ export default function TripsDetail({ trip, onBack }) {
   const [nextLrNumber, setNextLrNumber] = useState("LRN-001");
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1");
 
+  const [advances, setAdvances] = useState(trip.advances);
+  const [charges, setCharges] = useState(trip.charges);
+  const [payments, setPayments] = useState(trip.payments);
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [showChargeModal, setShowChargeModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showEditAdvanceModal, setShowEditAdvanceModal] = useState(false);
+  const [showEditChargeModal, setShowEditChargeModal] = useState(false);
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItemIndex, setSelectedItemIndex] = useState(-1);
+  const [selectedType, setSelectedType] = useState("");
+
   // Form data state
   const [formData, setFormData] = useState({
     lrDate: new Date().toISOString().split("T")[0],
@@ -186,10 +204,26 @@ export default function TripsDetail({ trip, onBack }) {
     });
   };
 
+  const [showTripExpenseModal, setShowTripExpenseModal] = useState(false);
+  const [showEditTripExpenseModal, setShowEditTripExpenseModal] =
+    useState(false);
+  const [showDeleteTripExpenseModal, setShowDeleteTripExpenseModal] =
+    useState(false);
+
+  // State for expense form
+  const [tripExpenseDetails, setTripExpenseDetails] = useState({
+    expenseType: "",
+    expenseAmount: "",
+    expenseDate: new Date().toISOString().split("T")[0],
+    paymentMode: "Cash", // Default selected payment mode
+    addToPartyBill: false,
+    partyBillAmount: "",
+    notes: "",
+  });
+
   const resetAddLR = () => {
     setFormData({
       lrDate: new Date().toISOString().split("T")[0],
-      invoiceDate: new Date().toISOString().split("T")[0],
       lrNumber: "",
       consigner_id: "",
       consignee_id: "",
@@ -223,6 +257,30 @@ export default function TripsDetail({ trip, onBack }) {
     mobileNumber: "",
   });
 
+  const [advanceForm, setAdvanceForm] = useState({
+    amount: "",
+    paymentMode: "Cash",
+    date: new Date().toISOString().split("T")[0],
+    receivedByDriver: false,
+    notes: "",
+  });
+
+  const [chargeForm, setChargeForm] = useState({
+    addToBill: true,
+    chargeType: "",
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
+
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    paymentMode: "Cash",
+    date: new Date().toISOString().split("T")[0],
+    receivedByDriver: false,
+    notes: "",
+  });
+
   // Format date function
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -241,6 +299,17 @@ export default function TripsDetail({ trip, onBack }) {
     { label: "POD Submitted", date: formatDate(trip.PODSubmittedDate) },
     { label: "Settled", date: formatDate(trip.settlementDate) },
   ]);
+
+  const totalExpenses = useMemo(() => {
+    return tripExpensesList.reduce(
+      (sum, expense) => sum + parseFloat(expense.expenseAmount || 0),
+      0
+    );
+  });
+  const revenue = parseFloat(trip.partyFreightAmount || 0);
+  const profit = useMemo(() => {
+    return revenue - totalExpenses;
+  });
 
   const indexOfLastRecord = currentPage * recordsPerPageLR;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPageLR;
@@ -722,6 +791,61 @@ export default function TripsDetail({ trip, onBack }) {
     setShowExpensesModal(true);
   };
 
+  const handleTripExpenseClick = (expense, index) => {
+    setSelectedExpense(expense);
+    setSelectedExpenseIndex(index);
+    setIsExpenseSidebarOpen(true);
+  };
+
+  const handleDeleteTripExpense = async () => {
+    const updatedExpenses = [...tripExpensesList];
+    updatedExpenses.splice(selectedExpenseIndex, 1);
+    setTripExpensesList(updatedExpenses);
+    console.log(updatedExpenses);
+    const tripToUpdate = { ...updatedTrip, expenses: updatedExpenses };
+    setUpdatedTrip((prev) => ({ ...prev, expenses: updatedExpenses }));
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      resetTripExpenseForm();
+      setShowDeleteTripExpenseModal(false);
+      setIsExpenseSidebarOpen(false);
+    } catch (error) {
+      console.error("Error updating Trip:", error);
+      notifyError("Error updating Trip");
+    }
+  };
+
+  const handleEditTripExpense = async () => {
+    const updatedExpenses = [...tripExpensesList];
+    updatedExpenses[selectedExpenseIndex].expenseType =
+      tripExpenseDetails.expenseType;
+    updatedExpenses[selectedExpenseIndex].expenseAmount =
+      tripExpenseDetails.expenseAmount;
+    updatedExpenses[selectedExpenseIndex].expenseDate =
+      tripExpenseDetails.expenseDate;
+    updatedExpenses[selectedExpenseIndex].paymentMode =
+      tripExpenseDetails.paymentMode;
+    updatedExpenses[selectedExpenseIndex].addToPartyBill =
+      tripExpenseDetails.addToPartyBill;
+    updatedExpenses[selectedExpenseIndex].partyBillAmount =
+      tripExpenseDetails.partyBillAmount;
+    updatedExpenses[selectedExpenseIndex].notes = tripExpenseDetails.notes;
+    console.log(updatedExpenses);
+    setTripExpensesList(updatedExpenses);
+    const tripToUpdate = { ...updatedTrip, expenses: updatedExpenses };
+    setUpdatedTrip((prev) => ({ ...prev, expenses: updatedExpenses }));
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      resetTripExpenseForm();
+      setShowEditTripExpenseModal(false);
+    } catch (error) {
+      console.error("Error updating Trip:", error);
+      notifyError("Error updating Trip");
+    }
+  };
+
   const totalExpenseAmount = useMemo(() => {
     return expensesList.reduce((total, expense) => {
       const amount = parseFloat(expense.amountPaid);
@@ -914,6 +1038,429 @@ export default function TripsDetail({ trip, onBack }) {
       closeAddExpenseModal();
     } catch (error) {
       notifyError("Error updating expense");
+    }
+  };
+
+  //Trip Expenses
+  const handlePaymentModeSelect = (mode) => {
+    setTripExpensePaymentMode(mode);
+    setTripExpenseDetails((prev) => ({
+      ...prev,
+      paymentMode: mode,
+    }));
+  };
+  // Open expense modal
+  const openTripExpenseModal = () => {
+    setShowTripExpenseModal(true);
+  };
+  const openEditTripExpenseModal = () => {
+    setShowEditTripExpenseModal(true);
+    setTripExpenseDetails({
+      expenseType: selectedExpense.expenseType,
+      expenseAmount: selectedExpense.expenseAmount,
+      expenseDate: selectedExpense.expenseDate,
+      paymentMode: selectedExpense.paymentMode, // Default selected payment mode
+      addToPartyBill: selectedExpense.addToPartyBill,
+      partyBillAmount: selectedExpense.partyBillAmount,
+      notes: selectedExpense.notes,
+    });
+    console.log(selectedExpense);
+  };
+  const openDeleteTripExpenseModal = () => {
+    setShowDeleteTripExpenseModal(true);
+  };
+
+  // Close expense modal
+  const closeTripExpenseModal = () => {
+    setShowTripExpenseModal(false);
+    resetTripExpenseForm();
+    setTripExpensePaymentMode("Cash");
+  };
+
+  const closeEditTripExpenseModal = () => {
+    setShowEditTripExpenseModal(false);
+    resetTripExpenseForm();
+    setTripExpensePaymentMode("Cash");
+  };
+
+  // Handle input changes for form fields
+  const handleTripExpenseChange = (e) => {
+    const { name, value } = e.target;
+    setTripExpenseDetails((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Handle checkbox change for "Add To Party Bill"
+  const handleCheckboxChange = (e) => {
+    const { name, checked } = e.target;
+    setTripExpenseDetails((prev) => ({
+      ...prev,
+      [name]: checked,
+    }));
+  };
+
+  // Handle payment mode selection
+  const handleTripPaymentModeSelect = (mode) => {};
+
+  // Handle form submission
+  const handleTripExpenseSubmit = async (e) => {
+    if (e) e.preventDefault();
+
+    // Form validation
+    if (
+      !tripExpenseDetails.expenseType ||
+      !tripExpenseDetails.expenseAmount ||
+      !tripExpenseDetails.expenseDate
+    ) {
+      // Show validation error
+      alert("Please fill all required fields");
+      return;
+    }
+
+    // If addToPartyBill is checked, validate additional fields
+    if (
+      tripExpenseDetails.addToPartyBill &&
+      !tripExpenseDetails.partyBillAmount
+    ) {
+      alert("Please select a trip and enter party bill amount");
+      return;
+    }
+
+    // Submit expense data
+    console.log("Expense details:", tripExpenseDetails);
+    const updatedExpenses = [...tripExpensesList, tripExpenseDetails];
+    setTripExpensesList(updatedExpenses);
+    const tripToUpdate = { ...updatedTrip, expenses: updatedExpenses };
+    setUpdatedTrip((prev) => ({ ...prev, expenses: updatedExpenses }));
+    console.log(tripToUpdate);
+
+    //console.log(updatedTrip);
+
+    try {
+      await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+      notifyInfo("Trip updated successfully");
+      resetTripExpenseForm();
+      closeTripExpenseModal();
+    } catch (error) {
+      console.error("Error updating Trip:", error);
+      notifyError("Error updating Trip");
+    }
+
+    // For demo purposes, just close the modal
+  };
+
+  // Reset form to initial state
+  const resetTripExpenseForm = () => {
+    setTripExpenseDetails({
+      expenseType: "",
+      expenseAmount: "",
+      expenseDate: new Date().toISOString().split("T")[0],
+      paymentMode: "Cash",
+      addToPartyBill: false,
+      selectedTrip: "",
+      partyBillAmount: "",
+      notes: "",
+    });
+  };
+
+  //Party Bill calculation
+  const calculateBalance = () => {
+    const totalAdvances = advances.reduce(
+      (sum, advance) => sum + advance.amount,
+      0
+    );
+    const totalCharges = charges.reduce(
+      (sum, charge) =>
+        charge.addToBill ? sum + charge.amount : sum - charge.amount,
+      0
+    );
+    const totalPayments = payments.reduce(
+      (sum, payment) => sum + payment.amount,
+      0
+    );
+    return (
+      trip.partyFreightAmount - totalAdvances + totalCharges - totalPayments
+    );
+  };
+
+  const handleAddAdvance = async () => {
+    try {
+      if (advanceForm.amount) {
+        const newAdvance = {
+          date: advanceForm.date,
+          receivedByDriver: advanceForm.receivedByDriver,
+          paymentMode: advanceForm.paymentMode,
+          amount: parseFloat(advanceForm.amount),
+          notes: advanceForm.notes,
+        };
+        const updatedAdvances = [...advances, newAdvance];
+        setAdvances(updatedAdvances);
+        const tripToUpdate = { ...updatedTrip, advances: updatedAdvances };
+        console.log(tripToUpdate);
+
+        setUpdatedTrip((prev) => ({ ...prev, advances: updatedAdvances }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+        setAdvanceForm({
+          amount: "",
+          paymentMode: "Cash",
+          date: new Date().toISOString().split("T")[0],
+          receivedByDriver: false,
+          notes: "",
+        });
+        setShowAdvanceModal(false);
+      }
+      console.log(advances);
+    } catch (error) {
+      notifyError("Error creating Advance");
+    }
+  };
+
+  const handleEditAdvance = async () => {
+    try {
+      if (advanceForm.amount) {
+        const updatedAdvances = [...advances];
+        updatedAdvances[selectedItemIndex].date = advanceForm.date;
+        updatedAdvances[selectedItemIndex].receivedByDriver =
+          advanceForm.receivedByDriver;
+        updatedAdvances[selectedItemIndex].paymentMode =
+          advanceForm.paymentMode;
+        updatedAdvances[selectedItemIndex].amount = parseFloat(
+          advanceForm.amount
+        );
+        updatedAdvances[selectedItemIndex].notes = advanceForm.notes;
+        setAdvances(updatedAdvances);
+        const tripToUpdate = { ...updatedTrip, advances: updatedAdvances };
+        console.log(tripToUpdate);
+        setUpdatedTrip((prev) => ({ ...prev, advances: updatedAdvances }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+        setAdvanceForm({
+          amount: "",
+          paymentMode: "Cash",
+          date: new Date().toISOString().split("T")[0],
+          receivedByDriver: false,
+          notes: "",
+        });
+        setShowEditAdvanceModal(false);
+        setShowSidebar(false);
+      }
+      //console.log(advances);
+    } catch (error) {
+      notifyError("Error creating Advance");
+    }
+  };
+
+  const handleAddCharge = async () => {
+    try {
+      if (chargeForm.chargeType && chargeForm.amount) {
+        const newCharge = {
+          date: chargeForm.date,
+          chargeType: chargeForm.chargeType,
+          addToBill: chargeForm.addToBill,
+          amount: parseFloat(chargeForm.amount),
+          notes: chargeForm.notes,
+        };
+        const updatedCharges = [...charges, newCharge];
+        setCharges(updatedCharges);
+        const tripToUpdate = { ...updatedTrip, charges: updatedCharges };
+        console.log(tripToUpdate);
+
+        setUpdatedTrip((prev) => ({ ...prev, charges: updatedCharges }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+        setChargeForm({
+          addToBill: true,
+          chargeType: "",
+          amount: "",
+          date: new Date().toISOString().split("T")[0],
+          notes: "",
+        });
+        setShowChargeModal(false);
+      }
+      console.log(charges);
+    } catch (error) {
+      notifyError("Error creating Charge");
+    }
+  };
+
+  const handleEditCharge = async () => {
+    try {
+      if (chargeForm.chargeType && chargeForm.amount) {
+        const updatedCharges = [...charges];
+        updatedCharges[selectedItemIndex].date = chargeForm.date;
+        updatedCharges[selectedItemIndex].addToBill = chargeForm.addToBill;
+        updatedCharges[selectedItemIndex].chargeType = chargeForm.chargeType;
+        updatedCharges[selectedItemIndex].amount = parseFloat(
+          chargeForm.amount
+        );
+        updatedCharges[selectedItemIndex].notes = chargeForm.notes;
+        setCharges(updatedCharges);
+        const tripToUpdate = { ...updatedTrip, charges: updatedCharges };
+        console.log(tripToUpdate);
+        setUpdatedTrip((prev) => ({ ...prev, charges: updatedCharges }));
+        //await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        //notifyInfo("Trip updated successfully");
+        setChargeForm({
+          addToBill: true,
+          chargeType: "",
+          amount: "",
+          date: new Date().toISOString().split("T")[0],
+          notes: "",
+        });
+        setShowEditChargeModal(false);
+        setShowSidebar(false);
+      }
+      //console.log(advances);
+    } catch (error) {
+      notifyError("Error creating Charge");
+    }
+  };
+
+  const handleAddPayment = async () => {
+    try {
+      if (paymentForm.amount) {
+        const newPayment = {
+          date: paymentForm.date,
+          paymentMode: paymentForm.paymentMode,
+          amount: parseFloat(paymentForm.amount),
+          receivedByDriver: paymentForm.receivedByDriver,
+          notes: paymentForm.notes,
+        };
+        const updatedPayments = [...payments, newPayment];
+        setPayments(updatedPayments);
+        const tripToUpdate = { ...updatedTrip, payments: updatedPayments };
+        console.log(tripToUpdate);
+
+        setUpdatedTrip((prev) => ({ ...prev, payments: updatedPayments }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+        setPaymentForm({
+          amount: "",
+          paymentMode: "Cash",
+          date: new Date().toISOString().split("T")[0],
+          receivedByDriver: false,
+          notes: "",
+        });
+        setShowPaymentModal(false);
+      }
+      console.log(payments);
+    } catch (error) {
+      notifyError("Error creating Payment");
+    }
+  };
+
+  const handleEditPayment = async () => {
+    try {
+      if (paymentForm.amount) {
+        const updatedPayments = [...payments];
+        updatedPayments[selectedItemIndex].date = paymentForm.date;
+        updatedPayments[selectedItemIndex].paymentMode =
+          paymentForm.paymentMode;
+        updatedPayments[selectedItemIndex].receivedByDriver =
+          paymentForm.receivedByDriver;
+        updatedPayments[selectedItemIndex].amount = parseFloat(
+          paymentForm.amount
+        );
+        updatedPayments[selectedItemIndex].notes = paymentForm.notes;
+        setPayments(updatedPayments);
+        const tripToUpdate = { ...updatedTrip, payments: updatedPayments };
+        console.log(tripToUpdate);
+        setUpdatedTrip((prev) => ({ ...prev, payments: updatedPayments }));
+        //await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        //notifyInfo("Trip updated successfully");
+        setPaymentForm({
+          amount: "",
+          paymentMode: "Cash",
+          date: new Date().toISOString().split("T")[0],
+          receivedByDriver: false,
+          notes: "",
+        });
+        setShowEditPaymentModal(false);
+        setShowSidebar(false);
+      }
+      //console.log(advances);
+    } catch (error) {
+      notifyError("Error creating Charge");
+    }
+  };
+
+  const handleItemClick = (item, type, index) => {
+    setSelectedItem(item);
+    setSelectedType(type);
+    setSelectedItemIndex(index);
+    setShowSidebar(true);
+  };
+
+  const handleEditBillClick = () => {
+    if (selectedType === "advance") {
+      setAdvanceForm({
+        amount: selectedItem.amount,
+        paymentMode: selectedItem.paymentMode,
+        date: selectedItem.date,
+        receivedByDriver: selectedItem.receivedByDriver,
+        notes: selectedItem.notes,
+      });
+      setShowEditAdvanceModal(true);
+    } else if (selectedType === "charge") {
+      setChargeForm({
+        addToBill: selectedItem.addToBill,
+        chargeType: selectedItem.chargeType,
+        amount: selectedItem.amount,
+        date: selectedItem.date,
+        notes: selectedItem.notes,
+      });
+      setShowEditChargeModal(true);
+    } else if (selectedType === "payment") {
+      setPaymentForm({
+        amount: selectedItem.amount,
+        paymentMode: selectedItem.paymentMode,
+        date: selectedItem.date,
+        receivedByDriver: selectedItem.receivedByDriver,
+        notes: selectedItem.notes,
+      });
+      setShowEditPaymentModal(true);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      if (selectedType === "advance") {
+        const updatedAdvances = advances.filter(
+          (_, index) => index !== selectedItemIndex
+        );
+        setAdvances(updatedAdvances);
+        const tripToUpdate = { ...updatedTrip, advances: updatedAdvances };
+        console.log(tripToUpdate);
+        setUpdatedTrip((prev) => ({ ...prev, advances: updatedAdvances }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+      } else if (selectedType === "charge") {
+        const updatedCharges = charges.filter(
+          (_, index) => index !== selectedItemIndex
+        );
+        setCharges(updatedCharges);
+        const tripToUpdate = { ...updatedTrip, charges: updatedCharges };
+        console.log(tripToUpdate);
+        setUpdatedTrip((prev) => ({ ...prev, charges: updatedCharges }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+      } else if (selectedType === "payment") {
+        const updatedPayments = payments.filter(
+          (_, index) => index !== selectedItemIndex
+        );
+        setPayments(updatedPayments);
+        const tripToUpdate = { ...updatedTrip, payments: updatedPayments };
+        console.log(tripToUpdate);
+        setUpdatedTrip((prev) => ({ ...prev, payments: updatedPayments }));
+        await api.put(API_ENDPOINTS.trips.update(trip.id), tripToUpdate);
+        notifyInfo("Trip updated successfully");
+      }
+      setShowSidebar(false);
+    } catch (error) {
+      notifyError("Error deleting component");
     }
   };
 
@@ -4463,38 +5010,147 @@ export default function TripsDetail({ trip, onBack }) {
               </div>
 
               {/* Freight Info */}
+              {/* Freight Info */}
               <div className="pt-4">
-                <div className="flex justify-between">
-                  <p className="font-bold">Freight Amount</p>
-                  <div className="text-right font-bold text-blue-600">
+                <div className="flex justify-between items-center mb-4">
+                  <p className="font-bold text-lg">Freight Amount</p>
+                  <div className="text-right font-bold text-blue-600 text-lg">
                     ₹ {trip.partyFreightAmount}{" "}
                     <span className="ml-2 cursor-pointer">✎</span>
                   </div>
                 </div>
 
                 <div className="gap-4 text-sm">
+                  {/* Advances Section */}
                   <div className="my-4">
-                    <p className="font-semibold">(-) Advance</p>
-                    <a href="#" className="text-blue-600 block mt-1">
+                    <div className="flex justify-between items-center">
+                      <p className="font-semibold">(-) Advance</p>
+                      <p className="font-semibold">
+                        ₹ {advances.reduce((sum, a) => sum + a.amount, 0)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50">
+                      {advances.map((advance, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center py-2 px-3 bg-gray-50 my-1 rounded cursor-pointer hover:bg-gray-100"
+                          onClick={() =>
+                            handleItemClick(advance, "advance", index)
+                          }
+                        >
+                          <div>
+                            <span className="text-gray-600">
+                              {advance.date}
+                            </span>
+                            <span className="ml-2">{advance.paymentMode}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span>₹ {advance.amount}</span>
+                            <span className="ml-2">›</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setShowAdvanceModal(true)}
+                      className="text-blue-600 block mt-1 hover:underline"
+                    >
                       Add Advance
-                    </a>
+                    </button>
                   </div>
+
+                  {/* Charges Section */}
                   <div className="my-4">
-                    <p className="font-semibold">(+) Charges</p>
-                    <a href="#" className="text-blue-600 block mt-1">
+                    <div className="flex justify-between items-center">
+                      <p className="font-semibold">(+) Charges</p>
+                      <p className="font-semibold">
+                        ₹ {charges.reduce((sum, c) => sum + c.amount, 0)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50">
+                      {charges.map((charge, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center py-2 px-3 bg-gray-50 my-1 rounded cursor-pointer hover:bg-gray-100"
+                          onClick={() =>
+                            handleItemClick(charge, "charge", index)
+                          }
+                        >
+                          <div>
+                            <span className="text-gray-600">{charge.date}</span>
+                            <span className="ml-2">{charge.chargeType}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span
+                              className={`mr-1 ${
+                                charge.addToBill
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {charge.addToBill ? "(+)" : "(-)"}
+                            </span>
+                            <span>₹ {charge.amount}</span>
+                            <span className="ml-2">›</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setShowChargeModal(true)}
+                      className="text-blue-600 block mt-1 hover:underline"
+                    >
                       Add Charge
-                    </a>
+                    </button>
                   </div>
+
+                  {/* Payments Section */}
                   <div className="my-4">
-                    <p className="font-semibold">(-) Payments</p>
-                    <a href="#" className="text-blue-600 block mt-1">
+                    <div className="flex justify-between items-center">
+                      <p className="font-semibold">(-) Payments</p>
+                      <p className="font-semibold">
+                        ₹ {payments.reduce((sum, p) => sum + p.amount, 0)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50">
+                      {payments.map((payment, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center py-2 px-3 bg-gray-50 my-1 rounded cursor-pointer hover:bg-gray-100"
+                          onClick={() =>
+                            handleItemClick(payment, "payment", index)
+                          }
+                        >
+                          <div>
+                            <span className="text-gray-600">
+                              {payment.date}
+                            </span>
+                            <span className="ml-2">{payment.paymentMode}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span>₹ {payment.amount}</span>
+                            <span className="ml-2">›</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setShowPaymentModal(true)}
+                      className="text-blue-600 block mt-1 hover:underline"
+                    >
                       Add Payment
-                    </a>
+                    </button>
                   </div>
                 </div>
 
-                <div className="pt-4 font-bold">Pending Party Balance</div>
-                <div className="text-blue-600 text-sm">+ Notes</div>
+                <div className="pt-4 border-t">
+                  <div className="flex justify-between items-center">
+                    <div className="font-bold">Pending Party Balance</div>
+                    <div className="font-bold text-lg">
+                      ₹ {calculateBalance()}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -4505,7 +5161,10 @@ export default function TripsDetail({ trip, onBack }) {
             <div className="bg-white rounded shadow p-4 space-y-2 min-h-[50%]">
               <div className="flex justify-between items-center">
                 <p className="font-bold">Trip Profit</p>
-                <button className="border border-blue-700 text-blue-700 text-sm px-3 py-1 rounded hover:bg-blue-700 hover:text-white transition">
+                <button
+                  onClick={openTripExpenseModal}
+                  className="border border-blue-700 text-blue-700 text-sm px-3 py-1 rounded hover:bg-blue-700 hover:text-white transition"
+                >
                   + Add Expense
                 </button>
               </div>
@@ -4513,21 +5172,46 @@ export default function TripsDetail({ trip, onBack }) {
               <div className="text-sm">
                 <p className="font-bold my-4">
                   (+) Revenue{" "}
-                  <span className="float-right text-blue-700">₹ 13,579</span>
+                  <span className="float-right text-blue-700">₹ {revenue}</span>
                 </p>
                 <p className="text-gray-500 my-3">
-                  Preetam <span className="float-right">₹ 1,234</span>
-                </p>
-                <p className="text-gray-500 my-3">
-                  Preetam <span className="float-right">₹ 12,345</span>
+                  {trip.party.partyName}{" "}
+                  <span className="float-right">
+                    ₹ {trip.partyFreightAmount}
+                  </span>
                 </p>
                 <hr className="my-2" />
+
                 <p className="font-bold my-4">
                   (-) Expense{" "}
-                  <span className="float-right text-blue-700">₹ 0</span>
+                  <span className="float-right text-blue-700">
+                    ₹ {totalExpenses}
+                  </span>
                 </p>
+
+                {/* Individual Expenses */}
+                {tripExpensesList.map((expense, index) => (
+                  <p
+                    key={index}
+                    className="text-gray-500 my-3 cursor-pointer hover:bg-gray-100 p-1 rounded"
+                    onClick={() => handleTripExpenseClick(expense, index)}
+                  >
+                    {expense.expenseType}{" "}
+                    <span className="float-right">
+                      ₹ {expense.expenseAmount}
+                    </span>
+                  </p>
+                ))}
+
                 <hr className="my-2" />
-                <p className="font-bold text-green-600 my-4">Profit ₹ 13,579</p>
+
+                <p
+                  className={`font-bold my-4 ${
+                    profit >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  Profit ₹ {profit}
+                </p>
               </div>
             </div>
 
@@ -4606,6 +5290,1595 @@ export default function TripsDetail({ trip, onBack }) {
           </div>
         </div>
       </div>
+
+      {/* Add Advance Modal */}
+      {showAdvanceModal && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Advance</h2>
+              <button
+                onClick={() => {
+                  setShowAdvanceModal(false);
+                  setAdvanceForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-blue-600 font-medium pb-2 border-b-2 border-blue-600 inline-block">
+                Party Advance
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Advance Amount *
+                </label>
+                <input
+                  type="number"
+                  placeholder="Enter a Amount"
+                  value={advanceForm.amount}
+                  onChange={(e) =>
+                    setAdvanceForm({ ...advanceForm, amount: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Cash", "Cheque", "UPI"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={advanceForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setAdvanceForm({
+                          ...advanceForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Bank Transfer", "Fuel", "Others"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={advanceForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setAdvanceForm({
+                          ...advanceForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Payment Date *
+                </label>
+                <input
+                  type="date"
+                  value={advanceForm.date}
+                  onChange={(e) =>
+                    setAdvanceForm({ ...advanceForm, date: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={advanceForm.receivedByDriver}
+                  onChange={(e) =>
+                    setAdvanceForm({
+                      ...advanceForm,
+                      receivedByDriver: e.target.checked,
+                    })
+                  }
+                />
+                <span className="text-sm">Received By Driver</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  placeholder="Enter Notes"
+                  value={advanceForm.notes}
+                  onChange={(e) =>
+                    setAdvanceForm({ ...advanceForm, notes: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 h-20"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowAdvanceModal(false);
+                  setAdvanceForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="flex-1 border border-gray-300 rounded-md py-2 px-4 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleAddAdvance}
+                className="flex-1 bg-primary text-white rounded-md py-2 px-4 hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Charge Modal */}
+      {showChargeModal && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Charges</h2>
+              <button
+                onClick={() => {
+                  setShowChargeModal(false);
+                  setChargeForm({
+                    addToBill: true,
+                    chargeType: "",
+                    amount: "",
+                    date: new Date().toISOString().split("T")[0],
+                    notes: "",
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-blue-600 font-medium pb-2 border-b-2 border-blue-600 inline-block">
+                Party Charge
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex space-x-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="chargeType"
+                    checked={chargeForm.addToBill}
+                    onChange={() =>
+                      setChargeForm({ ...chargeForm, addToBill: true })
+                    }
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">Add to Bill</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="chargeType"
+                    checked={!chargeForm.addToBill}
+                    onChange={() =>
+                      setChargeForm({ ...chargeForm, addToBill: false })
+                    }
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">Reduce from Bill</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {chargeForm.addToBill ? "Charge Type" : "Deduction Type"} *
+                </label>
+                <select
+                  value={chargeForm.chargeType}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, chargeType: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                >
+                  <option value="">
+                    {chargeForm.addToBill
+                      ? "Select a Charge Type"
+                      : "Select a Deduction Type"}
+                  </option>
+                  {chargeForm.addToBill ? (
+                    <>
+                      <option value="Detention/Halting Charges">
+                        Detention/Halting Charges
+                      </option>
+                      <option value="Union Charges">Union Charges</option>
+                      <option value="Loading Charges">Loading Charges</option>
+                      <option value="Unloading Charges">
+                        Unloading Charges
+                      </option>
+                      <option value="Weight Charges">Weight Charges</option>
+                      <option value="Other Charges">Other Charges</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Late Fees">Late Fees</option>
+                      <option value="Brokerage">Brokerage</option>
+                      <option value="Material Loss">Material Loss</option>
+                      <option value="Material Damage">Material Damage</option>
+                      <option value="TDS">TDS</option>
+                      <option value="Mamul">Mamul</option>
+                      <option value="Others">Others</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {chargeForm.addToBill ? "Charge Amount" : "Deduction Amount"}{" "}
+                  *
+                </label>
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={chargeForm.amount}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, amount: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {chargeForm.addToBill ? "Charge Date" : "Deduction Date"} *
+                </label>
+                <input
+                  type="date"
+                  value={chargeForm.date}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, date: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  placeholder="Enter Notes"
+                  value={chargeForm.notes}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, notes: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 h-20"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowChargeModal(false);
+                  setChargeForm({
+                    addToBill: true,
+                    chargeType: "",
+                    amount: "",
+                    date: new Date().toISOString().split("T")[0],
+                    notes: "",
+                  });
+                }}
+                className="flex-1 border border-gray-300 rounded-md py-2 px-4 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleAddCharge}
+                className="flex-1 bg-primary text-white rounded-md py-2 px-4 hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Payment</h2>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setPaymentForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-blue-600 font-medium pb-2 border-b-2 border-blue-600 inline-block">
+                Party Payment
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Amount *
+                </label>
+                <input
+                  type="number"
+                  placeholder="Enter a Amount"
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, amount: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Cash", "Cheque", "UPI"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={paymentForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Bank Transfer", "Fuel", "Others"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={paymentForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Payment Date *
+                </label>
+                <input
+                  type="date"
+                  value={paymentForm.date}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, date: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={paymentForm.receivedByDriver}
+                  onChange={(e) =>
+                    setPaymentForm({
+                      ...paymentForm,
+                      receivedByDriver: e.target.checked,
+                    })
+                  }
+                />
+                <span className="text-sm">Received By Driver</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  placeholder="Enter Notes"
+                  value={paymentForm.notes}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, notes: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 h-20"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setPaymentForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="flex-1 border border-gray-300 rounded-md py-2 px-4 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleAddPayment}
+                className="flex-1 bg-primary text-white rounded-md py-2 px-4 hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditAdvanceModal && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Advances</h2>
+              <button
+                onClick={() => {
+                  setShowEditAdvanceModal(false);
+                  setAdvanceForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-blue-600 font-medium pb-2 border-b-2 border-blue-600 inline-block">
+                Party Advance
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Advance Amount *
+                </label>
+                <input
+                  type="number"
+                  placeholder="Enter a Amount"
+                  value={advanceForm.amount}
+                  onChange={(e) =>
+                    setAdvanceForm({ ...advanceForm, amount: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Cash", "Cheque", "UPI"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={advanceForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setAdvanceForm({
+                          ...advanceForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Bank Transfer", "Fuel", "Others"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={advanceForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setAdvanceForm({
+                          ...advanceForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Payment Date *
+                </label>
+                <input
+                  type="date"
+                  value={advanceForm.date}
+                  onChange={(e) =>
+                    setAdvanceForm({ ...advanceForm, date: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={advanceForm.receivedByDriver}
+                  onChange={(e) =>
+                    setAdvanceForm({
+                      ...advanceForm,
+                      receivedByDriver: e.target.checked,
+                    })
+                  }
+                />
+                <span className="text-sm">Received By Driver</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  placeholder="Enter Notes"
+                  value={advanceForm.notes}
+                  onChange={(e) =>
+                    setAdvanceForm({ ...advanceForm, notes: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 h-20"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowAdvanceModal(false);
+                  setAdvanceForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="flex-1 border border-gray-300 rounded-md py-2 px-4 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleEditAdvance}
+                className="flex-1 bg-primary text-white rounded-md py-2 px-4 hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditChargeModal && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Charges</h2>
+              <button
+                onClick={() => {
+                  setShowEditChargeModal(false);
+                  setChargeForm({
+                    addToBill: true,
+                    chargeType: "",
+                    amount: "",
+                    date: new Date().toISOString().split("T")[0],
+                    notes: "",
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-blue-600 font-medium pb-2 border-b-2 border-blue-600 inline-block">
+                Party Charge
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex space-x-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="chargeType"
+                    checked={chargeForm.addToBill}
+                    onChange={() =>
+                      setChargeForm({ ...chargeForm, addToBill: true })
+                    }
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">Add to Bill</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="chargeType"
+                    checked={!chargeForm.addToBill}
+                    onChange={() =>
+                      setChargeForm({ ...chargeForm, addToBill: false })
+                    }
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">Reduce from Bill</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {chargeForm.addToBill ? "Charge Type" : "Deduction Type"} *
+                </label>
+                <select
+                  value={chargeForm.chargeType}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, chargeType: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                >
+                  <option value="">
+                    {chargeForm.addToBill
+                      ? "Select a Charge Type"
+                      : "Select a Deduction Type"}
+                  </option>
+                  {chargeForm.addToBill ? (
+                    <>
+                      <option value="Detention/Halting Charges">
+                        Detention/Halting Charges
+                      </option>
+                      <option value="Union Charges">Union Charges</option>
+                      <option value="Loading Charges">Loading Charges</option>
+                      <option value="Unloading Charges">
+                        Unloading Charges
+                      </option>
+                      <option value="Weight Charges">Weight Charges</option>
+                      <option value="Other Charges">Other Charges</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Late Fees">Late Fees</option>
+                      <option value="Brokerage">Brokerage</option>
+                      <option value="Material Loss">Material Loss</option>
+                      <option value="Material Damage">Material Damage</option>
+                      <option value="TDS">TDS</option>
+                      <option value="Mamul">Mamul</option>
+                      <option value="Others">Others</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {chargeForm.addToBill ? "Charge Amount" : "Deduction Amount"}{" "}
+                  *
+                </label>
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={chargeForm.amount}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, amount: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {chargeForm.addToBill ? "Charge Date" : "Deduction Date"} *
+                </label>
+                <input
+                  type="date"
+                  value={chargeForm.date}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, date: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  placeholder="Enter Notes"
+                  value={chargeForm.notes}
+                  onChange={(e) =>
+                    setChargeForm({ ...chargeForm, notes: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 h-20"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditChargeModal(false);
+                  setChargeForm({
+                    addToBill: true,
+                    chargeType: "",
+                    amount: "",
+                    date: new Date().toISOString().split("T")[0],
+                    notes: "",
+                  });
+                }}
+                className="flex-1 border border-gray-300 rounded-md py-2 px-4 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleEditCharge}
+                className="flex-1 bg-primary text-white rounded-md py-2 px-4 hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Payment Modal */}
+      {showEditPaymentModal && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Payment</h2>
+              <button
+                onClick={() => {
+                  setShowEditPaymentModal(false);
+                  setPaymentForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-blue-600 font-medium pb-2 border-b-2 border-blue-600 inline-block">
+                Party Payment
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Amount *
+                </label>
+                <input
+                  type="number"
+                  placeholder="Enter a Amount"
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, amount: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Cash", "Cheque", "UPI"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={paymentForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["Bank Transfer", "Fuel", "Others"].map((mode) => (
+                  <label key={mode} className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={mode}
+                      checked={paymentForm.paymentMode === mode}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          paymentMode: e.target.value,
+                        })
+                      }
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">{mode}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Payment Date *
+                </label>
+                <input
+                  type="date"
+                  value={paymentForm.date}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, date: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={paymentForm.receivedByDriver}
+                  onChange={(e) =>
+                    setPaymentForm({
+                      ...paymentForm,
+                      receivedByDriver: e.target.checked,
+                    })
+                  }
+                />
+                <span className="text-sm">Received By Driver</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  placeholder="Enter Notes"
+                  value={paymentForm.notes}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, notes: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 h-20"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditPaymentModal(false);
+                  setPaymentForm({
+                    amount: "",
+                    paymentMode: "Cash",
+                    date: new Date().toISOString().split("T")[0],
+                    receivedByDriver: false,
+                    notes: "",
+                  });
+                }}
+                className="flex-1 border border-gray-300 rounded-md py-2 px-4 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleEditPayment}
+                className="flex-1 bg-primary text-white rounded-md py-2 px-4 hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sidebar for Item Details */}
+      {showSidebar && selectedItem && (
+        <div className="fixed text-black inset-0 bg-black bg-opacity-50 flex justify-end z-30">
+          <div className="bg-white w-96 h-full overflow-y-auto flex flex-col">
+            <div className="p-6 flex-1">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">
+                  Party{" "}
+                  {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}{" "}
+                  Details
+                </h2>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleEditBillClick}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                  >
+                    <span>✎</span>
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+                  >
+                    <span>🗑</span>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+              {selectedType === "advance" && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Payment Date</p>
+                      <p className="font-medium">{selectedItem.date}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {selectedType.charAt(0).toUpperCase() +
+                          selectedType.slice(1)}{" "}
+                        Amount
+                      </p>
+                      <p className="font-medium">₹ {selectedItem.amount}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Payment Mode</p>
+                      <p className="font-medium">{selectedItem.paymentMode}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Reference Number</p>
+                      <p className="font-medium">—</p>
+                    </div>
+                  </div>
+
+                  {selectedItem.notes && (
+                    <div>
+                      <p className="text-sm text-gray-600">Notes</p>
+                      <p className="font-medium">{selectedItem.notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedType === "charge" && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Charge Date</p>
+                      <p className="font-medium">{selectedItem.date}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {selectedType.charAt(0).toUpperCase() +
+                          selectedType.slice(1)}{" "}
+                        Amount
+                      </p>
+                      <p className="font-medium">₹ {selectedItem.amount}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Charge Type</p>
+                      <p className="font-medium">{selectedItem.chargeType}</p>
+                    </div>
+                    {selectedItem.notes && (
+                      <div>
+                        <p className="text-sm text-gray-600">Notes</p>
+                        <p className="font-medium">{selectedItem.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {selectedType === "payment" && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Payment Date</p>
+                      <p className="font-medium">{selectedItem.date}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        {selectedType.charAt(0).toUpperCase() +
+                          selectedType.slice(1)}{" "}
+                        Amount
+                      </p>
+                      <p className="font-medium">₹ {selectedItem.amount}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Payment Mode</p>
+                      <p className="font-medium">{selectedItem.paymentMode}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Reference Number</p>
+                      <p className="font-medium">—</p>
+                    </div>
+                  </div>
+
+                  {selectedItem.notes && (
+                    <div>
+                      <p className="text-sm text-gray-600">Notes</p>
+                      <p className="font-medium">{selectedItem.notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowSidebar(false)}
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg py-3 px-4 transition-colors duration-200 flex items-center justify-center space-x-2"
+              >
+                <span>✕</span>
+                <span>Close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteTripExpenseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Confirm Delete
+              </h2>
+              <button
+                onClick={() => setShowDeleteTripExpenseModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold">
+                  {selectedExpense?.expenseType}
+                  {" - "}
+                  {selectedExpense.expenseAmount}
+                </span>
+                ? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowDeleteTripExpenseModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTripExpense}
+                className="px-4 py-2 bg-danger text-white rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditTripExpenseModal && (
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+            {/* Modal container */}
+            <div className="overflow-y-auto flex-grow text-black bg-white shadow-xl rounded-lg w-full max-w-md mx-4 flex flex-col transform transition-all duration-300 ease-in-out">
+              <div className="flex justify-between items-center border-b p-6 pb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Add Expense
+                </h2>
+                <button
+                  onClick={closeEditTripExpenseModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-grow overflow-auto p-6">
+                <form onSubmit={handleEditTripExpense}>
+                  {/* Expense Type */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expense Type <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="expenseType"
+                        value={tripExpenseDetails.expenseType}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                        required
+                      >
+                        <option value="" disabled>
+                          Expense Type
+                        </option>
+                        <option value="Brokerage">Brokerage</option>
+                        <option value="Detention Charges">
+                          Detention Charges
+                        </option>
+                        <option value="Driver Bhatta">Driver Bhatta</option>
+                        <option value="Driver Payment">Driver Payment</option>
+                        <option value="Fuel Expense">Fuel Expense</option>
+                        <option value="Loading Charges">Loading Charges</option>
+                        <option value="Other">Other</option>
+                        <option value="Police Expense">Police Expense</option>
+                        <option value="RTO Expense">RTO Expense</option>
+                        <option value="Repair Expense">Repair Expense</option>
+                        <option value="Toll Expense">Toll Expense</option>
+                        <option value="Union Charges">Union Charges</option>
+                        <option value="Unloading Charges">
+                          Unloading Charges
+                        </option>
+                        <option value="Weight Charges">Weight Charges</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <svg
+                          className="fill-current h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expense Amount */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expense Amount <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                        ₹
+                      </span>
+                      <input
+                        type="text"
+                        name="expenseAmount"
+                        placeholder="Enter a Amount"
+                        value={tripExpenseDetails.expenseAmount}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Expense Date */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expense Date <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="expenseDate"
+                        value={tripExpenseDetails.expenseDate}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      />
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Mode */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Payment Mode <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Cash", "Credit", "Paid By Driver", "Online"].map(
+                        (mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => handlePaymentModeSelect(mode)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                              tripExpenseDetails.paymentMode === mode
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                          >
+                            {mode}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add to Party Bill Checkbox */}
+                  <div className="mb-4 flex items-center">
+                    <input
+                      type="checkbox"
+                      id="addToPartyBill"
+                      name="addToPartyBill"
+                      checked={tripExpenseDetails.addToPartyBill}
+                      onChange={handleCheckboxChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor="addToPartyBill"
+                      className="ml-2 text-sm font-medium text-gray-700"
+                    >
+                      Add To Party Bill
+                    </label>
+                  </div>
+
+                  {/* Select Trip - Only shown if addToPartyBill is checked */}
+                  {tripExpenseDetails.addToPartyBill && (
+                    <>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                          Select a Trip <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            name="selectedTrip"
+                            value={trip.party.partyName}
+                            onChange={handleTripExpenseChange}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                            required={tripExpenseDetails.addToPartyBill}
+                            readOnly
+                          ></input>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <svg
+                              className="fill-current h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                          Amount to be added to Party Bill{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                            ₹
+                          </span>
+                          <input
+                            type="text"
+                            name="partyBillAmount"
+                            placeholder="Amount"
+                            value={tripExpenseDetails.partyBillAmount}
+                            onChange={handleTripExpenseChange}
+                            className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                            required={tripExpenseDetails.addToPartyBill}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Notes */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Notes
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        name="notes"
+                        placeholder="Enter Notes"
+                        value={tripExpenseDetails.notes}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[80px]"
+                      />
+                      <div className="absolute top-2 left-2 text-gray-500">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 6h16M4 12h16M4 18h7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="border-t p-4 flex justify-end space-x-3">
+                <button
+                  onClick={closeEditTripExpenseModal}
+                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleEditTripExpense}
+                  className="px-6 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {isExpenseSidebarOpen && selectedExpense && (
+        <div className="text-black fixed inset-0 z-30 flex">
+          {/* Backdrop */}
+          <div
+            className="flex-1 bg-black bg-opacity-50"
+            onClick={() => {
+              setIsExpenseSidebarOpen(false);
+              setSelectedExpense(null);
+              setSelectedExpenseIndex(-1);
+            }}
+          ></div>
+
+          {/* Sidebar */}
+          <div className="w-96 bg-white shadow-lg flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold">Expense Details</h3>
+              <div className="flex gap-2">
+                {/* Edit Button */}
+                <button
+                  onClick={() => {
+                    openEditTripExpenseModal();
+                  }}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                </button>
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => {
+                    openDeleteTripExpenseModal();
+                  }}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setIsExpenseSidebarOpen(false);
+                    setSelectedExpense(null);
+                    setSelectedExpenseIndex(-1);
+                  }}
+                  className="p-2 text-gray-500 hover:bg-gray-50 rounded"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-500">Expense Date</label>
+                  <div className="font-medium">
+                    {selectedExpense.expenseDate}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">
+                    Expense Amount
+                  </label>
+                  <div className="font-medium">
+                    ₹ {selectedExpense.expenseAmount}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-500">Payment Mode</label>
+                  <div className="font-medium">
+                    {selectedExpense.paymentMode}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">
+                    Reference Number
+                  </label>
+                  <div className="font-medium">
+                    {selectedExpense.referenceNumber || "--"}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-500">Expense Type</label>
+                <div className="font-medium">{selectedExpense.expenseType}</div>
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-500">Notes</label>
+                <div className="font-medium">
+                  {selectedExpense.notes || "--"}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t">
+              <button
+                onClick={() => setIsExpenseSidebarOpen(false)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isRouteListModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -5933,7 +8206,7 @@ export default function TripsDetail({ trip, onBack }) {
         <div className="fixed inset-y-0 right-0 z-50 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
           <div className="flex justify-between items-center border-b p-6 pb-4">
             <h2 className="text-xl font-semibold text-gray-800">
-              Transactions for {trip.driver.name} - {trip.phone_number}
+              Transactions for {trip.driver.name} - {trip.driver.phone_number}
             </h2>
             <button
               onClick={closeTransactionModal}
@@ -6347,6 +8620,285 @@ export default function TripsDetail({ trip, onBack }) {
             </div>
           </div>
         </div>
+      )}
+      {showTripExpenseModal && (
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-30 flex justify-center items-center">
+            {/* Modal container */}
+            <div className="overflow-y-auto flex-grow text-black bg-white shadow-xl rounded-lg w-full max-w-md mx-4 flex flex-col transform transition-all duration-300 ease-in-out">
+              <div className="flex justify-between items-center border-b p-6 pb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Add Expense
+                </h2>
+                <button
+                  onClick={closeTripExpenseModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-grow overflow-auto p-6">
+                <form onSubmit={handleTripExpenseSubmit}>
+                  {/* Expense Type */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expense Type <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="expenseType"
+                        value={tripExpenseDetails.expenseType}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                        required
+                      >
+                        <option value="" disabled>
+                          Expense Type
+                        </option>
+                        <option value="Brokerage">Brokerage</option>
+                        <option value="Detention Charges">
+                          Detention Charges
+                        </option>
+                        <option value="Driver Bhatta">Driver Bhatta</option>
+                        <option value="Driver Payment">Driver Payment</option>
+                        <option value="Fuel Expense">Fuel Expense</option>
+                        <option value="Loading Charges">Loading Charges</option>
+                        <option value="Other">Other</option>
+                        <option value="Police Expense">Police Expense</option>
+                        <option value="RTO Expense">RTO Expense</option>
+                        <option value="Repair Expense">Repair Expense</option>
+                        <option value="Toll Expense">Toll Expense</option>
+                        <option value="Union Charges">Union Charges</option>
+                        <option value="Unloading Charges">
+                          Unloading Charges
+                        </option>
+                        <option value="Weight Charges">Weight Charges</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <svg
+                          className="fill-current h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expense Amount */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expense Amount <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                        ₹
+                      </span>
+                      <input
+                        type="text"
+                        name="expenseAmount"
+                        placeholder="Enter a Amount"
+                        value={tripExpenseDetails.expenseAmount}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Expense Date */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Expense Date <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="expenseDate"
+                        value={tripExpenseDetails.expenseDate}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                      />
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Mode */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Payment Mode <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Cash", "Credit", "Paid By Driver", "Online"].map(
+                        (mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => handlePaymentModeSelect(mode)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                              tripExpenseDetails.paymentMode === mode
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                          >
+                            {mode}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add to Party Bill Checkbox */}
+                  <div className="mb-4 flex items-center">
+                    <input
+                      type="checkbox"
+                      id="addToPartyBill"
+                      name="addToPartyBill"
+                      checked={tripExpenseDetails.addToPartyBill}
+                      onChange={handleCheckboxChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor="addToPartyBill"
+                      className="ml-2 text-sm font-medium text-gray-700"
+                    >
+                      Add To Party Bill
+                    </label>
+                  </div>
+
+                  {/* Select Trip - Only shown if addToPartyBill is checked */}
+                  {tripExpenseDetails.addToPartyBill && (
+                    <>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                          Select a Trip <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            name="selectedTrip"
+                            value={trip.party.partyName}
+                            onChange={handleTripExpenseChange}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none"
+                            required={tripExpenseDetails.addToPartyBill}
+                            readOnly
+                          ></input>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <svg
+                              className="fill-current h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                          Amount to be added to Party Bill{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                            ₹
+                          </span>
+                          <input
+                            type="text"
+                            name="partyBillAmount"
+                            placeholder="Amount"
+                            value={tripExpenseDetails.partyBillAmount}
+                            onChange={handleTripExpenseChange}
+                            className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                            required={tripExpenseDetails.addToPartyBill}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Notes */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Notes
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        name="notes"
+                        placeholder="Enter Notes"
+                        value={tripExpenseDetails.notes}
+                        onChange={handleTripExpenseChange}
+                        className="w-full p-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[80px]"
+                      />
+                      <div className="absolute top-2 left-2 text-gray-500">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 6h16M4 12h16M4 18h7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="border-t p-4 flex justify-end space-x-3">
+                <button
+                  onClick={closeTripExpenseModal}
+                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleTripExpenseSubmit}
+                  className="px-6 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {showExpensesModal && (

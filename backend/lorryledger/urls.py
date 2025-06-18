@@ -87,6 +87,12 @@ urlpatterns = [
     path('api/trucks/<int:id>/', TruckDetailView.as_view(), name='truck_detail'),
     path('api/trucks/<int:id>/update/', TruckUpdateView.as_view(), name='truck_update'),
     path('api/trucks/<int:id>/delete/', TruckDeleteView.as_view(), name='truck_delete'),
+    # Document-related URLs
+    path('api/trucks/<int:truck_id>/documents/<str:document_type>/download/', 
+         views.download_truck_document, name='truck-document-download'),
+    path('api/trucks/<int:truck_id>/documents/<str:document_type>/',
+         views.get_truck_document_info, name='truck-document-info'),
+    path('api/trucks/<int:truck_id>/documents/<str:document_type>/notify/', views.send_document_reminder_notification, name="truck-document-notify"),
 
     #Expenses
     path('api/trucks/<int:truckId>/expenses', ExpenseListView.as_view(), name='expense_list'),
@@ -137,6 +143,5 @@ urlpatterns = [
     path('api/invoices/<int:id>/delete/', InvoiceDeleteView.as_view(), name='invoice_delete'),
     #Print Invoice
     path('api/invoices/pdf/<int:id>/', views.generate_invoice_pdf, name='generate_invoice_pdf'),
-
 
 ]

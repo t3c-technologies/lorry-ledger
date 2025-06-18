@@ -29,6 +29,7 @@ export default function LorryReceipt() {
   const [selectedConsigner, setSelectedConsigner] = useState("");
   const [selectedConsignee, setSelectedConsignee] = useState("");
   const [selectedTrip, setSelectedTrip] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState(null);
   const [currentLR, setCurrentLR] = useState("");
   const [showAddConsignerPopup, setShowAddConsignerPopup] = useState(false);
   const [showAddConsigneePopup, setShowAddConsigneePopup] = useState(false);
@@ -368,6 +369,28 @@ export default function LorryReceipt() {
     });
   };
 
+  const handleRouteChange = (e) => {
+    const route = trips.find((trip) => trip.id == selectedTrip).routes[
+      e.target.value
+    ];
+    setSelectedRoute(e.target.value);
+    if (e.target.value != "") {
+      setSelectedConsigner(route.consigner);
+      setSelectedConsignee(route.consignee);
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        numberOfPackages: route.units,
+      }));
+    } else {
+      setSelectedConsigner("");
+      setSelectedConsignee("");
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        numberOfPackages: "",
+      }));
+    }
+  };
+
   const generateNextLrNumber = (lrs) => {
     if (!lrs || lrs.length === 0) {
       setNextLrNumber("LRN-001");
@@ -601,7 +624,7 @@ export default function LorryReceipt() {
         setShowDriverNameFilterDropdown(false);
         setShowDriverStatusFilterDropdown(false);
         // Reset states if needed
-        setNewDriver({ name: "", phone_number: "", status: "available" });
+        resetNewDriverForm();
         setCurrentDriver(null);
         setIsEditMode(false);
       }
@@ -784,6 +807,31 @@ export default function LorryReceipt() {
     updateLR();
   };
 
+  const findRouteIndexByLR = () => {
+    for (let tripIndex = 0; tripIndex < trips.length; tripIndex++) {
+      const trip = trips[tripIndex];
+      // Make sure the trip has a routes array
+      if (trip && trip.routes && Array.isArray(trip.routes)) {
+        const routeIndex = trip.routes.findIndex(
+          (route) => route && route.lrNumber === currentLR.id
+        );
+        console.log(trip.routes);
+        console.log(routeIndex);
+        console.log(currentLR.id);
+
+        if (routeIndex !== -1) {
+          return {
+            tripIndex,
+            routes: trip.routes,
+            routeIndex,
+            trip,
+          };
+        }
+      }
+    }
+    return -1;
+  };
+
   const submitLR = async () => {
     try {
       const response = await api.post(API_ENDPOINTS.LR.create, formData, {
@@ -791,11 +839,29 @@ export default function LorryReceipt() {
           "Content-Type": "application/json", // Explicitly set header
         },
       });
+      const tripToUpdate = trips.find((c) => c.id == selectedTrip);
+      if (selectedRoute && selectedRoute != "") {
+        tripToUpdate.routes[selectedRoute].lrNumber = response.data.id;
+      } else {
+        const newRoute = {
+          consigner: selectedConsigner,
+          consignee: selectedConsignee,
+          units: formData.numberOfPackages,
+          lrNumber: response.data.id,
+          invoiceNumber: "",
+        };
+        tripToUpdate.routes = [...(tripToUpdate.routes || []), newRoute];
+      }
+      await api.put(API_ENDPOINTS.trips.update(selectedTrip), tripToUpdate);
+      notifyInfo("Trip updated successfully");
       setIsAddLRModalOpen(false);
       resetAddLR();
       setSelectedConsigner("");
       setSelectedConsignee("");
+      setSelectedRoute("");
+      setSelectedTrip("");
       getLR();
+      getTrips();
       notifySuccess("LR Created Successfully");
     } catch (error) {
       notifyError("Error creating LR");
@@ -825,31 +891,6 @@ export default function LorryReceipt() {
     } catch (error) {
       notifyError("Error updating LR");
     }
-  };
-
-  const findRouteIndexByLR = () => {
-    for (let tripIndex = 0; tripIndex < trips.length; tripIndex++) {
-      const trip = trips[tripIndex];
-      // Make sure the trip has a routes array
-      if (trip && trip.routes && Array.isArray(trip.routes)) {
-        const routeIndex = trip.routes.findIndex(
-          (route) => route && route.lrNumber === currentLR.id
-        );
-        console.log(trip.routes);
-        console.log(routeIndex);
-        console.log(currentLR.id);
-
-        if (routeIndex !== -1) {
-          return {
-            tripIndex,
-            routes: trip.routes,
-            routeIndex,
-            trip,
-          };
-        }
-      }
-    }
-    return -1;
   };
 
   const handleDeleteLR = async () => {
@@ -993,7 +1034,7 @@ export default function LorryReceipt() {
 
   // Form section components
   const renderTripDetailsSection = () => (
-    <div className="space-y-4 text-black">
+    <div className="space-y-4 text-black overflow-auto">
       <div className="mb-4">
         <label className="block mb-2 font-medium">Select Trip</label>
         <select
@@ -1065,6 +1106,83 @@ export default function LorryReceipt() {
               </div>
             </div>
           </div>
+
+          {/* Route Selection Dropdown */}
+          <div className="mt-4">
+            <div className="text-sm text-gray-500 mb-2">Select Route</div>
+            <select
+              className="w-full p-2 border border-gray-300 rounded-md bg-white"
+              value={selectedRoute || ""}
+              onChange={(e) => {
+                handleRouteChange(e);
+              }}
+            >
+              <option value={null}>Choose a route...</option>
+              <option value="">New Route</option>
+              {trips
+                .find((trip) => trip.id == selectedTrip)
+                .routes?.map((route, index) => (
+                  <option
+                    key={index}
+                    value={index}
+                    disabled={route.lrNumber !== ""}
+                    className={
+                      route.lrNumber !== "" ? "text-gray-400 bg-gray-100" : ""
+                    }
+                  >
+                    {consigners.find((c) => c.id == route.consigner).name} →{" "}
+                    {consignees.find((c) => c.id == route.consignee).name}
+                    {route.units && ` (${route.units} units)`}
+                    {route.lrNumber &&
+                      route.lrNumber !== "" &&
+                      " - LR Generated"}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Display selected route details */}
+          {selectedRoute !== null &&
+            selectedRoute !== "" &&
+            trips.find((trip) => trip.id == selectedTrip).routes?.[
+              selectedRoute
+            ] && (
+              <div className="mt-4 p-3 bg-white rounded-md border">
+                <div className="text-sm font-medium mb-2">
+                  Selected Route Details
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-gray-500">Consigner:</span>{" "}
+                    {consigners.find((c) => c.id == selectedConsigner).name}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Consignee:</span>{" "}
+                    {consignees.find((c) => c.id == selectedConsignee).name}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Units:</span>{" "}
+                    {
+                      trips.find((trip) => trip.id == selectedTrip).routes[
+                        selectedRoute
+                      ].units
+                    }
+                  </div>
+                  {trips.find((trip) => trip.id == selectedTrip).routes[
+                    selectedRoute
+                  ].invoiceNumber && (
+                    <div>
+                      <span className="text-gray-500">Invoice:</span>{" "}
+                      {
+                        trips.find((trip) => trip.id == selectedTrip).routes[
+                          selectedRoute
+                        ].invoiceNumber
+                      }
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
       )}
       {/* <div className="bg-gray-100 rounded-md p-4 mb-4 text-black">
@@ -2054,7 +2172,7 @@ export default function LorryReceipt() {
 
   const AddLRFormModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-lg shadow-lg relative flex flex-col">
         {/* Form Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-800">Add New LR</h2>
@@ -2063,7 +2181,12 @@ export default function LorryReceipt() {
               resetAddLR();
               setSelectedConsigner("");
               setSelectedConsignee("");
+              setSelectedRoute("");
               setSelectedTrip("");
+              setFormData((prevFormData) => ({
+                ...prevFormData,
+                numberOfPackages: "",
+              }));
               setIsAddLRModalOpen(false);
             }}
             className="text-gray-500 hover:text-gray-700"
@@ -2088,7 +2211,9 @@ export default function LorryReceipt() {
         <ProgressIndicator />
 
         {/* Form Content */}
-        <div className="p-6">{renderFormSection()}</div>
+        <div className="p-6 overflow-y-auto flex-grow">
+          {renderFormSection()}
+        </div>
 
         {/* Form Footer */}
         <div className="flex justify-between items-center p-6 border-t bg-gray-50">

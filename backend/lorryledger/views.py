@@ -15,6 +15,49 @@ from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip,
 from .serializers import DriverSerializer, TransactionsSerializer, TruckSerializer, ExpenseSerializer, PartySerializer, SupplierSerializer, TripSerializer, ConsignerSerializer, ConsigneeSerializer, LRSerializer, InvoiceSerializer
 from common.pagination import CustomPagination  # Assuming we have this in place already
 
+from django.core.files.storage import default_storage
+import mimetypes
+import os
+from twilio.rest import Client as TwilioClient
+
+
+
+TWILIO_SID = os.getenv("TWILIO_ACC_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_FROM_PHONE_NUMBER = os.getenv("TWILIO_FROM_PHONE_NUMBER")
+MESSAGING_SERVICE_SID = os.getenv("TWILIO_MSG_ID")
+TWILIO_TEMPLATE_SID = os.getenv("TWILIO_REMINDER_TEMPLATE_SID")
+
+
+
+#Documents Notification Remindar
+@api_view(['POST'])
+def send_document_reminder_notification(request, truck_id, document_type):
+    try:
+        truck = get_object_or_404(Truck, id=truck_id)
+        documentName = document_type
+        expiryDate = request.data.get("expiryDate")
+        phone = request.data.get("phone")
+
+        
+        # content_variables={
+        # "1":documentName,
+        # "2":truck.truckNo,
+        # "3":expiryDate,
+        # }
+        twilioclient = TwilioClient(TWILIO_SID, TWILIO_AUTH_TOKEN)
+        message = twilioclient.messages.create(
+                to=f"whatsapp:{phone}", 
+                from_=TWILIO_FROM_PHONE_NUMBER,
+                body=f"Your {documentName} for truck {truck.truckNo} expires soon on {expiryDate}. Upload new document soon."
+                # messaging_service_sid=MESSAGING_SERVICE_SID,
+                # content_sid=TWILIO_TEMPLATE_SID,
+                # content_variables=json.dumps(content_variables)
+            )
+        return Response({"body": truck.truckNo}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 def generate_lr_pdf(request, id):
@@ -403,6 +446,8 @@ def generate_invoice_pdf(request, id):
     response['Content-Disposition'] = f'inline; filename="Invoice_{id}.pdf"'
     return response
 
+
+
 # CREATE
 class DriverCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -692,8 +737,8 @@ class TruckCreateView(generics.CreateAPIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 #LIST (Paginated)
+# Your existing LIST view - minimal changes
 class TruckListView(generics.ListAPIView):
-
     queryset = Truck.objects.all().order_by('truckNo')
     serializer_class = TruckSerializer
     pagination_class = CustomPagination
@@ -708,18 +753,16 @@ class TruckListView(generics.ListAPIView):
 
         if search_query:
             queryset = queryset.filter(
-                Q(truckNo__icontains=search_query) |  # Example: Search in truck number
-                Q(truckType__icontains=search_query)  # Example: Search in truck type
+                Q(truckNo__icontains=search_query) |
+                Q(truckType__icontains=search_query)
             )
 
         try:
-            # Parse JSON string into Python list
             filters = json.loads(filters_json)
 
             if filters:
                 main_query = Q()
                 
-                # Group filters by key
                 grouped_filters = {}
                 for f in filters:
                     for key, value in f.items():
@@ -727,7 +770,6 @@ class TruckListView(generics.ListAPIView):
                             grouped_filters[key] = []
                         grouped_filters[key].append(value)
                 
-                # OR filtering within same key
                 for key, values in grouped_filters.items():
                     key_query = Q()
                     for value in values:
@@ -740,7 +782,6 @@ class TruckListView(generics.ListAPIView):
             pass
 
         try:
-            # Parse sorting
             sorting = json.loads(sorting_json)
             sort_key = sorting.get("key")
             sort_direction = sorting.get("direction", "ascending")
@@ -758,11 +799,11 @@ class TruckListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
 
-        total_items = self.paginator.page.paginator.count  # Get total items
-        page_size = self.paginator.get_page_size(request)  # Get current page size
+        total_items = self.paginator.page.paginator.count
+        page_size = self.paginator.get_page_size(request)
         total_pages = (total_items + page_size - 1) // page_size 
 
-        if isinstance(response.data, dict):  # Pagination applied
+        if isinstance(response.data, dict):
             return Response({
                 "status": "success",
                 "message": "Trucks retrieved successfully",
@@ -823,10 +864,10 @@ class TruckUpdateView(generics.UpdateAPIView):
                 "message": "Invalid data",
                 "errors": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        except:
+        except Exception as e:
             return Response({
                 "status": "error",
-                "message": "No Truck found with the given ID"
+                "message": f"An error occurred: {str(e)}"
             }, status=status.HTTP_404_NOT_FOUND)
         
 # DELETE
@@ -848,6 +889,88 @@ class TruckDeleteView(generics.DestroyAPIView):
                 "status": "error",
                 "message": "No Truck found with the given ID"
             }, status=status.HTTP_404_NOT_FOUND)
+        
+# Document download view
+@api_view(['GET'])
+def download_truck_document(request, truck_id, document_type):
+    """
+    Download a specific document for a truck
+    URL: /api/trucks/{truck_id}/documents/{document_type}/download/
+    """
+    try:
+        truck = get_object_or_404(Truck, id=truck_id)
+        
+        # Check if document exists
+        if not truck.documents or document_type not in truck.documents:
+            return Response({
+                "status": "error",
+                "message": "Document not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        document = truck.documents[document_type]
+        file_path = document.get('filePath')
+        
+        if not file_path or not default_storage.exists(file_path):
+            return Response({
+                "status": "error",
+                "message": "File not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get file content
+        file_content = default_storage.open(file_path).read()
+        
+        # Determine content type
+        content_type, _ = mimetypes.guess_type(file_path)
+        if not content_type:
+            content_type = 'application/octet-stream'
+        
+        # Create response
+        response = HttpResponse(file_content, content_type=content_type)
+        filename = os.path.basename(file_path)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+        
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": f"Error downloading file: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Get document info (without downloading)
+@api_view(['GET'])
+def get_truck_document_info(request, truck_id, document_type):
+    """
+    Get document information without downloading
+    URL: /api/trucks/{truck_id}/documents/{document_type}/
+    """
+    try:
+        truck = get_object_or_404(Truck, id=truck_id)
+        
+        if not truck.documents or document_type not in truck.documents:
+            return Response({
+                "status": "error",
+                "message": "Document not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        document = truck.documents[document_type]
+        
+        # Add download URL to document info
+        document_info = document.copy()
+        if 'filePath' in document_info:
+            document_info['downloadUrl'] = f"/api/trucks/{truck_id}/documents/{document_type}/download/"
+        
+        return Response({
+            "status": "success",
+            "message": "Document info retrieved successfully",
+            "data": document_info
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": f"Error retrieving document info: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
 # CREATE

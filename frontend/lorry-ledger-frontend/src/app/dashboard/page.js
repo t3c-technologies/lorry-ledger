@@ -6,8 +6,6 @@ import Sidebar from "../../components/SideBar";
 import MainCanvas from "../../components/MainCanvas";
 import withAuth from "../../utils/withAuth";
 
-
-
 const Dashboard = () => {
   const [activeItem, setActiveItem] = useState("drivers");
   const [userName, setUserName] = useState("");

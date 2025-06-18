@@ -442,7 +442,7 @@ export default function Suppliers() {
         setShowDriverNameFilterDropdown(false);
         setShowDriverStatusFilterDropdown(false);
         // Reset states if needed
-        setNewDriver({ name: "", phone_number: "", status: "available" });
+        resetNewDriverForm();
         setCurrentDriver(null);
         setIsEditMode(false);
       }
@@ -872,20 +872,6 @@ export default function Suppliers() {
     setCurrentDriver(driver);
     setIsDeleteConfirmOpen(true);
   };
-  const handleDriverInputChange = (e) => {
-    const { name, value } = e.target;
-
-    // Allow only numeric input and restrict the length
-    if (name === "aadhar_number" && /^\d{0,12}$/.test(value)) {
-      setErrors((prev) => ({ ...prev, aadhar: "" }));
-      handleDriverChange(e);
-    }
-
-    if (name === "phone_number" && /^\d{0,10}$/.test(value)) {
-      setErrors((prev) => ({ ...prev, phone: "" }));
-      handleDriverChange(e);
-    }
-  };
 
   const validateSupplierForm = () => {
     let valid = true;
@@ -897,7 +883,7 @@ export default function Suppliers() {
     }
 
     if (
-      !/^\d{10}$/.test(newDriver.phone_number) &&
+      !/^\d{10}$/.test(newDriver.mobileNumber) &&
       newDriver.mobileNumber.trim().length != 0
     ) {
       newErrors.mobileNumber = "Mobile number should be exactly 10 digits";

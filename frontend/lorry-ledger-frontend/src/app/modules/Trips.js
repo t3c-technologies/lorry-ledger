@@ -171,7 +171,9 @@ export default function Trips({ onSelectTrip }) {
   }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isFocused, setIsFocused] = useState(false);
     const dropdownRef = useRef(null);
+    const inputRef = useRef(null);
 
     // Filter options based on search term
     const filteredOptions = options.filter((option) =>
@@ -186,6 +188,11 @@ export default function Trips({ onSelectTrip }) {
           !dropdownRef.current.contains(event.target)
         ) {
           setIsOpen(false);
+          setIsFocused(false);
+          // Reset search term if no valid selection was made
+          if (!value || !options.includes(value)) {
+            setSearchTerm("");
+          }
         }
       }
 
@@ -193,93 +200,131 @@ export default function Trips({ onSelectTrip }) {
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
       };
-    }, []);
+    }, [value, options]);
+
+    // Handle input focus
+    const handleFocus = () => {
+      setIsFocused(true);
+      setIsOpen(true);
+      setSearchTerm("");
+    };
+
+    // Handle input change (typing)
+    const handleInputChange = (e) => {
+      const inputValue = e.target.value;
+      setSearchTerm(inputValue);
+      setIsOpen(true);
+
+      // Clear the selected value when typing
+      if (value && inputValue !== value) {
+        onChange({ target: { name, value: "" } });
+      }
+    };
 
     // Handle selection of an option
     const handleSelect = (option) => {
       onChange({ target: { name, value: option } });
-      setIsOpen(false);
       setSearchTerm("");
+      setIsOpen(false);
+      setIsFocused(false);
+      inputRef.current?.blur();
     };
+
+    // Handle input blur
+    const handleBlur = () => {
+      // Small delay to allow for option selection
+      setTimeout(() => {
+        if (!dropdownRef.current?.contains(document.activeElement)) {
+          setIsFocused(false);
+          setIsOpen(false);
+          // Reset search term if no valid selection
+          if (!value || !options.includes(value)) {
+            setSearchTerm("");
+          }
+        }
+      }, 150);
+    };
+
+    // Handle keyboard navigation
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setIsOpen(true);
+      } else if (e.key === "Escape") {
+        setIsOpen(false);
+        setIsFocused(false);
+        inputRef.current?.blur();
+      }
+    };
+
+    // Display value: show selected value or search term when focused
+    const displayValue = isFocused ? searchTerm : value || "";
+    const showPlaceholder = !isFocused && !value;
 
     return (
       <div className="relative" ref={dropdownRef}>
-        {/* Dropdown trigger */}
-        <div
-          className={className}
-          onClick={() => setIsOpen(!isOpen)}
-          style={{
-            cursor: "pointer",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>{value || placeholder}</span>
-          <svg
-            className="h-5 w-5 text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
+        {/* Main input field */}
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            name={name}
+            value={displayValue}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder={showPlaceholder ? placeholder : ""}
+            className={`${className} pr-10`}
+            autoComplete="off"
+            required={required}
+          />
+
+          {/* Dropdown arrow */}
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+            <svg
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                isOpen ? "rotate-180" : ""
+              }`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
         </div>
 
         {/* Dropdown content */}
         {isOpen && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            {/* Search box */}
-            <div className="sticky top-0 p-2 bg-white border-b border-gray-200">
-              <input
-                type="text"
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            {/* Options */}
-            <div>
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => (
-                  <div
-                    key={option}
-                    className={`px-4 py-2 cursor-pointer hover:bg-gray-100 text-black ${
-                      value === option ? "bg-blue-50 text-blue-700" : ""
-                    }`}
-                    onClick={() => handleSelect(option)}
-                  >
-                    {option}
-                  </div>
-                ))
-              ) : (
-                <div className="px-4 py-2 text-gray-500">No results found</div>
-              )}
-            </div>
+          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <div
+                  key={option}
+                  className={`px-4 py-3 cursor-pointer hover:bg-gray-50 text-black border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${
+                    value === option
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : ""
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent input blur
+                    handleSelect(option);
+                  }}
+                >
+                  {option}
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-gray-500 text-center">
+                No results found
+              </div>
+            )}
           </div>
         )}
-
-        {/* Hidden select for form validation */}
-        <select
-          name={name}
-          value={value}
-          onChange={onChange}
-          required={required}
-          className="sr-only"
-        >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
       </div>
     );
   };
@@ -554,6 +599,8 @@ export default function Trips({ onSelectTrip }) {
     "Uttarakhand",
     "West Bengal",
   ];
+
+  const originList = ["Chennai", "Mumbai", "Delhi", "Bangalore"];
 
   const expenseTypeOptionsMaintenance = [
     "Showroom Service",
@@ -1205,20 +1252,6 @@ export default function Trips({ onSelectTrip }) {
     setCurrentDriver(driver);
     setIsDeleteConfirmOpen(true);
   };
-  const handleDriverInputChange = (e) => {
-    const { name, value } = e.target;
-
-    // Allow only numeric input and restrict the length
-    if (name === "aadhar_number" && /^\d{0,12}$/.test(value)) {
-      setErrors((prev) => ({ ...prev, aadhar: "" }));
-      handleDriverChange(e);
-    }
-
-    if (name === "phone_number" && /^\d{0,10}$/.test(value)) {
-      setErrors((prev) => ({ ...prev, phone: "" }));
-      handleDriverChange(e);
-    }
-  };
 
   const validateTruckForm = () => {
     let valid = true;
@@ -1489,8 +1522,6 @@ export default function Trips({ onSelectTrip }) {
   const handleDeleteSupplier = async () => {
     if (!currentDriver) return;
     try {
-      console.log(currentDriver);
-
       await api.delete(API_ENDPOINTS.trips.delete(currentDriver.id));
       notifyInfo("Trip deleted successfully");
       fetchDrivers();
@@ -2279,7 +2310,19 @@ export default function Trips({ onSelectTrip }) {
                           Origin <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <select
+                          <SelectWithSearch
+                            name="origin"
+                            value={newDriver.origin}
+                            onChange={handleDriverChange}
+                            options={originList}
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors.origin
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                            placeholder="Select Origin..."
+                          />
+                          {/* <select
                             name="origin"
                             value={newDriver.origin}
                             onChange={handleDriverChange}
@@ -2292,8 +2335,8 @@ export default function Trips({ onSelectTrip }) {
                             <option value="">Select Origin...</option>
                             <option value={"Mumbai"}>Mumbai</option>
                             <option value={"Bangalore"}>Bangalore</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                          </select> */}
+                          {/* <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                             <svg
                               className="h-4 w-4"
                               fill="none"
@@ -2307,7 +2350,7 @@ export default function Trips({ onSelectTrip }) {
                                 d="M19 9l-7 7-7-7"
                               />
                             </svg>
-                          </div>
+                          </div> */}
                         </div>
                         {validationErrors.origin && (
                           <p className="text-red-500 text-sm mt-1">
@@ -2321,7 +2364,19 @@ export default function Trips({ onSelectTrip }) {
                           Destination <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <select
+                          <SelectWithSearch
+                            name="destination"
+                            value={newDriver.destination}
+                            onChange={handleDriverChange}
+                            options={originList}
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors.destination
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                            placeholder="Select Destination..."
+                          />
+                          {/* <select
                             name="destination"
                             value={newDriver.destination}
                             onChange={handleDriverChange}
@@ -2349,7 +2404,7 @@ export default function Trips({ onSelectTrip }) {
                                 d="M19 9l-7 7-7-7"
                               />
                             </svg>
-                          </div>
+                          </div> */}
                         </div>
                         {validationErrors.destination && (
                           <p className="text-red-500 text-sm mt-1">
@@ -3173,7 +3228,6 @@ export default function Trips({ onSelectTrip }) {
                               : "border-gray-300"
                           }`}
                           placeholder="Eg: 45,000"
-                          readOnly={paymentMode === "Fixed"}
                         />
                       </div>
                       {validationErrors.partyFreightAmount && (
@@ -3977,7 +4031,6 @@ export default function Trips({ onSelectTrip }) {
 
                     {paymentMode !== "Fixed" && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        // Rate field with error message
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Rate per{" "}
@@ -4042,7 +4095,6 @@ export default function Trips({ onSelectTrip }) {
                             </p>
                           )}
                         </div>
-                        // Units field with error message
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Number of{" "}

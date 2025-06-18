@@ -41,14 +41,82 @@ class TransactionsSerializer(serializers.ModelSerializer):
 class TruckSerializer(serializers.ModelSerializer):
     truckStatus_display = serializers.SerializerMethodField()
     
-    
     class Meta:
         model = Truck
-        fields = ['id', 'truckNo', 'truckType', 'ownership', 'truckStatus', 'truckStatus_display']
+        fields = ['id', 'truckNo', 'truckType', 'ownership', 'truckStatus', 'truckStatus_display', 'documents', 'emi']
         read_only_fields = ['id', 'truckStatus_display']
     
     def get_truckStatus_display(self, obj):
         return obj.get_truckStatus_display()
+    
+    def create(self, validated_data):
+        documents_data = validated_data.pop('documents', {})
+        emi_data = validated_data.pop('emi', [])
+        truck = Truck.objects.create(**validated_data)
+        
+        # Process and save document files
+        if documents_data:
+            processed_documents = {}
+            for doc_type, doc_data in documents_data.items():
+                processed_doc = doc_data.copy()
+                
+                # Save file and store file path
+                if 'uploadedFile' in processed_doc:
+                    file_path = truck.save_document_file(processed_doc)
+                    if file_path:
+                        processed_doc['filePath'] = file_path
+                        # Remove the original file data to save space
+                        processed_doc.pop('uploadedFile', None)
+                
+                processed_documents[doc_type] = processed_doc
+            
+            truck.documents = processed_documents
+        
+        # Process EMI data
+        if emi_data:
+            truck.emi = emi_data
+        
+        truck.save()
+        return truck
+    
+    def update(self, instance, validated_data):
+        documents_data = validated_data.pop('documents', None)
+        emi_data = validated_data.pop('emi', None)
+        
+        # Update truck fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        # Process documents if provided
+        if documents_data is not None:
+            processed_documents = {}
+            
+            for doc_type, doc_data in documents_data.items():
+                processed_doc = doc_data.copy()
+                
+                # Only process file if uploadedFile is present (new upload)
+                if 'uploadedFile' in processed_doc:
+                    file_path = instance.save_document_file(processed_doc)
+                    if file_path:
+                        processed_doc['filePath'] = file_path
+                        processed_doc.pop('uploadedFile', None)
+                # If no uploadedFile, keep existing filePath
+                elif 'filePath' not in processed_doc:
+                    # Handle case where document exists but no file path
+                    existing_doc = instance.documents.get(doc_type, {}) if instance.documents else {}
+                    if 'filePath' in existing_doc:
+                        processed_doc['filePath'] = existing_doc['filePath']
+                
+                processed_documents[doc_type] = processed_doc
+            
+            instance.documents = processed_documents
+        
+        # Process EMI data if provided
+        if emi_data is not None:
+            instance.emi = emi_data
+        
+        instance.save()
+        return instance
 
 class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -91,11 +159,14 @@ class TripSerializer(serializers.ModelSerializer):
         write_only=True
     )
     
-    # Since LRCount is now a property, it will be treated as read-only by default
-    # If you want to make it explicit, you could add:
     LRCount = serializers.IntegerField(read_only=True)
 
-    routes = serializers.JSONField()
+    # Make JSON fields optional and provide defaults
+    routes = serializers.JSONField(required=False, default=list)
+    expenses = serializers.JSONField(required=False, default=list, allow_null=True)
+    advances = serializers.JSONField(required=False, default=list, allow_null=True)
+    charges = serializers.JSONField(required=False, default=list, allow_null=True)
+    payments = serializers.JSONField(required=False, default=list, allow_null=True)
     
     class Meta:
         model = Trip
@@ -104,23 +175,80 @@ class TripSerializer(serializers.ModelSerializer):
             'ratePerUnit', 'noOfUnits', 'partyFreightAmount', 'tripStatus', 'startDate', 
             'startKmsReading', 'tripEndDate', 'endKmsReading', 'PODReceivedDate', 
             'PODSubmittedDate', 'settlementDate', 'settlementPaymentMode', 
-            'settlementNotes', 'receivedByDriver', 'routes',
+            'settlementNotes', 'receivedByDriver', 'routes', 'expenses', 'advances', 'charges', 'payments',
             'party', 'truck', 'driver', 'party_id', 'truck_id', 'driver_id'
         ]
         read_only_fields = ['id', 'LRCount']
 
-        def validate_routes(self, value):
-            """
-            Validate that routes is properly formatted JSON
-            """
-            if not isinstance(value, list):
-                try:
-                    # If it's a string, try to parse it as JSON
-                    import json
-                    return json.loads(value)
-                except (json.JSONDecodeError, TypeError):
-                    raise serializers.ValidationError("Routes must be valid JSON")
-            return value
+    def validate_routes(self, value):
+        """
+        Validate that routes is properly formatted JSON
+        """
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                raise serializers.ValidationError("Routes must be valid JSON")
+        return value
+
+    def validate_expenses(self, value):
+        """
+        Validate that expenses is properly formatted JSON
+        """
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                raise serializers.ValidationError("Expenses must be valid JSON")
+        return value
+
+    def validate_advances(self, value):
+        """
+        Validate that advances is properly formatted JSON
+        """
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                raise serializers.ValidationError("Advances must be valid JSON")
+        return value
+
+    def validate_charges(self, value):
+        """
+        Validate that charges is properly formatted JSON
+        """
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                raise serializers.ValidationError("Charges must be valid JSON")
+        return value
+
+    def validate_payments(self, value):
+        """
+        Validate that payments is properly formatted JSON
+        """
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            try:
+                import json
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                raise serializers.ValidationError("Payments must be valid JSON")
+        return value
 
 class ConsignerSerializer(serializers.ModelSerializer):
     class Meta:

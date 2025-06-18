@@ -108,6 +108,1352 @@ export default function Trucks() {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [showMoreDetails, setShowMoreDetails] = useState(false);
 
+  //EMIS
+  // State variables to add to your component
+  const [showEMISidebar, setShowEMISidebar] = useState(false);
+  const [showAddEMIPopup, setShowAddEMIPopup] = useState(false);
+  const [showAddPastPaymentPopup, setShowAddPastPaymentPopup] = useState(false);
+  const [showMarkPaidPopup, setShowMarkPaidPopup] = useState(false);
+  const [emis, setEmis] = useState([]);
+  const [selectedEMI, setSelectedEMI] = useState(null);
+  const [emiFormData, setEmiFormData] = useState({
+    financeCompany: "",
+    monthlyEMI: "",
+    dueOn: "1",
+    reminderDay: "2nd",
+    reminderFrequency: "every month",
+  });
+  const [pastPaymentData, setPastPaymentData] = useState({
+    dueOn: "",
+    amountPaid: "",
+    paymentDate: "",
+  });
+  const [markPaidData, setMarkPaidData] = useState({
+    amountPaid: "",
+    paymentDate: "",
+  });
+
+  const [showEditPaymentPopup, setShowEditPaymentPopup] = useState(false);
+  const [showDeleteConfirmPopup, setShowDeleteConfirmPopup] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedPaymentEMI, setSelectedPaymentEMI] = useState(null);
+  const [editPaymentData, setEditPaymentData] = useState({
+    dueDate: "",
+    amountPaid: "",
+    paymentDate: "",
+  });
+
+  const [showEMIMenuPopup, setShowEMIMenuPopup] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [showEditEMIPopup, setShowEditEMIPopup] = useState(false);
+  const [showDeleteEMIConfirm, setShowDeleteEMIConfirm] = useState(false);
+  const [showMarkEMICompletedPopup, setShowMarkEMICompletedPopup] =
+    useState(false);
+  const [editEMIData, setEditEMIData] = useState({
+    financeCompany: "",
+    monthlyEMI: "",
+    dueOn: "",
+    reminderDay: "",
+    reminderFrequency: "",
+  });
+
+  //Documents
+  const [showDocumentsSidebar, setShowDocumentsSidebar] = useState(false);
+  const [showAddDocumentModal, setShowAddDocumentModal] = useState(false);
+  const [showEditDocumentModal, setShowEditDocumentModal] = useState(false);
+  const [showDocumentOptionsModal, setShowDocumentOptionsModal] =
+    useState(false);
+  const [selectedDocumentType, setSelectedDocumentType] = useState(null);
+  const [showExpenseFields, setShowExpenseFields] = useState(false);
+  const [documents, setDocuments] = useState({});
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentFormData, setDocumentFormData] = useState({
+    expiryDate: "",
+    reminderDays: "15",
+    policyNo: "",
+    uploadedFile: null,
+    expenseAmount: "",
+    expenseDate: "",
+  });
+
+  const documentTypes = [
+    { key: "insurance", name: "Insurance" },
+    { key: "rcPermit", name: "RC Permit" },
+    { key: "registration", name: "Registration Certificate" },
+    { key: "nationalPermit", name: "National Permit" },
+    { key: "roadTax", name: "Road Tax" },
+    { key: "fitness", name: "Fitness Certificate" },
+    { key: "driverLicense", name: "Driver's License" },
+    { key: "pollution", name: "Pollution Certificate" },
+    { key: "other", name: "Other Document" },
+  ];
+
+  // Functions to handle EMI menu popup
+  const openEMIMenuPopup = (e, emi) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPosition({
+      x: rect.right - 150, // Adjust to position menu properly
+      y: rect.bottom + 5,
+    });
+
+    setSelectedEMI(emi);
+    setShowEMIMenuPopup(true);
+  };
+
+  const closeEMIMenuPopup = () => {
+    setShowEMIMenuPopup(false);
+    setSelectedEMI(null);
+  };
+
+  // Functions to handle Edit EMI popup
+  const openEditEMIPopup = () => {
+    if (selectedEMI) {
+      setEditEMIData({
+        financeCompany: selectedEMI.financeCompany || "",
+        monthlyEMI: selectedEMI.monthlyEMI?.toString() || "",
+        dueOn: selectedEMI.dueOn || "",
+        reminderDay: selectedEMI.reminderDay || "2nd",
+        reminderFrequency: selectedEMI.reminderFrequency || "monthly",
+      });
+      setShowEditEMIPopup(true);
+      setShowEMIMenuPopup(false);
+    }
+  };
+
+  const closeEditEMIPopup = () => {
+    setShowEditEMIPopup(false);
+    setEditEMIData({
+      financeCompany: "",
+      monthlyEMI: "",
+      dueOn: "",
+      reminderDay: "",
+      reminderFrequency: "",
+    });
+  };
+
+  // Functions to handle Delete EMI confirmation
+  const openDeleteEMIConfirm = () => {
+    setShowDeleteEMIConfirm(true);
+    setShowEMIMenuPopup(false);
+  };
+
+  const closeDeleteEMIConfirm = () => {
+    setShowDeleteEMIConfirm(false);
+  };
+
+  // Functions to handle Mark EMI Completed
+  const openMarkEMICompletedPopup = () => {
+    setShowMarkEMICompletedPopup(true);
+    closeEMIMenuPopup();
+  };
+
+  const closeMarkEMICompletedPopup = () => {
+    setShowMarkEMICompletedPopup(false);
+  };
+
+  // Close menu when clicking outside
+  // useEffect(() => {
+  //   const handleClickOutside = (event) => {
+  //     if (showEMIMenuPopup) {
+  //       closeEMIMenuPopup();
+  //     }
+  //   };
+
+  //   document.addEventListener("mousedown", handleClickOutside);
+  //   return () => {
+  //     document.removeEventListener("mousedown", handleClickOutside);
+  //   };
+  // }, [showEMIMenuPopup]);
+
+  // Update the three-dot button in the EMI sidebar (replace the existing button)
+  const ThreeDotMenuButton = ({ emi }) => (
+    <button
+      onClick={(e) => openEMIMenuPopup(e, emi)}
+      className="text-gray-400 hover:text-gray-600 relative"
+    >
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+      </svg>
+    </button>
+  );
+
+  const isDocumentExpiringSoon = (expiryDate) => {
+    if (!expiryDate) return false;
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 30 && diffDays >= 0; // Within 30 days
+  };
+
+  // Computed values for document warnings
+  const documentsNeedingAttention = Object.keys(documents).filter((key) => {
+    const doc = documents[key];
+    return doc && isDocumentExpiringSoon(doc.expiryDate);
+  });
+
+  // Helper functions
+
+  const getDaysUntilExpiry = (expiryDate) => {
+    if (!expiryDate) return 0;
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // Main handler functions
+  const openDocumentsSidebar = () => {
+    setDocuments(selectedDriver.documents);
+    console.log(selectedDriver);
+    setShowDocumentsSidebar(true);
+  };
+
+  const closeDocumentsSidebar = () => {
+    setShowDocumentsSidebar(false);
+  };
+
+  const openAddDocumentModal = (docType) => {
+    setSelectedDocumentType(docType);
+    setShowAddDocumentModal(true);
+    setShowExpenseFields(false);
+    // Reset form data
+    setDocumentFormData({
+      expiryDate: "",
+      reminderDays: "15",
+      policyNo: "",
+      uploadedFile: null,
+      expenseAmount: "",
+      expenseDate: new Date().toISOString().split("T")[0], // Today's date
+    });
+  };
+
+  const closeAddDocumentModal = () => {
+    setShowAddDocumentModal(false);
+    setSelectedDocumentType(null);
+    setShowExpenseFields(false);
+    setDocumentFormData({
+      expiryDate: "",
+      reminderDays: "15",
+      policyNo: "",
+      uploadedFile: null,
+      expenseAmount: "",
+      expenseDate: "",
+    });
+    console.log(documents);
+  };
+  const closeEditDocumentModal = () => {
+    setShowEditDocumentModal(false);
+    setSelectedDocumentType(null);
+    setShowExpenseFields(false);
+    setDocumentFormData({
+      expiryDate: "",
+      reminderDays: "15",
+      policyNo: "",
+      uploadedFile: null,
+      expenseAmount: "",
+      expenseDate: "",
+    });
+  };
+
+  const openAddOtherDocumentModal = () => {
+    const otherDocType = documentTypes.find((type) => type.key === "other");
+    openAddDocumentModal(otherDocType);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setDocumentFormData({
+        ...documentFormData,
+        uploadedFile: file,
+      });
+    }
+  };
+
+  // Your existing handleAddDocument function - slight modification needed
+  const handleAddDocument = async () => {
+    if (!selectedDocumentType) return;
+
+    try {
+      // Convert file to base64 if it's a File object
+      const processFile = async (file) => {
+        if (file instanceof File) {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64 = reader.result.split(",")[1];
+              resolve({
+                data: base64,
+                name: file.name,
+                type: file.type,
+                size: file.size,
+              });
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+        return file;
+      };
+
+      // Process uploaded file - this is crucial
+      const processedFile = documentFormData.uploadedFile
+        ? await processFile(documentFormData.uploadedFile)
+        : null;
+
+      const newDocument = {
+        id: Date.now(),
+        type: selectedDocumentType.key,
+        name: selectedDocumentType.name,
+        expiryDate: documentFormData.expiryDate,
+        reminderDays: parseInt(documentFormData.reminderDays),
+        expenseAmount: parseInt(documentFormData.expenseAmount) || "",
+        expenseDate: documentFormData.expenseDate || "",
+        policyNo: documentFormData.policyNo,
+        truckNo: selectedDriver.truckNo,
+        createdAt: new Date().toISOString(),
+        // Only include uploadedFile if there's a new file
+        ...(processedFile && { uploadedFile: processedFile }),
+      };
+
+      // Update local state
+      const updatedDocuments = {
+        ...documents,
+        [selectedDocumentType.key]: newDocument,
+      };
+      setDocuments(updatedDocuments);
+
+      // Send to backend
+      const response = await api.put(
+        API_ENDPOINTS.trucks.update(selectedDriver.id),
+        {
+          ...selectedDriver,
+          documents: updatedDocuments,
+        }
+      );
+
+      if (response) {
+        console.log("Document saved successfully");
+        // Update local state with the response data to get the filePath
+        if (response.data && response.data.documents) {
+          setDocuments(response.data.documents);
+        }
+      }
+
+      closeAddDocumentModal();
+    } catch (error) {
+      console.error("Error saving document:", error);
+    }
+  };
+
+  // Function to download a document
+  const handleDownloadDocument = async () => {
+    try {
+      // Get the truck ID - you might need to adjust this based on your data structure
+      const truckId = selectedDriver?.id;
+
+      if (!truckId || !selectedDocumentType) {
+        console.error("Missing truck ID or document type");
+        // You can show a toast/alert here
+        return;
+      }
+      console.log(documents);
+
+      // Call the download API
+      const url = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(
+        `${url}/trucks/${truckId}/documents/${selectedDocumentType.key}/download/`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (response.ok) {
+        // Get the filename from the response headers or use a default
+        const contentDisposition = response.headers.get("Content-Disposition");
+        let filename = `${selectedDocumentType.name}_document`;
+
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+
+        // Create blob and trigger download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        // Cleanup
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        // Close the modal after successful download
+        closeDocumentOptionsModal();
+
+        // Optional: Show success message
+        // toast.success('Document downloaded successfully!');
+      } else {
+        const errorData = await response.json();
+        console.error("Download failed:", errorData);
+        // toast.error('Failed to download document');
+      }
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      // toast.error('Error downloading document');
+    }
+  };
+
+  // Function to get document info
+  const getDocumentInfo = async (truckId, documentType) => {
+    try {
+      const response = await fetch(
+        `/api/trucks/${truckId}/documents/${documentType}/`,
+        {
+          method: "GET",
+          headers: {
+            // Add your auth headers here
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.data; // Returns document info with downloadUrl
+      }
+    } catch (error) {
+      console.error("Error getting document info:", error);
+    }
+    return null;
+  };
+
+  const handleEditDocumentSubmit = () => {
+    if (!selectedDocumentType) return;
+
+    // Convert file to base64 if it's a File object
+    const processFile = async (file) => {
+      if (file instanceof File) {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(",")[1]; // Remove data:type;base64, prefix
+            resolve({
+              data: base64,
+              name: file.name,
+              type: file.type,
+              size: file.size,
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      return file;
+    };
+
+    const saveDocument = async () => {
+      // Process uploaded file
+      const processedFile = documentFormData.uploadedFile
+        ? await processFile(documentFormData.uploadedFile)
+        : null;
+
+      // Create new document object
+      const newDocument = {
+        id: Date.now(),
+        type: selectedDocumentType.key,
+        name: selectedDocumentType.name,
+        expiryDate: documentFormData.expiryDate,
+        reminderDays: parseInt(documentFormData.reminderDays),
+        expenseAmount: parseInt(documentFormData.expenseAmount) || "",
+        expenseDate: documentFormData.expenseDate || "",
+        policyNo: documentFormData.policyNo,
+        uploadedFile: processedFile, // This will be processed by backend
+        createdAt: new Date().toISOString(),
+        truckNo: selectedDriver.truckNo,
+      };
+
+      // Save document - update the documents object
+      const updatedDocuments = {
+        ...documents,
+        [selectedDocumentType.key]: newDocument,
+      };
+
+      setDocuments(updatedDocuments);
+
+      // Send to backend - you'll need to implement this API call
+      // This should be a PUT/PATCH request to update the truck with new documents
+      try {
+        // Prepare the data to send - merge existing driver data with updated documents
+        const updatedDriverData = {
+          ...selectedDriver, // or currentDriver, depending on your variable name
+          documents: updatedDocuments,
+        };
+
+        // Use your existing API method
+        const response = await api.put(
+          API_ENDPOINTS.trucks.update(selectedDriver.id), // or currentDriver.id
+          updatedDriverData
+        );
+
+        if (response) {
+          // Success - document saved to database
+          console.log("Document saved successfully");
+          // Optional: Show success message
+          // toast.success('Document saved successfully!');
+        }
+        await fetchDrivers();
+        await getSortedAndFilteredDrivers();
+      } catch (error) {
+        console.error("Error saving document:", error);
+        // Optional: Show error message
+        // toast.error('Failed to save document');
+      }
+
+      closeEditDocumentModal();
+    };
+
+    saveDocument();
+  };
+
+  const openDocumentOptionsModal = (docType, document) => {
+    setSelectedDocumentType(docType);
+    setSelectedDocument(document);
+    setShowDocumentOptionsModal(true);
+  };
+
+  const closeDocumentOptionsModal = () => {
+    setShowDocumentOptionsModal(false);
+    setSelectedDocumentType(null);
+    setSelectedDocument(null);
+  };
+
+  const handleEditDocument = () => {
+    // Populate form with existing document data
+    if (selectedDocument) {
+      const uploadedFile = {
+        name: selectedDocument.filePath.split("/").pop(),
+      };
+      setDocumentFormData({
+        expiryDate: selectedDocument.expiryDate || "",
+        reminderDays: selectedDocument.reminderDays?.toString() || "15",
+        policyNo: selectedDocument.policyNo || "",
+        uploadedFile: uploadedFile || null,
+        expenseAmount: selectedDocument.expenseAmount || "",
+        expenseDate: new Date().toISOString().split("T")[0],
+      });
+    }
+    if (selectedDocument.expenseAmount !== "") {
+      setShowExpenseFields(true);
+    }
+
+    setShowDocumentOptionsModal(false);
+    setShowEditDocumentModal(true);
+  };
+
+  const handleShareDocument = () => {
+    if (selectedDocument && selectedDocument.uploadedFile) {
+      // Implement sharing logic - could be:
+      // 1. Generate a shareable link
+      // 2. Open native share dialog
+      // 3. Copy to clipboard
+
+      if (navigator.share) {
+        navigator
+          .share({
+            title: `${selectedDocument.name} - ${selectedDriver.truckNo}`,
+            text: `Document: ${selectedDocument.name} for truck ${selectedDriver.truckNo}`,
+            files: [selectedDocument.uploadedFile],
+          })
+          .catch(console.error);
+      } else {
+        // Fallback: Copy document info to clipboard
+        const documentInfo = `${selectedDocument.name} - ${
+          selectedDriver.truckNo
+        }
+Expiry Date: ${selectedDocument.expiryDate || "Not set"}
+Policy No: ${selectedDocument.policyNo || "Not provided"}`;
+
+        navigator.clipboard.writeText(documentInfo).then(() => {
+          alert("Document information copied to clipboard!");
+        });
+      }
+    }
+
+    closeDocumentOptionsModal();
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!selectedDocumentType || !selectedDocument) {
+      closeDocumentOptionsModal();
+      return;
+    }
+
+    const documentName = selectedDocumentType.name || selectedDocumentType;
+    const documentKey = selectedDocumentType.key || selectedDocumentType;
+
+    if (window.confirm(`Are you sure you want to delete ${documentName}?`)) {
+      try {
+        // Store original document for potential rollback
+        const originalDocument = selectedDocument;
+
+        // Update local state optimistically
+        const updatedDocuments = { ...documents };
+        delete updatedDocuments[documentKey];
+        setDocuments(updatedDocuments);
+        //console.log(updatedDocuments);
+
+        const updatedDriverData = {
+          ...selectedDriver,
+          documents: updatedDocuments,
+        };
+
+        console.log(updatedDriverData);
+
+        // Send update to backend
+        const response = await api.put(
+          API_ENDPOINTS.trucks.update(selectedDriver.id), // or currentDriver.id
+          updatedDriverData
+        );
+
+        if (response) {
+          console.log("Document deleted successfully");
+          // toast.success(`${documentName} deleted successfully!`);
+        }
+      } catch (error) {
+        console.error("Error deleting document:", error);
+
+        // Rollback on error
+        setDocuments((prev) => ({
+          ...prev,
+          [documentKey]: originalDocument,
+        }));
+
+        // toast.error('Failed to delete document. Please try again.');
+      }
+    }
+
+    closeDocumentOptionsModal();
+  };
+
+  const openEMISidebar = () => {
+    setShowEMISidebar(true);
+    setEmis(selectedDriver.emi);
+    setShowTransactionsModal(false);
+  };
+  const closeEMISidebar = () => setShowEMISidebar(false);
+  const openAddEMIPopup = () => setShowAddEMIPopup(true);
+  const closeAddEMIPopup = () => {
+    setShowAddEMIPopup(false);
+    setEmiFormData({
+      financeCompany: "",
+      monthlyEMI: "",
+      dueOn: "1",
+      reminderDay: "2nd",
+      reminderFrequency: "every month",
+    });
+  };
+  const openAddPastPaymentPopup = () => setShowAddPastPaymentPopup(true);
+  const closeAddPastPaymentPopup = () => {
+    setShowAddPastPaymentPopup(false);
+    setPastPaymentData({
+      dueOn: "",
+      amountPaid: "",
+      paymentDate: "",
+    });
+  };
+  const openMarkPaidPopup = (emi) => {
+    setSelectedEMI(emi);
+    setMarkPaidData({
+      amountPaid: emi.monthlyEMI,
+      paymentDate: new Date().toISOString().split("T")[0],
+    });
+    setShowMarkPaidPopup(true);
+  };
+  const closeMarkPaidPopup = () => {
+    setShowMarkPaidPopup(false);
+    setSelectedEMI(null);
+    setMarkPaidData({
+      amountPaid: "",
+      paymentDate: "",
+    });
+  };
+
+  // Helper functions for edit/delete operations
+  const openEditPaymentPopup = (emi, payment) => {
+    setSelectedPaymentEMI(emi);
+    setSelectedPayment(payment);
+    setEditPaymentData({
+      dueDate: payment.dueDate || "",
+      amountPaid: payment.amount.toString(),
+      paymentDate: payment.paymentDate || "",
+    });
+    setShowEditPaymentPopup(true);
+  };
+
+  const closeEditPaymentPopup = () => {
+    setShowEditPaymentPopup(false);
+    setSelectedPayment(null);
+    setSelectedPaymentEMI(null);
+    setEditPaymentData({
+      dueDate: "",
+      amountPaid: "",
+      paymentDate: "",
+    });
+  };
+
+  const openDeleteConfirmPopup = (emi, payment) => {
+    setSelectedPaymentEMI(emi);
+    setSelectedPayment(payment);
+    setShowDeleteConfirmPopup(true);
+  };
+
+  const closeDeleteConfirmPopup = () => {
+    setShowDeleteConfirmPopup(false);
+    setSelectedPayment(null);
+    setSelectedPaymentEMI(null);
+  };
+
+  const updateTruckEMI = async (truckId, emiData) => {
+    try {
+      const response = await api.put(API_ENDPOINTS.trucks.update(truckId), {
+        ...selectedDriver,
+        emi: emiData,
+      });
+    } catch (error) {
+      console.error("Error updating EMI:", error);
+      throw error;
+    }
+  };
+
+  // Handle edit payment submission
+  const handleEditPayment = async () => {
+    if (selectedPaymentEMI && selectedPayment && selectedDriver.id) {
+      const updatedEmis = emis.map((emi) => {
+        if (emi.id === selectedPaymentEMI.id) {
+          const updatedPastPayments = emi.pastPayments.map((payment) => {
+            if (payment.id === selectedPayment.id) {
+              return {
+                ...payment,
+                dueDate: editPaymentData.dueDate,
+                amount: parseFloat(editPaymentData.amountPaid),
+                paymentDate: editPaymentData.paymentDate,
+              };
+            }
+            return payment;
+          });
+          return {
+            ...emi,
+            pastPayments: updatedPastPayments,
+          };
+        }
+        return emi;
+      });
+
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeEditPaymentPopup();
+      } catch (error) {
+        console.error("Failed to update payment:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  // Handle delete payment
+  const handleDeletePayment = async () => {
+    if (selectedPaymentEMI && selectedPayment && selectedDriver.id) {
+      const updatedEmis = emis.map((emi) => {
+        if (emi.id === selectedPaymentEMI.id) {
+          const updatedPastPayments = emi.pastPayments.filter(
+            (payment) => payment.id !== selectedPayment.id
+          );
+          return {
+            ...emi,
+            pastPayments: updatedPastPayments,
+          };
+        }
+        return emi;
+      });
+
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeDeleteConfirmPopup();
+      } catch (error) {
+        console.error("Failed to delete payment:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  // Handle delete EMI
+  const handleDeleteEMI = async () => {
+    if (selectedEMI && selectedDriver.id) {
+      const updatedEmis = emis.filter((emi) => emi.id !== selectedEMI.id);
+
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeDeleteEMIConfirm();
+      } catch (error) {
+        console.error("Failed to delete EMI:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  // Handle edit EMI
+  const handleEditEMI = async () => {
+    const getNextDueDate = (dueDay) => {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth(); // 0-based (0 = January, 11 = December)
+
+      // Calculate next month and year
+      let nextMonth = currentMonth + 1;
+      let nextYear = currentYear;
+
+      // Handle year rollover when current month is December
+      if (nextMonth > 11) {
+        nextMonth = 0; // January
+        nextYear += 1;
+      }
+
+      // Create the next due date
+      const nextDueDate = new Date(nextYear, nextMonth, parseInt(dueDay));
+
+      // Format as YYYY-MM-DD
+      return nextDueDate.toISOString().split("T")[0];
+    };
+    if (selectedEMI && selectedDriver.id) {
+      const updatedEmis = emis.map((emi) => {
+        if (emi.id === selectedEMI.id) {
+          return {
+            ...emi,
+            financeCompany: editEMIData.financeCompany,
+            monthlyEMI: parseFloat(editEMIData.monthlyEMI),
+            dueOn: editEMIData.dueOn,
+            reminderDay: editEMIData.reminderDay,
+            reminderFrequency: editEMIData.reminderFrequency,
+            upcomingPayments: [
+              {
+                id: Date.now() + 1,
+                amount: parseFloat(editEMIData.monthlyEMI),
+                dueDate: getNextDueDate(editEMIData.dueOn),
+                status: "due",
+              },
+            ],
+          };
+        }
+        return emi;
+      });
+
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeEditEMIPopup();
+      } catch (error) {
+        console.error("Failed to edit EMI:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  // Handle mark EMI as completed
+  const handleMarkEMICompleted = async () => {
+    if (selectedEMI && selectedDriver.id) {
+      const updatedEmis = emis.map((emi) => {
+        if (emi.id === selectedEMI.id) {
+          return {
+            ...emi,
+            status: "completed",
+            completedDate: new Date().toISOString().split("T")[0],
+          };
+        }
+        return emi;
+      });
+
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeMarkEMICompletedPopup();
+      } catch (error) {
+        console.error("Failed to mark EMI as completed:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  // Form submission handlers
+  const handleAddEMI = async () => {
+    if (!selectedDriver.id) return;
+
+    // Calculate next month's due date
+    const getNextDueDate = (dueDay) => {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth(); // 0-based (0 = January, 11 = December)
+
+      // Calculate next month and year
+      let nextMonth = currentMonth + 1;
+      let nextYear = currentYear;
+
+      // Handle year rollover when current month is December
+      if (nextMonth > 11) {
+        nextMonth = 0; // January
+        nextYear += 1;
+      }
+
+      // Create the next due date
+      const nextDueDate = new Date(nextYear, nextMonth, parseInt(dueDay));
+
+      // Format as YYYY-MM-DD
+      return nextDueDate.toISOString().split("T")[0];
+    };
+
+    const newEMI = {
+      id: Date.now(),
+      financeCompany: emiFormData.financeCompany,
+      monthlyEMI: parseFloat(emiFormData.monthlyEMI),
+      dueOn: emiFormData.dueOn,
+      reminderDay: emiFormData.reminderDay,
+      reminderFrequency: emiFormData.reminderFrequency,
+      status: "active",
+      pastPayments: [],
+      upcomingPayments: [
+        {
+          id: Date.now() + 1,
+          amount: parseFloat(emiFormData.monthlyEMI),
+          dueDate: getNextDueDate(emiFormData.dueOn),
+          status: "due",
+        },
+      ],
+    };
+
+    const updatedEmis = [...emis, newEMI];
+
+    try {
+      await updateTruckEMI(selectedDriver.id, updatedEmis);
+      setEmis(updatedEmis);
+      closeAddEMIPopup();
+    } catch (error) {
+      console.error("Failed to add EMI:", error);
+      // Handle error - show toast/alert to user
+    }
+  };
+
+  const handleAddPastPayment = async () => {
+    if (selectedEMI && selectedDriver.id) {
+      const updatedEmis = emis.map((emi) => {
+        if (emi.id === selectedEMI.id) {
+          return {
+            ...emi,
+            pastPayments: [
+              ...emi.pastPayments,
+              {
+                id: Date.now(),
+                amount: parseFloat(pastPaymentData.amountPaid),
+                dueDate: pastPaymentData.dueOn,
+                paymentDate: pastPaymentData.paymentDate,
+              },
+            ],
+          };
+        }
+        return emi;
+      });
+
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeAddPastPaymentPopup();
+      } catch (error) {
+        console.error("Failed to add past payment:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (selectedEMI) {
+      const updatedEmis = emis.map((emi) => {
+        if (emi.id === selectedEMI.id) {
+          const updatedUpcomingPayments = emi.upcomingPayments.map(
+            (payment) => {
+              if (payment.status === "due") {
+                return {
+                  ...payment,
+                  status: "paid",
+                  paymentDate: markPaidData.paymentDate,
+                };
+              }
+              return payment;
+            }
+          );
+
+          return {
+            ...emi,
+            upcomingPayments: updatedUpcomingPayments,
+            pastPayments: [
+              ...emi.pastPayments,
+              {
+                id: Date.now(),
+                amount: parseFloat(markPaidData.amountPaid),
+                dueDate: selectedEMI.upcomingPayments.find(
+                  (p) => p.status === "due"
+                )?.dueDate,
+                paymentDate: markPaidData.paymentDate,
+              },
+            ],
+          };
+        }
+        return emi;
+      });
+      setEmis(updatedEmis);
+      try {
+        await updateTruckEMI(selectedDriver.id, updatedEmis);
+        setEmis(updatedEmis);
+        closeMarkPaidPopup();
+      } catch (error) {
+        console.error("Failed to mark payment as paid:", error);
+        // Handle error - show toast/alert to user
+      }
+    }
+  };
+
+  const EMIMenuPopup = () => {
+    if (!showEMIMenuPopup) return null;
+
+    return (
+      <div
+        className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[140px]"
+        style={{
+          left: `${menuPosition.x}px`,
+          top: `${menuPosition.y}px`,
+        }}
+      >
+        <button
+          onClick={openEditEMIPopup}
+          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+          </svg>
+          Edit
+        </button>
+
+        <button
+          onClick={openMarkEMICompletedPopup}
+          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-700 hover:bg-gray-100"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+          EMI Completed
+        </button>
+
+        <button
+          onClick={openDeleteEMIConfirm}
+          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-700 hover:bg-gray-100"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          Delete EMI
+        </button>
+      </div>
+    );
+  };
+
+  const EditEMIPopup = () => {
+    if (!showEditEMIPopup) return null;
+
+    return (
+      <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Edit EMI</h3>
+            <button
+              onClick={closeEditEMIPopup}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">
+                Finance Company
+              </label>
+              <input
+                type="text"
+                value={editEMIData.financeCompany}
+                onChange={(e) =>
+                  setEditEMIData({
+                    ...editEMIData,
+                    financeCompany: e.target.value,
+                  })
+                }
+                placeholder="Preetam"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">
+                Monthly EMI
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={editEMIData.monthlyEMI}
+                  onChange={(e) =>
+                    setEditEMIData({
+                      ...editEMIData,
+                      monthlyEMI: e.target.value,
+                    })
+                  }
+                  placeholder="1,000"
+                  className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="absolute right-3 top-2 text-gray-500">₹</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">Due on</label>
+              <select
+                value={editEMIData.dueOn}
+                onChange={(e) =>
+                  setEditEMIData({
+                    ...editEMIData,
+                    dueOn: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {[...Array(31)].map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}
+                    {i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-5 h-5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="text-sm text-gray-700">Remind me on</span>
+                <select
+                  value={editEMIData.reminderDay}
+                  onChange={(e) =>
+                    setEditEMIData({
+                      ...editEMIData,
+                      reminderDay: e.target.value,
+                    })
+                  }
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                >
+                  <option value="2nd">2nd</option>
+                  <option value="3rd">3rd</option>
+                  <option value="1st">1st</option>
+                </select>
+                <span className="text-sm text-gray-700">every month</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  defaultChecked
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={closeEditEMIPopup}
+              className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEditEMI}
+              className="flex-1 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Delete EMI Confirmation Popup
+  const DeleteEMIConfirmPopup = () => {
+    if (!showDeleteEMIConfirm) return null;
+
+    return (
+      <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-red-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Delete EMI
+              </h3>
+              <p className="text-sm text-gray-600">
+                Are you sure you want to delete this EMI? This action cannot be
+                undone.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium text-gray-900">{selectedEMI}</p>
+                <p className="text-sm text-gray-600">
+                  ₹ {selectedEMI?.monthlyEMI?.toLocaleString()}/month
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={closeDeleteEMIConfirm}
+              className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteEMI}
+              className="flex-1 px-4 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Delete EMI
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Mark EMI Completed Confirmation Popup
+  const MarkEMICompletedPopup = () => {
+    if (!showMarkEMICompletedPopup) return null;
+
+    return (
+      <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-green-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Mark EMI as Completed
+              </h3>
+              <p className="text-sm text-gray-600">
+                This will mark the EMI as fully paid and completed.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium text-gray-900">
+                  {selectedEMI?.financeCompany}
+                </p>
+                <p className="text-sm text-gray-600">
+                  ₹ {selectedEMI?.monthlyEMI?.toLocaleString()}/month
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={closeMarkEMICompletedPopup}
+              className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleMarkEMICompleted}
+              className="flex-1 px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700"
+            >
+              Mark Completed
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const openModal = (type) => {
     setModalType(type);
     setShowModal(true);
@@ -755,20 +2101,6 @@ export default function Trucks() {
     setCurrentDriver(driver);
     setIsDeleteConfirmOpen(true);
   };
-  const handleDriverInputChange = (e) => {
-    const { name, value } = e.target;
-
-    // Allow only numeric input and restrict the length
-    if (name === "aadhar_number" && /^\d{0,12}$/.test(value)) {
-      setErrors((prev) => ({ ...prev, aadhar: "" }));
-      handleDriverChange(e);
-    }
-
-    if (name === "phone_number" && /^\d{0,10}$/.test(value)) {
-      setErrors((prev) => ({ ...prev, phone: "" }));
-      handleDriverChange(e);
-    }
-  };
 
   const validateTruckForm = () => {
     let valid = true;
@@ -1060,7 +2392,6 @@ export default function Trucks() {
               </select>
             </div>
           </div>
-
           {/* Drivers Table */}
           <div className="overflow-x-auto border border-gray-200 rounded-lg">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1476,7 +2807,6 @@ export default function Trucks() {
               </div>
             )}
           </div>
-
           {showTransactionsModal && (
             <div className="fixed inset-y-0 right-0 z-30 w-[90%] max-w-[900px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
               <div className="flex justify-between items-center border-b p-6 pb-4">
@@ -1523,10 +2853,10 @@ export default function Trucks() {
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
                     >
                       <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                       <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
@@ -1550,6 +2880,18 @@ export default function Trucks() {
                     className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
                   >
                     + Add Expense
+                  </button>
+                  <button
+                    onClick={openEMISidebar}
+                    className="ml-2 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    📊 EMI Book
+                  </button>
+                  <button
+                    onClick={openDocumentsSidebar}
+                    className="ml-2 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    📄 Documents
                   </button>
                   {/* <button
                     onClick={openTripSidebar}
@@ -1602,10 +2944,10 @@ export default function Trucks() {
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="icon icon-tabler icons-tabler-outline icon-tabler-currency-rupee mt-1"
                           >
                             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                             <path d="M18 5h-11h3a4 4 0 0 1 0 8h-3l6 6" />
@@ -1656,7 +2998,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {showAddTransactionModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-md shadow-lg w-full max-w-md">
@@ -1942,7 +3283,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {/* General Expense Modal */}
           {showModal && modalType === "maintenance" && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2083,7 +3423,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {/* Driver/Other Expense Modal */}
           {showModal && modalType === "driver" && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2234,7 +3573,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {showEditModal && modalType === "fuel" && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-md shadow-lg w-full max-w-md">
@@ -2430,7 +3768,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {/* General Expense Modal */}
           {showEditModal && modalType === "maintenance" && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2575,7 +3912,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {/* Driver/Other Expense Modal */}
           {showEditModal && modalType === "driver" && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2729,7 +4065,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {showSidebar && (
             <div className="fixed inset-0 bg-black bg-opacity-30 z-40">
               <div className="absolute right-0 top-0 bottom-0 bg-white w-full max-w-lg shadow-lg z-60 flex flex-col">
@@ -3012,7 +4347,6 @@ export default function Trucks() {
               </div>
             </div>
           )}
-
           {/* Edit Transaction Modal */}
           {showEditTransactionModal && editingTransaction && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-[1100] flex justify-center items-center">
@@ -3112,6 +4446,1936 @@ export default function Trucks() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+          {showEMISidebar && (
+            <div className=" text-black fixed inset-y-0 right-0 z-40 w-[90%] max-w-[600px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
+              <div className="flex justify-between items-center border-b p-6 pb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  EMI Book - {selectedDriver.truckNo} •{" "}
+                  {selectedDriver.truckType}
+                </h2>
+                <button
+                  onClick={closeEMISidebar}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-grow overflow-auto p-6">
+                {emis.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <svg
+                        className="w-8 h-8 text-blue-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Add your EMI to get monthly reminders
+                    </h3>
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={closeEMISidebar}
+                        className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={openAddEMIPopup}
+                        className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700 flex items-center gap-2"
+                      >
+                        <span>+</span> Add EMI
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {emis.map((emi) => (
+                      <div
+                        key={emi.id}
+                        className="bg-white border rounded-lg p-4"
+                      >
+                        <div className="flex justify-between items-center mb-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {emi.financeCompany}
+                            </h3>
+                            <p className="text-2xl font-bold text-gray-900">
+                              ₹ {emi.monthlyEMI.toLocaleString()}
+                            </p>
+                          </div>
+                          <ThreeDotMenuButton emi={emi} />
+                        </div>
+
+                        {/* Current EMI Status */}
+                        {emi.upcomingPayments.some(
+                          (p) => p.status === "due"
+                        ) && (
+                          <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="inline-block px-2 py-1 text-xs font-medium text-white bg-red-600 rounded">
+                                  DUE
+                                </span>
+                                <span className="ml-2 text-sm text-gray-600">
+                                  on{" "}
+                                  {new Date(
+                                    emi.upcomingPayments.find(
+                                      (p) => p.status === "due"
+                                    ).dueDate
+                                  ).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {emi.upcomingPayments.some(
+                          (p) => p.status === "paid"
+                        ) && (
+                          <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="inline-block px-2 py-1 text-xs font-medium text-white bg-green-600 rounded">
+                                  PAID
+                                </span>
+                                <span className="ml-2 text-sm text-gray-600">
+                                  on on{" "}
+                                  {new Date(
+                                    emi.upcomingPayments.find(
+                                      (p) => p.status === "paid"
+                                    ).paymentDate
+                                  ).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Upcoming Section */}
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                            UPCOMING
+                          </h4>
+                          {emi.upcomingPayments
+                            .filter((p) => p.status === "due")
+                            .map((payment) => (
+                              <div
+                                key={payment.id}
+                                className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                              >
+                                <div>
+                                  <p className="font-semibold">
+                                    ₹ {payment.amount.toLocaleString()}
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-block px-2 py-1 text-xs font-medium text-white bg-red-600 rounded">
+                                      DUE
+                                    </span>
+                                    <span className="text-sm text-gray-600">
+                                      on{" "}
+                                      {new Date(
+                                        emi.upcomingPayments.find(
+                                          (p) => p.status === "due"
+                                        ).dueDate
+                                      ).toLocaleDateString("en-US", {
+                                        weekday: "short",
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => openMarkPaidPopup(emi)}
+                                  className="px-3 py-1 text-sm text-green-600 border border-green-600 rounded hover:bg-green-50"
+                                >
+                                  ✓ Mark Paid
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+
+                        {/* Past Payments Section */}
+                        {emi.pastPayments.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                              PAST PAYMENTS
+                            </h4>
+                            <div className="space-y-2">
+                              {emi.pastPayments.map((payment) => (
+                                <div
+                                  key={payment.id}
+                                  className="flex justify-between items-center p-2 border-b border-gray-100 hover:bg-gray-50 rounded"
+                                >
+                                  <div>
+                                    <p className="font-medium">
+                                      Due on{" "}
+                                      {new Date(
+                                        payment.dueDate
+                                      ).toLocaleDateString("en-US", {
+                                        weekday: "short",
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      Paid on{" "}
+                                      {new Date(
+                                        payment.paymentDate
+                                      ).toLocaleDateString("en-US", {
+                                        weekday: "short",
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold">
+                                      ₹ {payment.amount.toLocaleString()}
+                                    </p>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditPaymentPopup(emi, payment);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                                      title="Edit Payment"
+                                    >
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openDeleteConfirmPopup(emi, payment);
+                                      }}
+                                      className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                                      title="Delete Payment"
+                                    >
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={closeEMISidebar}
+                        className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedEMI(emis[0]); // Set first EMI as selected for past payment
+                          openAddPastPaymentPopup();
+                        }}
+                        className="px-4 py-2 text-sm text-white bg-black rounded-md hover:bg-gray-800 flex items-center gap-2"
+                      >
+                        <span>+</span> Add Past Payment
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {showAddEMIPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Add EMI
+                  </h3>
+                  <button
+                    onClick={closeAddEMIPopup}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Finance Company
+                    </label>
+                    <input
+                      type="text"
+                      value={emiFormData.financeCompany}
+                      onChange={(e) =>
+                        setEmiFormData({
+                          ...emiFormData,
+                          financeCompany: e.target.value,
+                        })
+                      }
+                      placeholder="Preetam"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Monthly EMI
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={emiFormData.monthlyEMI}
+                        onChange={(e) =>
+                          setEmiFormData({
+                            ...emiFormData,
+                            monthlyEMI: e.target.value,
+                          })
+                        }
+                        placeholder="1,000"
+                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="absolute right-3 top-2 text-gray-500">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Due on
+                    </label>
+                    <select
+                      value={emiFormData.dueOn}
+                      onChange={(e) =>
+                        setEmiFormData({
+                          ...emiFormData,
+                          dueOn: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {[...Array(31)].map((_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {i + 1}
+                          {i === 0
+                            ? "st"
+                            : i === 1
+                            ? "nd"
+                            : i === 2
+                            ? "rd"
+                            : "th"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm text-gray-700">
+                        Remind me on
+                      </span>
+                      <select
+                        value={emiFormData.reminderDay}
+                        onChange={(e) =>
+                          setEmiFormData({
+                            ...emiFormData,
+                            reminderDay: e.target.value,
+                          })
+                        }
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="2nd">2nd</option>
+                        <option value="3rd">3rd</option>
+                        <option value="1st">1st</option>
+                      </select>
+                      <span className="text-sm text-gray-700">every month</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        defaultChecked
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeAddEMIPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleAddEMI}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showAddPastPaymentPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Add Past Payment
+                  </h3>
+                  <button
+                    onClick={closeAddPastPaymentPopup}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Due on
+                    </label>
+                    <input
+                      type="date"
+                      value={pastPaymentData.dueOn}
+                      onChange={(e) =>
+                        setPastPaymentData({
+                          ...pastPaymentData,
+                          dueOn: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Amount Paid
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={pastPaymentData.amountPaid}
+                        onChange={(e) =>
+                          setPastPaymentData({
+                            ...pastPaymentData,
+                            amountPaid: e.target.value,
+                          })
+                        }
+                        placeholder="1,000"
+                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="absolute right-3 top-2 text-gray-500">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Payment Date
+                    </label>
+                    <input
+                      type="date"
+                      value={pastPaymentData.paymentDate}
+                      onChange={(e) =>
+                        setPastPaymentData({
+                          ...pastPaymentData,
+                          paymentDate: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {/* <svg
+                        className="absolute right-3 top-2 w-5 h-5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg> */}
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeAddPastPaymentPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleAddPastPayment}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showMarkPaidPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    EMI 03 Jul 2025
+                  </h3>
+                  <button
+                    onClick={closeMarkPaidPopup}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Amount Paid
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={markPaidData.amountPaid}
+                        onChange={(e) =>
+                          setMarkPaidData({
+                            ...markPaidData,
+                            amountPaid: e.target.value,
+                          })
+                        }
+                        placeholder="1,000"
+                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="absolute right-3 top-2 text-gray-500">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Payment Date
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={markPaidData.paymentDate}
+                        onChange={(e) =>
+                          setMarkPaidData({
+                            ...markPaidData,
+                            paymentDate: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <svg
+                        className="absolute right-3 top-2 w-5 h-5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeMarkPaidPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleMarkPaid}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showEditPaymentPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Edit Payment
+                  </h3>
+                  <button
+                    onClick={closeEditPaymentPopup}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editPaymentData.dueDate}
+                      onChange={(e) =>
+                        setEditPaymentData({
+                          ...editPaymentData,
+                          dueDate: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Amount Paid
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={editPaymentData.amountPaid}
+                        onChange={(e) =>
+                          setEditPaymentData({
+                            ...editPaymentData,
+                            amountPaid: e.target.value,
+                          })
+                        }
+                        placeholder="1,000"
+                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="absolute right-3 top-2 text-gray-500">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Payment Date
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={editPaymentData.paymentDate}
+                        onChange={(e) =>
+                          setEditPaymentData({
+                            ...editPaymentData,
+                            paymentDate: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <svg
+                        className="absolute right-3 top-2 w-5 h-5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeEditPaymentPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEditPayment}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showDeleteConfirmPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Delete Payment
+                  </h3>
+                  <button
+                    onClick={closeDeleteConfirmPopup}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                    <svg
+                      className="w-6 h-6 text-red-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                  </div>
+                  <h4 className="text-lg font-medium text-gray-900 text-center mb-2">
+                    Are you sure you want to delete this payment?
+                  </h4>
+                  <p className="text-sm text-gray-500 text-center">
+                    This action cannot be undone. The payment record will be
+                    permanently removed.
+                  </p>
+
+                  {selectedPayment && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Amount:</span>
+                        <span className="font-medium">
+                          ₹ {selectedPayment.amount?.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-sm text-gray-600">
+                          Payment Date:
+                        </span>
+                        <span className="font-medium">
+                          {selectedPayment.paymentDate}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeDeleteConfirmPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeletePayment}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700"
+                  >
+                    Delete Payment
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showEMIMenuPopup && (
+            <div
+              className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[140px]"
+              style={{
+                left: `${menuPosition.x}px`,
+                top: `${menuPosition.y}px`,
+              }}
+            >
+              <button
+                onClick={openEditEMIPopup}
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                Edit
+              </button>
+
+              <button
+                onClick={openMarkEMICompletedPopup}
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-700 hover:bg-gray-100"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                EMI Completed
+              </button>
+
+              <button
+                onClick={openDeleteEMIConfirm}
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-700 hover:bg-gray-100"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Delete EMI
+              </button>
+            </div>
+          )}
+
+          {showEditEMIPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Edit EMI
+                  </h3>
+                  <button
+                    onClick={closeEditEMIPopup}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Finance Company
+                    </label>
+                    <input
+                      type="text"
+                      value={editEMIData.financeCompany}
+                      onChange={(e) =>
+                        setEditEMIData({
+                          ...editEMIData,
+                          financeCompany: e.target.value,
+                        })
+                      }
+                      placeholder="Preetam"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Monthly EMI
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={editEMIData.monthlyEMI}
+                        onChange={(e) =>
+                          setEditEMIData({
+                            ...editEMIData,
+                            monthlyEMI: e.target.value,
+                          })
+                        }
+                        placeholder="1,000"
+                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="absolute right-3 top-2 text-gray-500">
+                        ₹
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">
+                      Due on
+                    </label>
+                    <select
+                      value={editEMIData.dueOn}
+                      onChange={(e) =>
+                        setEditEMIData({
+                          ...editEMIData,
+                          dueOn: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {[...Array(31)].map((_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {i + 1}
+                          {i === 0
+                            ? "st"
+                            : i === 1
+                            ? "nd"
+                            : i === 2
+                            ? "rd"
+                            : "th"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm text-gray-700">
+                        Remind me on
+                      </span>
+                      <select
+                        value={editEMIData.reminderDay}
+                        onChange={(e) =>
+                          setEditEMIData({
+                            ...editEMIData,
+                            reminderDay: e.target.value,
+                          })
+                        }
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="2nd">2nd</option>
+                        <option value="3rd">3rd</option>
+                        <option value="1st">1st</option>
+                      </select>
+                      <span className="text-sm text-gray-700">every month</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        defaultChecked
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeEditEMIPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEditEMI}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showDeleteEMIConfirm && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-red-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Delete EMI
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Are you sure you want to delete this EMI? This action
+                      cannot be undone.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {selectedEMI?.financeCompany}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        ₹ {selectedEMI?.monthlyEMI}/month
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeDeleteEMIConfirm}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteEMI}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700"
+                  >
+                    Delete EMI
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showMarkEMICompletedPopup && (
+            <div className="text-black fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-green-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Mark EMI as Completed
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      This will mark the EMI as fully paid and completed.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {selectedEMI?.financeCompany}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        ₹ {selectedEMI?.monthlyEMI?.toLocaleString()}/month
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeMarkEMICompletedPopup}
+                    className="flex-1 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleMarkEMICompleted}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700"
+                  >
+                    Mark Completed
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Documents SideBar */}
+          {/* Documents Sidebar */}
+          {showDocumentsSidebar && (
+            <div className="text-black fixed inset-y-0 right-0 z-40 w-[90%] max-w-[600px] bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0">
+              <div className="flex justify-between items-center border-b p-6 pb-4">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Document Book {selectedDriver.truckNo} •{" "}
+                  {selectedDriver.truckType}
+                </h2>
+                <button
+                  onClick={closeDocumentsSidebar}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Document warning */}
+              {documentsNeedingAttention.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 m-4">
+                  <div className="flex items-center">
+                    <div className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-2">
+                      {documentsNeedingAttention.length}
+                    </div>
+                    <span className="text-red-700 text-sm">
+                      {documentsNeedingAttention.length} Document
+                      {documentsNeedingAttention.length > 1 ? "s" : ""} need
+                      {documentsNeedingAttention.length === 1 ? "s" : ""}{" "}
+                      attention
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex-grow overflow-auto p-4">
+                {documentTypes.map((docType) => {
+                  const document = documents[docType.key];
+                  const isExpiringSoon =
+                    document && isDocumentExpiringSoon(document.expiryDate);
+
+                  return (
+                    <div
+                      key={docType.key}
+                      className="bg-white border border-gray-200 rounded-lg p-4 mb-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="text-blue-600"
+                            >
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14,2 14,8 20,8" />
+                              <line x1="16" y1="13" x2="8" y2="13" />
+                              <line x1="16" y1="17" x2="8" y2="17" />
+                              <polyline points="10,9 9,9 8,9" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-gray-900">
+                              {docType.name}
+                            </h3>
+                            {document ? (
+                              <div>
+                                {isExpiringSoon && (
+                                  <span className="text-xs text-orange-600 font-medium">
+                                    Expiring in{" "}
+                                    {getDaysUntilExpiry(document.expiryDate)}{" "}
+                                    days
+                                  </span>
+                                )}
+                                {document.expiryDate && !isExpiringSoon && (
+                                  <span className="text-xs text-gray-500">
+                                    Expires: {document.expiryDate}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => openAddDocumentModal(docType)}
+                                className="text-blue-600 hover:text-blue-800 text-sm"
+                              >
+                                Add Expiry
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {document && (
+                          <div className="flex items-center">
+                            <button
+                              onClick={() =>
+                                openDocumentOptionsModal(docType, document)
+                              }
+                              className="text-gray-400 hover:text-gray-600 p-1"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <circle cx="12" cy="12" r="1" />
+                                <circle cx="12" cy="5" r="1" />
+                                <circle cx="12" cy="19" r="1" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border-t p-4">
+                <div className="flex justify-between">
+                  <button
+                    onClick={closeDocumentsSidebar}
+                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={openAddOtherDocumentModal}
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    + Add Other Document
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Document Modal */}
+          {showAddDocumentModal && (
+            <div className="text-black fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Add {selectedDocumentType?.name}
+                  </h3>
+                  <button
+                    onClick={closeAddDocumentModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-gray-100 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600">Truck Info</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedDriver.truckNo} • {selectedDriver.truckType}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={documentFormData.expiryDate}
+                      onChange={(e) =>
+                        setDocumentFormData({
+                          ...documentFormData,
+                          expiryDate: e.target.value,
+                        })
+                      }
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center mb-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700">
+                        Remind me
+                      </span>
+                      <select
+                        value={documentFormData.reminderDays}
+                        onChange={(e) =>
+                          setDocumentFormData({
+                            ...documentFormData,
+                            reminderDays: e.target.value,
+                          })
+                        }
+                        className="ml-2 p-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="15">15 days</option>
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                      </select>
+                      <span className="text-sm text-gray-700 ml-2">
+                        before expiry
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Policy No
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter Policy No"
+                      value={documentFormData.policyNo}
+                      onChange={(e) =>
+                        setDocumentFormData({
+                          ...documentFormData,
+                          policyNo: e.target.value,
+                        })
+                      }
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional</p>
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={() =>
+                        document.getElementById("file-upload").click()
+                      }
+                      className="w-full flex items-center justify-center px-4 py-2 border border-blue-300 text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14,2 14,8 20,8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10,9 9,9 8,9" />
+                      </svg>
+                      Upload File
+                    </button>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      accept="*/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    {documentFormData.uploadedFile && (
+                      <p className="text-xs text-green-600 mt-1">
+                        File uploaded: {documentFormData.uploadedFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {showExpenseFields && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Expense Amount
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            placeholder="Expense Amount"
+                            value={documentFormData.expenseAmount}
+                            onChange={(e) =>
+                              setDocumentFormData({
+                                ...documentFormData,
+                                expenseAmount: e.target.value,
+                              })
+                            }
+                            className="w-full p-2 pr-8 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500">
+                            ₹
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Optional</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Expense Date
+                        </label>
+                        <input
+                          type="date"
+                          value={documentFormData.expenseDate}
+                          onChange={(e) =>
+                            setDocumentFormData({
+                              ...documentFormData,
+                              expenseDate: e.target.value,
+                            })
+                          }
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {!showExpenseFields && (
+                    <button
+                      onClick={() => setShowExpenseFields(true)}
+                      className="w-full px-4 py-2 text-blue-600 bg-blue-50 border border-blue-300 rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                      Add {selectedDocumentType?.name} Expense
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={closeAddDocumentModal}
+                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleAddDocument}
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showEditDocumentModal && (
+            <div className="text-black fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Edit {selectedDocumentType?.name}
+                  </h3>
+                  <button
+                    onClick={closeEditDocumentModal}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-gray-100 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600">Truck Info</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedDriver.truckNo} • {selectedDriver.truckType}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={documentFormData.expiryDate}
+                      onChange={(e) =>
+                        setDocumentFormData({
+                          ...documentFormData,
+                          expiryDate: e.target.value,
+                        })
+                      }
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center mb-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700">
+                        Remind me
+                      </span>
+                      <select
+                        value={documentFormData.reminderDays}
+                        onChange={(e) =>
+                          setDocumentFormData({
+                            ...documentFormData,
+                            reminderDays: e.target.value,
+                          })
+                        }
+                        className="ml-2 p-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="15">15 days</option>
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                      </select>
+                      <span className="text-sm text-gray-700 ml-2">
+                        before expiry
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Policy No
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter Policy No"
+                      value={documentFormData.policyNo}
+                      onChange={(e) =>
+                        setDocumentFormData({
+                          ...documentFormData,
+                          policyNo: e.target.value,
+                        })
+                      }
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional</p>
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={() =>
+                        document.getElementById("file-upload").click()
+                      }
+                      className="w-full flex items-center justify-center px-4 py-2 border border-blue-300 text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14,2 14,8 20,8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10,9 9,9 8,9" />
+                      </svg>
+                      Upload File
+                    </button>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      accept="*/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    {documentFormData.uploadedFile && (
+                      <p className="text-xs text-green-600 mt-1">
+                        File uploaded: {documentFormData.uploadedFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {showExpenseFields && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Expense Amount
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            placeholder="Expense Amount"
+                            value={documentFormData.expenseAmount}
+                            onChange={(e) =>
+                              setDocumentFormData({
+                                ...documentFormData,
+                                expenseAmount: e.target.value,
+                              })
+                            }
+                            className="w-full p-2 pr-8 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500">
+                            ₹
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Optional</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Expense Date
+                        </label>
+                        <input
+                          type="date"
+                          value={documentFormData.expenseDate}
+                          onChange={(e) =>
+                            setDocumentFormData({
+                              ...documentFormData,
+                              expenseDate: e.target.value,
+                            })
+                          }
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {!showExpenseFields && (
+                    <button
+                      onClick={() => setShowExpenseFields(true)}
+                      className="w-full px-4 py-2 text-blue-600 bg-blue-50 border border-blue-300 rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                      Add {selectedDocumentType?.name} Expense
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={closeEditDocumentModal}
+                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleEditDocumentSubmit}
+                    className="px-4 py-2 text-sm text-white bg-[#243b6c] rounded-md hover:bg-blue-700"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Document Options Modal */}
+          {showDocumentOptionsModal && (
+            <div className="text-black fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-xs mx-4">
+                <div className="space-y-2">
+                  <button
+                    onClick={handleEditDocument}
+                    className="w-full flex items-center px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-3"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    Edit Document
+                  </button>
+
+                  <button
+                    onClick={handleDownloadDocument}
+                    className="w-full flex items-center px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-3"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7,10 12,15 17,10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download Document
+                  </button>
+
+                  <button
+                    onClick={handleShareDocument}
+                    className="w-full flex items-center px-4 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-3"
+                    >
+                      <circle cx="18" cy="5" r="3" />
+                      <circle cx="6" cy="12" r="3" />
+                      <circle cx="18" cy="19" r="3" />
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                    </svg>
+                    Share
+                  </button>
+
+                  <button
+                    onClick={handleDeleteDocument}
+                    className="w-full flex items-center px-4 py-2 text-left text-red-600 hover:bg-red-50 rounded-md"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-3"
+                    >
+                      <polyline points="3,6 5,6 21,6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    Delete
+                  </button>
+                </div>
+                <div className="mt-4 pt-4 border-t">
+                  <button
+                    onClick={closeDocumentOptionsModal}
+                    className="w-full px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -3503,17 +6767,7 @@ export default function Trucks() {
                 <button
                   type="button"
                   onClick={() => {
-                    setNewDriver({
-                      name: "",
-                      phone_number: "",
-                      status: "available",
-                      aadhar_number: "",
-                      license_number: "",
-                      license_expiry_date: "",
-                      photoFile: null,
-                      photoPreview: null,
-                      documentsFile: null,
-                    });
+                    resetNewDriverForm();
                     setErrors({
                       truckNo: "",
                       truckType: "",

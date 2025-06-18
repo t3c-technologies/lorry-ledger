@@ -149,7 +149,7 @@ def validate(request):
                     value=str(access),
                     httponly=True,  # Prevent JavaScript access
                     secure=True,  # Use HTTPS in production
-                    samesite="Strict",  # CSRF protection
+                    samesite="None",  # CSRF protection
                     path="/",
                 )
                 # Set Refresh Token as HTTP-only cookie
@@ -158,7 +158,7 @@ def validate(request):
                     value=str(refresh),
                     httponly=True,  # Prevent JavaScript access
                     secure=True,  # Use HTTPS in production
-                    samesite="Strict",  # CSRF protection
+                    samesite="None",  # CSRF protection
                     path="/",
                 )
                 # Set Mobile Number as HTTP-only cookie
@@ -167,7 +167,7 @@ def validate(request):
                     value=str(mobile_number),
                     httponly=True,  # Prevent JavaScript access
                     secure=True,  # Use HTTPS in production
-                    samesite="Strict",  # CSRF protection
+                    samesite="None",  # CSRF protection
                     path="/",
                 )
                 return response
