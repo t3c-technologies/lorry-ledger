@@ -3,11 +3,14 @@ from django.core.validators import RegexValidator
 from django.core.validators import MinLengthValidator
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
 import base64
 import os
 import uuid
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from django.utils import timezone
+from datetime import timedelta
 
 def driver_photo_upload_path(instance, filename):
     return f"drivers/{instance.aadhar_number}/photo/{filename}"
@@ -102,6 +105,10 @@ class Truck(models.Model):
     
     # Add EMI field as JSONField
     emi = models.JSONField(default=list, blank=True)
+
+    # Add these new fields to track reminder history (optional)
+    last_document_reminder_sent = models.DateTimeField(null=True, blank=True)
+    last_emi_reminder_sent = models.DateTimeField(null=True, blank=True)
     
     def save_document_file(self, document_data):
         """
@@ -204,6 +211,80 @@ class Truck(models.Model):
         # Update upcoming payments before saving
         self.update_upcoming_payments()
         super().save(*args, **kwargs)
+    
+    def get_owner_phone(self):
+        """Override this method to return actual owner's phone number"""
+        # Implement based on your User/Owner model structure
+        # Example: return self.owner.phone if hasattr(self, 'owner') else None
+        return "+919876543210"  # Placeholder
+    
+    def get_documents_needing_reminder(self):
+        """Get documents that need reminders sent"""
+        current_date = timezone.now().date()
+        documents_needing_reminder = []
+        
+        if not self.documents:
+            return documents_needing_reminder
+            
+        for doc_type, doc_data in self.documents.items():
+            if not doc_data.get('expiryDate') or not doc_data.get('reminderDays'):
+                continue
+                
+            try:
+                expiry_date = datetime.strptime(doc_data['expiryDate'], '%Y-%m-%d').date()
+                reminder_days = int(doc_data['reminderDays'])
+                reminder_start_date = expiry_date - timedelta(days=reminder_days)
+                
+                if reminder_start_date <= current_date <= expiry_date:
+                    documents_needing_reminder.append({
+                        'type': doc_type,
+                        'data': doc_data,
+                        'days_until_expiry': (expiry_date - current_date).days
+                    })
+            except (ValueError, TypeError):
+                continue
+                
+        return documents_needing_reminder
+    
+    def get_emis_needing_reminder(self):
+        """Get EMIs that need payment reminders"""
+        current_date = timezone.now().date()
+        emis_needing_reminder = []
+        
+        if not self.emi:
+            return emis_needing_reminder
+            
+        for emi_data in self.emi:
+            if emi_data.get('status') != 'active':
+                continue
+                
+            # Parse reminder day
+            reminder_day_str = emi_data.get('reminderDay', '1st')
+            try:
+                reminder_day = int(''.join(filter(str.isdigit, str(reminder_day_str))))
+            except (ValueError, TypeError):
+                reminder_day = 1
+                
+            # Check if today is the reminder day
+            if current_date.day == reminder_day:
+                upcoming_payments = emi_data.get('upcomingPayments', [])
+                
+                for payment in upcoming_payments:
+                    if payment.get('status') == 'due':
+                        try:
+                            due_date = datetime.strptime(payment['dueDate'], '%Y-%m-%d').date()
+                            days_until_due = (due_date - current_date).days
+                            
+                            if 0 <= days_until_due <= 30:
+                                emis_needing_reminder.append({
+                                    'emi_data': emi_data,
+                                    'payment': payment,
+                                    'days_until_due': days_until_due
+                                })
+                        except (ValueError, TypeError):
+                            continue
+                            
+        return emis_needing_reminder
 
 class Expense(models.Model):
     expenseTypeChoices = [('Showroom Service', 'Showroom Service'),('Regular Service','Regular Service'),('Minor Repair','Minor Repair'),('Gear Maintenance','Gear Maintenance'),('Brake Oil Change', 'Brake Oil Change'), ('Grease Oil Change', 'Grease Oil Change'), ('Engine Oil Change', 'Engine Oil Change'),
@@ -386,9 +467,11 @@ class LR(models.Model):
     lrDate = models.DateField(default="2025-01-01")
     lrNumber = models.CharField(max_length = 30)
     materialCategory = models.CharField(max_length=50)
-    numberOfPackages = models.CharField(max_length=20, validators=[RegexValidator(regex=r'^\d*$', message="Number of Packages should be a number")], blank=True)
+    numberOfPackages = models.CharField(max_length=20, validators=[RegexValidator(regex=r'^\d*$', message="Number of Packages should be a number")], blank=True, null=True)
     unit = models.CharField(choices=unitChoices, default='Tonnes')
-    weight = models.CharField(max_length=30, validators=[RegexValidator(regex=r'^\d*$', message="Weight must be a number")],)
+    weight = models.CharField(max_length=30, validators=[RegexValidator(regex=r'^\d*$', message="Weight must be a number")], blank=True, null=True)
+
+    routeIndex = models.CharField(max_length = 30, default=-1)
 
     consignerId = models.ForeignKey(
         'Consigner',
@@ -406,6 +489,13 @@ class LR(models.Model):
         related_name= 'LR',
         default='1'
     )
+    def clean(self):
+        super().clean()
+        if not self.weight and not self.numberOfPackages:
+            raise ValidationError({
+                'weight': 'Either weight or number of packages must be provided.',
+                'numberOfPackages': 'Either weight or number of packages must be provided.'
+            })
 
 class Invoice(models.Model):
     paymentOptions = [('Consigner', 'Consigner'), ('Consignee', 'Consignee'), ('Agent', 'Agent')]
@@ -416,9 +506,11 @@ class Invoice(models.Model):
     invoiceDate = models.DateField(default="2025-01-01")
     invoiceNumber = models.CharField(max_length = 30)
     materialCategory = models.CharField(max_length=50)
-    numberOfPackages = models.CharField(max_length=20, validators=[RegexValidator(regex=r'^\d*$', message="Number of Packages should be a number")], blank=True)
+    numberOfPackages = models.CharField(max_length=20, validators=[RegexValidator(regex=r'^\d*$', message="Number of Packages should be a number")], blank=True, null=True)
     unit = models.CharField(choices=unitChoices, default='Tonnes')
-    weight = models.CharField(max_length=30, validators=[RegexValidator(regex=r'^\d*$', message="Weight must be a number")],)
+    weight = models.CharField(max_length=30, validators=[RegexValidator(regex=r'^\d*$', message="Weight must be a number")],blank=True, null=True)
+
+    routeIndex = models.CharField(max_length = 30, default=-1)
 
     consignerId = models.ForeignKey(
         'Consigner',
@@ -436,3 +528,17 @@ class Invoice(models.Model):
         related_name= 'Invoice',
         default='1'
     )
+
+    def clean(self):
+        super().clean()
+        if not self.weight and not self.numberOfPackages:
+            raise ValidationError({
+                'weight': 'Either weight or number of packages must be provided.',
+                'numberOfPackages': 'Either weight or number of packages must be provided.'
+            })
+
+class Location(models.Model):
+    locationName = models.CharField(max_length=100)
+
+class Material(models.Model):
+    materialName = models.CharField(max_length=100)

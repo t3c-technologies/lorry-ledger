@@ -1,5 +1,7 @@
 # drivers/views.py
 
+from datetime import datetime, timedelta
+from django.utils import timezone
 from rest_framework import generics, status
 import json
 from rest_framework.response import Response
@@ -11,15 +13,19 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from weasyprint import HTML
 
-from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip, Consigner, Consignee, LR, Invoice
-from .serializers import DriverSerializer, TransactionsSerializer, TruckSerializer, ExpenseSerializer, PartySerializer, SupplierSerializer, TripSerializer, ConsignerSerializer, ConsigneeSerializer, LRSerializer, InvoiceSerializer
+from .notifications import NotificationService
+
+from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip, Consigner, Consignee, LR, Invoice, Location, Material
+from .serializers import DriverSerializer, TransactionsSerializer, TruckSerializer, ExpenseSerializer, PartySerializer, SupplierSerializer, TripSerializer, ConsignerSerializer, ConsigneeSerializer, LRSerializer, InvoiceSerializer, LocationSerializer, MaterialSerializer
 from common.pagination import CustomPagination  # Assuming we have this in place already
 
 from django.core.files.storage import default_storage
+
 import mimetypes
 import os
 from twilio.rest import Client as TwilioClient
-
+import logging
+logger = logging.getLogger(__name__)
 
 
 TWILIO_SID = os.getenv("TWILIO_ACC_SID")
@@ -31,33 +37,188 @@ TWILIO_TEMPLATE_SID = os.getenv("TWILIO_REMINDER_TEMPLATE_SID")
 
 
 #Documents Notification Remindar
-@api_view(['POST'])
-def send_document_reminder_notification(request, truck_id, document_type):
-    try:
-        truck = get_object_or_404(Truck, id=truck_id)
-        documentName = document_type
-        expiryDate = request.data.get("expiryDate")
-        phone = request.data.get("phone")
+# @api_view(['POST'])
+# def send_document_reminder_notification(request, truck_id, document_type):
+#     try:
+#         truck = get_object_or_404(Truck, id=truck_id)
+#         documentName = document_type
+#         expiryDate = request.data.get("expiryDate")
+#         phone = request.data.get("phone")
 
         
-        # content_variables={
-        # "1":documentName,
-        # "2":truck.truckNo,
-        # "3":expiryDate,
-        # }
-        twilioclient = TwilioClient(TWILIO_SID, TWILIO_AUTH_TOKEN)
-        message = twilioclient.messages.create(
-                to=f"whatsapp:{phone}", 
-                from_=TWILIO_FROM_PHONE_NUMBER,
-                body=f"Your {documentName} for truck {truck.truckNo} expires soon on {expiryDate}. Upload new document soon."
-                # messaging_service_sid=MESSAGING_SERVICE_SID,
-                # content_sid=TWILIO_TEMPLATE_SID,
-                # content_variables=json.dumps(content_variables)
-            )
-        return Response({"body": truck.truckNo}, status=status.HTTP_200_OK)
+#         # content_variables={
+#         # "1":documentName,
+#         # "2":truck.truckNo,
+#         # "3":expiryDate,
+#         # }
+#         twilioclient = TwilioClient(TWILIO_SID, TWILIO_AUTH_TOKEN)
+#         message = twilioclient.messages.create(
+#                 to=f"whatsapp:{phone}", 
+#                 from_=TWILIO_FROM_PHONE_NUMBER,
+#                 body=f"Your {documentName} for truck {truck.truckNo} expires soon on {expiryDate}. Upload new document soon."
+#                 # messaging_service_sid=MESSAGING_SERVICE_SID,
+#                 # content_sid=TWILIO_TEMPLATE_SID,
+#                 # content_variables=json.dumps(content_variables)
+#             )
+#         return Response({"body": truck.truckNo}, status=status.HTTP_200_OK)
+#     except Exception as e:
+#         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# API Views
+notification_service = NotificationService()
+
+@api_view(['POST'])
+def send_document_reminder_notification(request, truck_id, document_type):
+    """Manual trigger for document reminder notification"""
+    try:
+        truck = get_object_or_404(Truck, id=truck_id)
+        document_name = document_type
+        expiry_date = request.data.get("expiryDate")
+        phone = request.data.get("phone")
+
+        if not phone:
+            return Response({"error": "Phone number is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not expiry_date:
+            return Response({"error": "Expiry date is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Calculate days until expiry
+        try:
+            expiry_datetime = datetime.strptime(expiry_date, '%Y-%m-%d').date()
+            current_date = timezone.now().date()
+            days_until_expiry = (expiry_datetime - current_date).days
+        except ValueError:
+            return Response({"error": "Invalid expiry date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
+        message = notification_service._create_document_reminder_message(
+            document_name, truck.truckNo, expiry_date, days_until_expiry
+        )
+        
+        success, result = notification_service.send_whatsapp_message(phone, message)
+        
+        if success:
+            return Response({
+                "message": "Notification sent successfully",
+                "truck_no": truck.truckNo,
+                "document_type": document_type,
+                "message_sid": result
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": f"Failed to send notification: {result}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
     except Exception as e:
+        logger.error(f"Error in send_document_reminder_notification: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+def send_emi_reminder_notification(request, truck_id, emi_id):
+    """Manual trigger for EMI reminder notification"""
+    try:
+        truck = get_object_or_404(Truck, id=truck_id)
+        phone = request.data.get("phone")
+        
+        if not phone:
+            return Response({"error": "Phone number is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find the specific EMI
+        emi_data = None
+        for emi in truck.emi:
+            if str(emi.get('id')) == str(emi_id):
+                emi_data = emi
+                break
+        
+        if not emi_data:
+            return Response({"error": "EMI not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Find next due payment
+        upcoming_payments = emi_data.get('upcomingPayments', [])
+        next_payment = None
+        
+        for payment in upcoming_payments:
+            if payment.get('status') == 'due':
+                next_payment = payment
+                break
+        
+        if not next_payment:
+            return Response({"error": "No upcoming payments found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Calculate days until due
+        try:
+            due_date = datetime.strptime(next_payment['dueDate'], '%Y-%m-%d').date()
+            current_date = timezone.now().date()
+            days_until_due = (due_date - current_date).days
+        except ValueError:
+            return Response({"error": "Invalid due date format"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        message = notification_service._create_emi_reminder_message(
+            truck.truckNo,
+            next_payment['amount'],
+            next_payment['dueDate'],
+            emi_data.get('financeCompany', 'Finance Company'),
+            days_until_due
+        )
+        
+        success, result = notification_service.send_whatsapp_message(phone, message)
+        
+        if success:
+            return Response({
+                "message": "EMI reminder sent successfully",
+                "truck_no": truck.truckNo,
+                "emi_id": emi_id,
+                "due_date": next_payment['dueDate'],
+                "amount": next_payment['amount'],
+                "message_sid": result
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": f"Failed to send EMI reminder: {result}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except Exception as e:
+        logger.error(f"Error in send_emi_reminder_notification: {str(e)}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def check_all_reminders(request):
+    """Manual trigger to check all reminders"""
+    try:
+        truck_id = request.data.get('truck_id')  # Optional: check specific truck
+        
+        # Check document reminders
+        doc_reminders_sent = notification_service.check_document_expiry_reminders(truck_id)
+        
+        # Check EMI reminders
+        emi_reminders_sent = notification_service.check_emi_payment_reminders(truck_id)
+        
+        return Response({
+            "message": "Reminder check completed",
+            "document_reminders_sent": doc_reminders_sent,
+            "emi_reminders_sent": emi_reminders_sent,
+            "total_reminders": doc_reminders_sent + emi_reminders_sent
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error in check_all_reminders: {str(e)}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+# Scheduled task functions (use with Celery or Django-Cron)
+def scheduled_document_reminder_check():
+    """Function to be called by scheduler for document reminders"""
+    try:
+        count = notification_service.check_document_expiry_reminders()
+        logger.info(f"Scheduled document reminder check completed. {count} reminders sent.")
+        return count
+    except Exception as e:
+        logger.error(f"Error in scheduled document reminder check: {str(e)}")
+        return 0
+
+def scheduled_emi_reminder_check():
+    """Function to be called by scheduler for EMI reminders"""
+    try:
+        count = notification_service.check_emi_payment_reminders()
+        logger.info(f"Scheduled EMI reminder check completed. {count} reminders sent.")
+        return count
+    except Exception as e:
+        logger.error(f"Error in scheduled EMI reminder check: {str(e)}")
+        return 0
 
 @api_view(['GET'])
 def generate_lr_pdf(request, id):
@@ -84,29 +245,43 @@ def generate_lr_pdf(request, id):
     }
     
     # Calculate freight amount
-    freight_amount = float(trip.ratePerUnit) * float(lr.numberOfPackages) if hasattr(trip, 'ratePerUnit') else float(trip.partyFreightAmount)
+    if lr.freightPaidBy == "Consignee":
+        if trip.partyBillingType == "Fixed":
+            freight_amount = float(trip.partyFreightAmount)
+        elif trip.partyBillingType in ["Per Kg", "Per Tonne"]:
+            freight_amount = float(trip.ratePerUnit) * float(lr.weight)
+        else:
+            freight_amount = float(trip.ratePerUnit) * float(lr.numberOfPackages)
+    elif lr.freightPaidBy == "Consigner":
+        freight_amount = 0
     
     # Calculate GST components - each at 6% of freight amount
-    sgst_amount = round(freight_amount * 0.06, 2)
-    cgst_amount = round(freight_amount * 0.06, 2)
+    
     
     # IGST is calculated based on state comparison
     # If source state and destination state are different, IGST applies; otherwise it's 0
     if consigner.state != consignee.state:
-        igst_amount = round(freight_amount * 0.12, 2)  # 12% IGST (combination of SGST + CGST)
+        igst_amount = round(freight_amount * (float(lr.gstPercentage)/100), 2)  # 12% IGST (combination of SGST + CGST)
         sgst_amount = 0
         sgstPercentage = 0
         cgst_amount = 0
         cgstPercentage = 0
-        igstPercentage = 12
+        igstPercentage = float(lr.gstPercentage)
     else:
         igst_amount = 0
         igstPercentage  = 0
-        sgstPercentage = 6
-        cgstPercentage = 6
+        sgstPercentage = float(lr.gstPercentage)/2
+        cgstPercentage = float(lr.gstPercentage)/2
+        sgst_amount = round(freight_amount * (sgstPercentage/100), 2)
+        cgst_amount = round(freight_amount * (cgstPercentage/100), 2)
+
+    
     
     # Calculate total amount
-    total_amount = freight_amount + sgst_amount + cgst_amount + igst_amount
+    if lr.freightPaidBy != "Consigner":
+        total_amount = freight_amount + sgst_amount + cgst_amount + igst_amount
+    else:
+        total_amount = 0
 
     if(trip.endKmsReading != "" and trip.startKmsReading != ""):
         totalDistance = float(trip.startKmsReading) - float(trip.endKmsReading)
@@ -118,12 +293,13 @@ def generate_lr_pdf(request, id):
     else:
         paymentTerms = ""
     
-    if lr.unit == "Tonnes":
-        weight = float(lr.weight) * 1000
-    elif lr.unit == "Quintal":
-        weight = float(lr.weight) * 100
-    else:
-        weight = float(lr.weight)
+    if lr.weight and lr.weight != "":
+        if lr.unit == "Tonnes":
+            weight = float(lr.weight) * 1000
+        elif lr.unit == "Quintal":
+            weight = float(lr.weight) * 100
+        else:
+            weight = float(lr.weight)
     
     if trip.tripEndDate != None:
         endDate = trip.tripEndDate.strftime('%d-%m-%Y')
@@ -142,6 +318,7 @@ def generate_lr_pdf(request, id):
     # Get invoice details from trip routes
     invoice_data = {}
     route = {}
+    goodsInvoiceNumber = 0
     # Check if trip has routes and handle as dictionary
     if hasattr(trip, 'routes') and trip.routes:
         # Find the route with matching LR number
@@ -166,6 +343,7 @@ def generate_lr_pdf(request, id):
         # If we found a matching route with invoice number, fetch the invoice
         if matching_route and 'invoiceNumber' in matching_route and matching_route['invoiceNumber']:
             invoice_number = matching_route['invoiceNumber']
+            goodsInvoiceNumber = matching_route['goodsInvoice']
             try:
                 # Assuming there's an Invoice model
                 invoice = get_object_or_404(Invoice, pk=invoice_number)
@@ -190,11 +368,10 @@ def generate_lr_pdf(request, id):
         "lrDate": lr.lrDate.strftime('%d-%m-%Y'),
         "freightPaidBy": lr.freightPaidBy,
         "materialCategory": lr.materialCategory,
-        "noOfPackages": lr.numberOfPackages,
         "unit": lr.unit,
-        "weight": lr.weight,
         "gstPaidBy": lr.freightPaidBy,  # Assuming GST is paid by the same entity
         "gstPercentage": lr.gstPercentage,
+        "invoice_number": goodsInvoiceNumber,
         
         # Trip information
         "freightAmount": freight_amount,
@@ -206,7 +383,6 @@ def generate_lr_pdf(request, id):
         "endDate": endDate,
         "distance": totalDistance,
         "paymentTerms": paymentTerms,
-        "ratePerUnit": trip.ratePerUnit if hasattr(trip, 'ratePerUnit') else "",
         "partyBillingType": trip.partyBillingType,
 
         # Amount calculations
@@ -224,6 +400,7 @@ def generate_lr_pdf(request, id):
             "address": f"{consigner.addressLine1}, {consigner.addressLine2}",
             "state": consigner.state,
             "mobileNumber": consigner.mobileNumber,
+            "pincode": consigner.pincode,
             "gstNumber": consigner.gstNumber
         },
         
@@ -233,7 +410,8 @@ def generate_lr_pdf(request, id):
             "address": f"{consignee.addressLine1}, {consignee.addressLine2}",
             "state": consignee.state,
             "pincode": consignee.pincode,
-            "mobileNumber": consignee.mobileNumber
+            "mobileNumber": consignee.mobileNumber,
+            "gstNumber": consignee.gstNumber,
         },
         
         # Additional details
@@ -247,7 +425,21 @@ def generate_lr_pdf(request, id):
         "party": partyData,
     }
 
+    if trip.partyBillingType == "Fixed":
+        data["ratePerUnit"] = 0
+    else:
+        data["ratePerUnit"] = trip.ratePerUnit
 
+    if lr.weight and lr.weight != "":
+        data["weight"] = weight
+        data["quantity"] = weight
+    else:
+        data["weight"] = ""
+    if lr.numberOfPackages and lr.numberOfPackages != "":
+        data["noOfPackages"] = lr.numberOfPackages
+        data["quantity"] = lr.numberOfPackages
+    else:
+        data["noOfPackages"] = ""
     
     # Render template and generate PDF
     html_content = render_to_string('lr_template.html', {'data': data})
@@ -281,28 +473,33 @@ def generate_invoice_pdf(request, id):
         "state": party.state,
         "pincode": party.pincode,
     }
+
     
     # Calculate freight amount
-    freight_amount = float(trip.ratePerUnit) * float(lr.numberOfPackages) if hasattr(trip, 'ratePerUnit') else float(trip.partyFreightAmount)
+    if trip.partyBillingType == "Fixed":
+        freight_amount = float(trip.partyFreightAmount)
+    elif trip.partyBillingType in ["Per Kg", "Per Tonne"]:
+        freight_amount = float(trip.ratePerUnit) * float(lr.weight)
+    else:
+        freight_amount = float(trip.ratePerUnit) * float(lr.numberOfPackages)
     
-    # Calculate GST components - each at 6% of freight amount
-    sgst_amount = round(freight_amount * 0.06, 2)
-    cgst_amount = round(freight_amount * 0.06, 2)
     
     # IGST is calculated based on state comparison
     # If source state and destination state are different, IGST applies; otherwise it's 0
     if consigner.state != consignee.state:
-        igst_amount = round(freight_amount * 0.12, 2)  # 12% IGST (combination of SGST + CGST)
+        igst_amount = round(freight_amount * (float(lr.gstPercentage)/100), 2)  # 12% IGST (combination of SGST + CGST)
         sgst_amount = 0
         sgstPercentage = 0
         cgst_amount = 0
         cgstPercentage = 0
-        igstPercentage = 12
+        igstPercentage = float(lr.gstPercentage)
     else:
         igst_amount = 0
         igstPercentage  = 0
-        sgstPercentage = 6
-        cgstPercentage = 6
+        sgstPercentage = float(lr.gstPercentage)/2
+        cgstPercentage = float(lr.gstPercentage)/2
+        sgst_amount = round(freight_amount * (sgstPercentage/100), 2)
+        cgst_amount = round(freight_amount * (cgstPercentage/100), 2)
     
     # Calculate total amount
     total_amount = freight_amount + sgst_amount + cgst_amount + igst_amount
@@ -317,12 +514,13 @@ def generate_invoice_pdf(request, id):
     else:
         paymentTerms = ""
     
-    if lr.unit == "Tonnes":
-        weight = float(lr.weight) * 1000
-    elif lr.unit == "Quintal":
-        weight = float(lr.weight) * 100
-    else:
-        weight = float(lr.weight)
+    if lr.weight and lr.weight != "":
+        if lr.unit == "Tonnes":
+            weight = float(lr.weight) * 1000
+        elif lr.unit == "Quintal":
+            weight = float(lr.weight) * 100
+        else:
+            weight = float(lr.weight)
     
     if trip.tripEndDate != None:
         endDate = trip.tripEndDate.strftime('%d-%m-%Y')
@@ -332,6 +530,7 @@ def generate_invoice_pdf(request, id):
     # Get invoice details from trip routes
     lrData = {}
     route = {}
+    goodsValue = 0
     # Check if trip has routes and handle as dictionary
     if hasattr(trip, 'routes') and trip.routes:
         # Find the route with matching LR number
@@ -356,6 +555,7 @@ def generate_invoice_pdf(request, id):
         # If we found a matching route with invoice number, fetch the invoice
         if matching_route and 'lrNumber' in matching_route and matching_route['lrNumber']:
             lrNumber = matching_route['lrNumber']
+            goodsValue = matching_route['goodsValue']
             try:
                 # Assuming there's an Invoice model
                 lr = get_object_or_404(Invoice, pk=lrNumber)
@@ -380,9 +580,7 @@ def generate_invoice_pdf(request, id):
         "invoiceDate": lr.invoiceDate.strftime('%d-%m-%Y'),
         "freightPaidBy": lr.freightPaidBy,
         "materialCategory": lr.materialCategory,
-        "noOfPackages": lr.numberOfPackages,
         "unit": lr.unit,
-        "weight": lr.weight,
         "gstPaidBy": lr.freightPaidBy,  # Assuming GST is paid by the same entity
         "gstPercentage": lr.gstPercentage,
         
@@ -396,7 +594,6 @@ def generate_invoice_pdf(request, id):
         "endDate": endDate,
         "distance": totalDistance,
         "paymentTerms": paymentTerms,
-        "ratePerUnit": trip.ratePerUnit if hasattr(trip, 'ratePerUnit') else "",
 
         # Amount calculations
         "sgst": sgst_amount,
@@ -406,12 +603,15 @@ def generate_invoice_pdf(request, id):
         "igst": igst_amount,
         "igstPercentage": igstPercentage,
         "totalAmount": total_amount,
+
+        "goodsValue": goodsValue,
         
         # Consigner information
         "consigner": {
             "name": consigner.name,
             "address": f"{consigner.addressLine1}, {consigner.addressLine2}",
             "state": consigner.state,
+            "pincode": consigner.pincode,
             "mobileNumber": consigner.mobileNumber,
             "gstNumber": consigner.gstNumber
         },
@@ -422,7 +622,8 @@ def generate_invoice_pdf(request, id):
             "address": f"{consignee.addressLine1}, {consignee.addressLine2}",
             "state": consignee.state,
             "pincode": consignee.pincode,
-            "mobileNumber": consignee.mobileNumber
+            "mobileNumber": consignee.mobileNumber,
+            "gstNumber": consignee.gstNumber
         },
         
         # Additional details
@@ -434,6 +635,22 @@ def generate_invoice_pdf(request, id):
         "lr": lrData,
         "party": partyData,
     }
+
+    if trip.partyBillingType == "Fixed":
+        data["ratePerUnit"] = 0
+    else:
+        data["ratePerUnit"] = trip.ratePerUnit
+
+    if lr.weight and lr.weight != "":
+        data["weight"] = weight
+        data["quantity"] = weight
+    else:
+        data["weight"] = ""
+    if lr.numberOfPackages and lr.numberOfPackages != "":
+        data["noOfPackages"] = lr.numberOfPackages
+        data["quantity"] = lr.numberOfPackages
+    else:
+        data["noOfPackages"] = ""
 
     #return Response(data)
     
@@ -1701,7 +1918,76 @@ class ConsignerListView(generics.ListAPIView):
             "count": len(response.data),
             "data": response.data
         }, status=status.HTTP_200_OK)
+
+
+# RETRIEVE (Single driver by ID)
+class ConsignerDetailView(generics.RetrieveAPIView):
+    queryset = Consigner.objects.all()
+    serializer_class = ConsignerSerializer
+    lookup_field = 'id'
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response({
+                "status": "success",
+                "message": "Consigner retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Consigner found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
     
+#UPDATE
+class ConsignerUpdateView(generics.UpdateAPIView):
+    queryset = Consigner.objects.all()
+    serializer_class = ConsignerSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": "success",
+                    "message": "Consigner updated successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+            return Response({
+                "status": "error",
+                "message": "Invalid data",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Consigner found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+# DELETE
+class ConsignerDeleteView(generics.DestroyAPIView):
+    queryset = Consigner.objects.all()
+    serializer_class = ConsignerSerializer
+    lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response({
+                "status": "success",
+                "message": "Consigner deleted successfully"
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Consigner found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
 # CREATE
 class ConsgineeCreateView(generics.CreateAPIView):
     #permission_classes = [IsAuthenticated]
@@ -1811,7 +2097,76 @@ class ConsigneeListView(generics.ListAPIView):
             "count": len(response.data),
             "data": response.data
         }, status=status.HTTP_200_OK)
+
+# RETRIEVE (Single driver by ID)
+class ConsigneeDetailView(generics.RetrieveAPIView):
+    queryset = Consignee.objects.all()
+    serializer_class = ConsigneeSerializer
+    lookup_field = 'id'
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response({
+                "status": "success",
+                "message": "Consignee retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Consignee found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
     
+#UPDATE
+class ConsigneeUpdateView(generics.UpdateAPIView):
+    queryset = Consignee.objects.all()
+    serializer_class = ConsigneeSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": "success",
+                    "message": "Consignee updated successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+            return Response({
+                "status": "error",
+                "message": "Invalid data",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Consignee found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+# DELETE
+class ConsigneeDeleteView(generics.DestroyAPIView):
+    queryset = Consignee.objects.all()
+    serializer_class = ConsigneeSerializer
+    lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response({
+                "status": "success",
+                "message": "Consignee deleted successfully"
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Consignee found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+
 # CREATE
 class LRCreateView(generics.CreateAPIView):
     #permission_classes = [IsAuthenticated]
@@ -2130,4 +2485,363 @@ class InvoiceDeleteView(generics.DestroyAPIView):
             return Response({
                 "status": "error",
                 "message": "No Invoice found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+# CREATE
+class LocationCreateView(generics.CreateAPIView):
+    #permission_classes = [IsAuthenticated]
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            instance = serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Locaiton created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Invalid data",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+#LIST (Paginated)
+class LocationListView(generics.ListAPIView):
+
+    queryset = Location.objects.all().order_by('locationName')
+    serializer_class = LocationSerializer
+    #pagination_class = CustomPagination
+
+    def get_queryset(self):
+        queryset = Location.objects.all().order_by('locationName')
+        
+        # Get filters from query params
+        search_query = self.request.query_params.get('search', '')
+        filters_json = self.request.query_params.get('filters', '[]')
+        sorting_json = self.request.query_params.get("sorting", "{}")
+
+        # if search_query:
+        #     queryset = queryset.filter(
+        #         Q(supplierName__icontains=search_query) |  # Example: Search in truck number
+        #         Q(mobileNumber__icontains=search_query)  # Example: Search in truck type
+        #     )
+
+        try:
+            # Parse JSON string into Python list
+            filters = json.loads(filters_json)
+
+            if filters:
+                main_query = Q()
+                
+                # Group filters by key
+                grouped_filters = {}
+                for f in filters:
+                    for key, value in f.items():
+                        if key not in grouped_filters:
+                            grouped_filters[key] = []
+                        grouped_filters[key].append(value)
+                
+                # OR filtering within same key
+                for key, values in grouped_filters.items():
+                    key_query = Q()
+                    for value in values:
+                        key_query |= Q(**{key: value})
+                    main_query &= key_query
+
+                queryset = queryset.filter(main_query)
+
+        except json.JSONDecodeError:
+            pass
+
+        try:
+            # Parse sorting
+            sorting = json.loads(sorting_json)
+            sort_key = sorting.get("key")
+            sort_direction = sorting.get("direction", "ascending")
+
+            if sort_key and hasattr(Location, sort_key):
+                if sort_direction == "descending":
+                    sort_key = f"-{sort_key}"
+                queryset = queryset.order_by(sort_key)
+
+        except json.JSONDecodeError:
+            pass
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+
+        # total_items = self.paginator.page.paginator.count  # Get total items
+        # page_size = self.paginator.get_page_size(request)  # Get current page size
+        # total_pages = (total_items + page_size - 1) // page_size 
+
+        if isinstance(response.data, dict):  # Pagination applied
+            return Response({
+                "status": "success",
+                "message": "Location retrieved successfully",
+                "count": response.data.get("count", len(response.data.get("results", []))),
+               # "total_pages": total_pages,
+                #"next": response.data.get("next"),
+                #"previous": response.data.get("previous"),
+                "data": response.data.get("results", [])
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "status": "success",
+            "message": "Location retrieved successfully",
+            "count": len(response.data),
+            "data": response.data
+        }, status=status.HTTP_200_OK)
+    
+# RETRIEVE (Single driver by ID)
+class LocationDetailView(generics.RetrieveAPIView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    lookup_field = 'id'
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response({
+                "status": "success",
+                "message": "Location retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Location found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+#UPDATE
+class LocationUpdateView(generics.UpdateAPIView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": "success",
+                    "message": "Location updated successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+            return Response({
+                "status": "error",
+                "message": "Invalid data",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Location found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+# DELETE
+class LocationDeleteView(generics.DestroyAPIView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response({
+                "status": "success",
+                "message": "Location deleted successfully"
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Location found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+
+# CREATE
+class MaterialCreateView(generics.CreateAPIView):
+    #permission_classes = [IsAuthenticated]
+    queryset = Material.objects.all()
+    serializer_class = MaterialSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            instance = serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Material created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Invalid data",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+#LIST (Paginated)
+class MaterialListView(generics.ListAPIView):
+
+    queryset = Material.objects.all().order_by('materialName')
+    serializer_class = MaterialSerializer
+    #pagination_class = CustomPagination
+
+    def get_queryset(self):
+        queryset = Material.objects.all().order_by('materialName')
+        
+        # Get filters from query params
+        search_query = self.request.query_params.get('search', '')
+        filters_json = self.request.query_params.get('filters', '[]')
+        sorting_json = self.request.query_params.get("sorting", "{}")
+
+        # if search_query:
+        #     queryset = queryset.filter(
+        #         Q(supplierName__icontains=search_query) |  # Example: Search in truck number
+        #         Q(mobileNumber__icontains=search_query)  # Example: Search in truck type
+        #     )
+
+        try:
+            # Parse JSON string into Python list
+            filters = json.loads(filters_json)
+
+            if filters:
+                main_query = Q()
+                
+                # Group filters by key
+                grouped_filters = {}
+                for f in filters:
+                    for key, value in f.items():
+                        if key not in grouped_filters:
+                            grouped_filters[key] = []
+                        grouped_filters[key].append(value)
+                
+                # OR filtering within same key
+                for key, values in grouped_filters.items():
+                    key_query = Q()
+                    for value in values:
+                        key_query |= Q(**{key: value})
+                    main_query &= key_query
+
+                queryset = queryset.filter(main_query)
+
+        except json.JSONDecodeError:
+            pass
+
+        try:
+            # Parse sorting
+            sorting = json.loads(sorting_json)
+            sort_key = sorting.get("key")
+            sort_direction = sorting.get("direction", "ascending")
+
+            if sort_key and hasattr(Material, sort_key):
+                if sort_direction == "descending":
+                    sort_key = f"-{sort_key}"
+                queryset = queryset.order_by(sort_key)
+
+        except json.JSONDecodeError:
+            pass
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+
+        # total_items = self.paginator.page.paginator.count  # Get total items
+        # page_size = self.paginator.get_page_size(request)  # Get current page size
+        # total_pages = (total_items + page_size - 1) // page_size 
+
+        if isinstance(response.data, dict):  # Pagination applied
+            return Response({
+                "status": "success",
+                "message": "Material retrieved successfully",
+                "count": response.data.get("count", len(response.data.get("results", []))),
+               # "total_pages": total_pages,
+                #"next": response.data.get("next"),
+                #"previous": response.data.get("previous"),
+                "data": response.data.get("results", [])
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "status": "success",
+            "message": "Material retrieved successfully",
+            "count": len(response.data),
+            "data": response.data
+        }, status=status.HTTP_200_OK)
+    
+# RETRIEVE (Single driver by ID)
+class MaterialDetailView(generics.RetrieveAPIView):
+    queryset = Material.objects.all()
+    serializer_class = MaterialSerializer
+    lookup_field = 'id'
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response({
+                "status": "success",
+                "message": "Material retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Material found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+#UPDATE
+class MaterialUpdateView(generics.UpdateAPIView):
+    queryset = Material.objects.all()
+    serializer_class = MaterialSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "status": "success",
+                    "message": "Material updated successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+            return Response({
+                "status": "error",
+                "message": "Invalid data",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Material found with the given ID"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+# DELETE
+class MaterialDeleteView(generics.DestroyAPIView):
+    queryset = Material.objects.all()
+    serializer_class = MaterialSerializer
+    lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response({
+                "status": "success",
+                "message": "Material deleted successfully"
+            }, status=status.HTTP_200_OK)
+        except:
+            return Response({
+                "status": "error",
+                "message": "No Material found with the given ID"
             }, status=status.HTTP_404_NOT_FOUND)

@@ -214,7 +214,7 @@
             <div class="company-details">Phone : +91-86808 75727 / E-mail : info@fastist.in</div>
             <div class="company-details">CIN:U63000TZ2016OPC028216 / PAN:AACCF9515A</div>
             <div class="company-details">UDYAM NO: UDYAM-TN-03-0018098</div>
-            <div class="company-details">GSTIN:33AACCF9515A1Z4</div>
+            <div class="company-details">GSTIN:{{ data.consigner.gstNumber }}</div>
         </div>
 
         <!-- Customer and Invoice Details -->
@@ -222,11 +222,11 @@
             <tr>
                 <td style="width: 40%;" rowspan="2">
                     <div class="small-title">Customer Details</div>
-                    {{ data.party.partyName }}<br>
-                    {{ data.party.address }}<br>
-                    {{ data.party.state }}<br>
-                    {{ data.party.pincode }}<br>
-                    GSTIN: {{ data.party.gstNumber }}
+                    {{ data.consigner.name }}<br>
+                    {{ data.consigner.address }}<br>
+                    {{ data.consigner.state }}<br>
+                    {{ data.consigner.pincode }}<br>
+                    GSTIN: {{ data.consigner.gstNumber }}
                 </td>
                 <td style="width: 30%;">
                     <div class="small-title">Invoice No.</div>
@@ -311,10 +311,20 @@
                 <th style="width: 15%;">Amount</th>
             </tr>
             <tr>
-                <td class="centered">{{ data.hsn_code }}</td>
-                <td>{{ data.materialCategory }}</td>
-                <td class="centered">{{ data.noOfPackages }}</td>
-                <td class="right-aligned">{{ data.ratePerUnit|indian_currency }}</td>
+                <td class="centered">9965</td>
+                <td>{% if data.gstPercentage != "0" %}
+                        Goods Transport Services
+                      {% else %}
+                        Goods Transport Services exempted
+                      {% endif %}</td>
+                <td class="centered">{{ data.quantity }}</td>
+                <td class="right-aligned">
+                    {% if data.ratePerUnit != "0" %}
+                        {{ data.ratePerUnit|indian_currency }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td class="right-aligned">{{ data.freightAmount|indian_currency }}</td>
             </tr>
             <!-- Empty rows for additional items -->
@@ -429,7 +439,11 @@
                 <td>{{ data.materialCategory}}</td>
                 <td>{{ data.weight }}</td>
                 <td>&nbsp;</td>
-                <td>{{ data.freightAmount|indian_currency }}</td>
+                <td>{% if data.goodsValue != 0 %}
+                        {{ data.goodsValue|indian_currency }}
+                      {% else %}
+                        -
+                      {% endif %}</td>
             </tr>
         </table>
 
@@ -444,9 +458,14 @@
                 </td>
                 <td width="30%" class="signature-block">
                     <div>for <strong>Fastist Logistic Solutions</strong></div>
-                    <img src="{{ signature_path }}" alt="Signature" class="signature-image">
+                    <div>&nbsp;</div>
+                    <div>&nbsp;</div>
+                    <div>&nbsp;</div>
+                    <div>&nbsp;</div>
+                    <div>&nbsp;</div>
+                    <!-- <img src="{{ signature_path }}" alt="Signature" class="signature-image">
                     <div class="signature-name">Gowtham Balasubramaniam</div>
-                    <div class="signature-title">Digitally signed by Gowtham Balasubramaniam<br>Date: {{ invoice.invoice_date }}<br>Reason: I am approving this document</div>
+                    <div class="signature-title">Digitally signed by Gowtham Balasubramaniam<br>Date: {{ invoice.invoice_date }}<br>Reason: I am approving this document</div> -->
                 </td>
             </tr>
         </table>

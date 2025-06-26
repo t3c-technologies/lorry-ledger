@@ -9,7 +9,7 @@ import {
   View,
   X,
 } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   notifyError,
   notifyInfo,
@@ -91,6 +91,8 @@ export default function TripsDetail({ trip, onBack }) {
     units: "",
     lrNumber: "",
     invoiceNumber: "",
+    goodsInvoice: "",
+    goodsValue: "",
   });
   const [routeIndex, setRouteIndex] = useState(-1);
 
@@ -144,6 +146,7 @@ export default function TripsDetail({ trip, onBack }) {
   const [currentInvoice, setCurrentInvoice] = useState("");
   const [nextLrNumber, setNextLrNumber] = useState("LRN-001");
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("1");
+  const [materialList, setMaterialList] = useState([]);
 
   const [advances, setAdvances] = useState(trip.advances);
   const [charges, setCharges] = useState(trip.charges);
@@ -159,6 +162,15 @@ export default function TripsDetail({ trip, onBack }) {
   const [selectedItemIndex, setSelectedItemIndex] = useState(-1);
   const [selectedType, setSelectedType] = useState("");
 
+  //LR Popup
+  const [showLRPdfPopup, setShowLRPdfPopup] = useState(false);
+  const [currentLRPdfUrl, setCurrentLRPdfUrl] = useState("");
+  const [currentLRId, setCurrentLRId] = useState(null);
+
+  //Invoice Popup
+  const [showInvoicePdfPopup, setShowInvoicePdfPopup] = useState(false);
+  const [currentInvoicePdfUrl, setCurrentInvoicePdfUrl] = useState("");
+
   // Form data state
   const [formData, setFormData] = useState({
     lrDate: new Date().toISOString().split("T")[0],
@@ -167,11 +179,12 @@ export default function TripsDetail({ trip, onBack }) {
     consignee_id: "",
     materialCategory: "",
     weight: "",
-    unit: "Tonnes",
+    unit: "Kg",
     numberOfPackages: "",
     freightPaidBy: "Consigner",
     gstPercentage: "",
     trip_id: trip.id,
+    routeIndex: "-1",
   });
 
   const [formDataInvoice, setFormDataInvoice] = useState({
@@ -181,26 +194,28 @@ export default function TripsDetail({ trip, onBack }) {
     consignee_id: "",
     materialCategory: "",
     weight: "",
-    unit: "Tonnes",
+    unit: "Kg",
     numberOfPackages: "",
     freightPaidBy: "Consigner",
     gstPercentage: "",
     trip_id: trip.id,
+    routeIndex: "-1",
   });
 
   const resetAddInvoice = () => {
-    setFormData({
+    setFormDataInvoice({
       invoiceDate: new Date().toISOString().split("T")[0],
       invoiceNumber: "",
       consigner_id: "",
       consignee_id: "",
       materialCategory: "",
       weight: "",
-      unit: "Tonnes",
+      unit: "Kg",
       numberOfPackages: "",
       freightPaidBy: "Consigner",
       gstPercentage: "",
       trip_id: trip.id,
+      routeIndex: "-1",
     });
   };
 
@@ -229,11 +244,12 @@ export default function TripsDetail({ trip, onBack }) {
       consignee_id: "",
       materialCategory: "",
       weight: "",
-      unit: "Tonnes",
+      unit: "Kg",
       numberOfPackages: "",
       freightPaidBy: "Consigner",
       gstPercentage: "",
       trip_id: trip.id,
+      routeIndex: "-1",
     });
   };
 
@@ -280,6 +296,283 @@ export default function TripsDetail({ trip, onBack }) {
     receivedByDriver: false,
     notes: "",
   });
+
+  const SelectWithSearch = ({
+    name,
+    value,
+    onChange,
+    options = [],
+    className,
+    required,
+    placeholder = "Select an option",
+    displayKey = null, // Key to display from object (e.g., 'locationName', 'name')
+    valueKey = "id", // Key to use as value (default: 'id')
+    allowAdd = false, // Whether to show "Add new" option
+    onAddNew = null, // Function to call when adding new item
+    addNewText = "Add new", // Text to show for add new option
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isFocused, setIsFocused] = useState(false);
+    const dropdownRef = useRef(null);
+    const inputRef = useRef(null);
+
+    // Helper function to get display text from option
+    const getDisplayText = (option) => {
+      if (typeof option === "string") return option;
+      return displayKey ? option[displayKey] : option.toString();
+    };
+
+    // Helper function to get value from option
+    const getValue = (option) => {
+      if (typeof option === "string") return option;
+      return option[valueKey];
+    };
+
+    // Find selected option object
+    const selectedOption = options.find((option) => getValue(option) === value);
+    const selectedDisplayText = selectedOption
+      ? getDisplayText(selectedOption)
+      : "";
+
+    // Filter options based on search term
+    const filteredOptions = options.filter((option) =>
+      getDisplayText(option).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Check if search term exactly matches any existing option
+    const exactMatch = filteredOptions.some(
+      (option) =>
+        getDisplayText(option).toLowerCase() === searchTerm.toLowerCase()
+    );
+
+    // Show "Add new" option if allowAdd is true, searchTerm is not empty, and no exact match
+    const showAddNew =
+      allowAdd && searchTerm.trim() !== "" && !exactMatch && onAddNew;
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+      function handleClickOutside(event) {
+        if (
+          dropdownRef.current &&
+          !dropdownRef.current.contains(event.target)
+        ) {
+          setIsOpen(false);
+          setIsFocused(false);
+          // Reset search term if no valid selection was made
+          if (!value || !selectedOption) {
+            setSearchTerm("");
+          }
+        }
+      }
+
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }, [value, selectedOption]);
+
+    // Handle input focus
+    const handleFocus = () => {
+      setIsFocused(true);
+      setIsOpen(true);
+      setSearchTerm("");
+    };
+
+    // Handle input change (typing)
+    const handleInputChange = (e) => {
+      const inputValue = e.target.value;
+      setSearchTerm(inputValue);
+      setIsOpen(true);
+
+      // Clear the selected value when typing
+      if (value && inputValue !== selectedDisplayText) {
+        onChange({ target: { name, value: "" } });
+      }
+    };
+
+    // Handle selection of an option
+    const handleSelect = (option) => {
+      const optionValue = getValue(option);
+      onChange({ target: { name, value: optionValue } });
+      setSearchTerm("");
+      setIsOpen(false);
+      setIsFocused(false);
+      inputRef.current?.blur();
+    };
+
+    // Handle add new item
+    const handleAddNew = async () => {
+      if (onAddNew && searchTerm.trim()) {
+        try {
+          // Call the provided add new function with search term
+          await onAddNew(searchTerm.trim());
+          setSearchTerm("");
+          setIsOpen(false);
+          setIsFocused(false);
+          inputRef.current?.blur();
+        } catch (error) {
+          console.error("Error adding new item:", error);
+          // You might want to show an error message to the user here
+        }
+      }
+    };
+
+    // Handle input blur
+    const handleBlur = () => {
+      // Small delay to allow for option selection
+      setTimeout(() => {
+        if (!dropdownRef.current?.contains(document.activeElement)) {
+          setIsFocused(false);
+          setIsOpen(false);
+          // Reset search term if no valid selection
+          if (!value || !selectedOption) {
+            setSearchTerm("");
+          }
+        }
+      }, 150);
+    };
+
+    // Handle keyboard navigation
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setIsOpen(true);
+      } else if (e.key === "Escape") {
+        setIsOpen(false);
+        setIsFocused(false);
+        inputRef.current?.blur();
+      }
+    };
+
+    // Display value: show selected value or search term when focused
+    const displayValue = isFocused ? searchTerm : selectedDisplayText || "";
+    const showPlaceholder = !isFocused && !value;
+
+    return (
+      <div className="relative" ref={dropdownRef}>
+        {/* Main input field */}
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            name={name}
+            value={displayValue}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder={showPlaceholder ? placeholder : ""}
+            className={`${className} pr-10`}
+            autoComplete="off"
+            required={required}
+          />
+
+          {/* Dropdown arrow */}
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+            <svg
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                isOpen ? "rotate-180" : ""
+              }`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Dropdown content */}
+        {isOpen && (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            {filteredOptions.length > 0 ? (
+              <>
+                {filteredOptions.map((option, index) => {
+                  const optionValue = getValue(option);
+                  const displayText = getDisplayText(option);
+                  return (
+                    <div
+                      key={`${optionValue}-${index}`}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 text-black border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${
+                        value === optionValue
+                          ? "bg-blue-50 text-blue-700 font-medium"
+                          : ""
+                      }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Prevent input blur
+                        handleSelect(option);
+                      }}
+                    >
+                      {displayText}
+                    </div>
+                  );
+                })}
+                {showAddNew && (
+                  <div
+                    className="px-4 py-3 cursor-pointer hover:bg-green-50 text-green-700 border-t border-gray-200 transition-colors duration-150 flex items-center"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent input blur
+                      handleAddNew();
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    {addNewText} "{searchTerm}"
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {showAddNew ? (
+                  <div
+                    className="px-4 py-3 cursor-pointer hover:bg-green-50 text-green-700 transition-colors duration-150 flex items-center"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent input blur
+                      handleAddNew();
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    {addNewText} "{searchTerm}"
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 text-gray-500 text-center">
+                    No results found
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Format date function
   const formatDate = (dateString) => {
@@ -557,16 +850,82 @@ export default function TripsDetail({ trip, onBack }) {
 
   //Print LR
   // Add this function to handle the print button click
-  const handlePrintClick = (lrId) => {
-    // Open the PDF in a new window/tab
+  const handlePrintClick = async (lrId) => {
     const url = process.env.NEXT_PUBLIC_API_URL;
-    window.open(`${url}/lr/pdf/${lrId}/`, "_blank");
+    try {
+      const response = await fetch(`${url}/lr/pdf/${lrId}/`);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setCurrentLRPdfUrl(blobUrl);
+      setShowLRPdfPopup(true);
+    } catch (error) {
+      console.error("Error fetching LR PDF:", error);
+    }
   };
 
-  const handlePrintClickInvoice = (invoiceId) => {
+  const handleDownloadPdf = async () => {
+    if (!currentLRPdfUrl) return;
+
+    try {
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement("a");
+      link.href = currentLRPdfUrl;
+      link.download = `LR_${currentLR.lrNumber || "document"}.pdf`; // Use LR ID in filename
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setCurrentLR(null);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+    }
+  };
+  const closeLRPdfPopup = () => {
+    if (currentLRPdfUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(currentLRPdfUrl);
+    }
+    setShowLRPdfPopup(false);
+    setCurrentLRPdfUrl("");
+  };
+  const handlePrintClickInvoice = async (invoiceId) => {
     // Open the PDF in a new window/tab
+    // const url = process.env.NEXT_PUBLIC_API_URL;
+    // window.open(`${url}/invoices/pdf/${invoiceId}/`, "_blank");
+
     const url = process.env.NEXT_PUBLIC_API_URL;
-    window.open(`${url}/invoices/pdf/${invoiceId}/`, "_blank");
+    try {
+      const response = await fetch(`${url}/invoices/pdf/${invoiceId}/`);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setCurrentInvoicePdfUrl(blobUrl);
+      setShowInvoicePdfPopup(true);
+    } catch (error) {
+      console.error("Error fetching Invoice PDF:", error);
+    }
+  };
+
+  const handleDownloadInvoicePdf = async () => {
+    if (!currentInvoicePdfUrl) return;
+
+    try {
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement("a");
+      link.href = currentInvoicePdfUrl;
+      link.download = `Invoice_${
+        currentInvoice.invoiceNumber || "document"
+      }.pdf`; // Use LR ID in filename
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+    }
+  };
+  const closeInvoicePdfPopup = () => {
+    if (currentInvoicePdfUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(currentInvoicePdfUrl);
+    }
+    setShowInvoicePdfPopup(false);
+    setCurrentInvoicePdfUrl("");
   };
 
   // Also add this function to your component
@@ -1518,23 +1877,25 @@ export default function TripsDetail({ trip, onBack }) {
       notifyError("Error fetching consignees");
     }
   };
-  const handleAddInvoiceClick = (route) => {
+
+  const getMaterials = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.materials.list);
+      setMaterialList(response.data);
+      console.log(response.data);
+    } catch (error) {
+      notifyError("Error fetching drivers");
+    }
+  };
+  const handleAddInvoiceClick = async (route, formData = null) => {
     if (route.lrNumber != "") {
-      const lr = LRList.find((lr) => lr.id == route.lrNumber);
-      console.log(lr);
-      setFormDataInvoice((prevFormData) => ({
-        ...prevFormData,
-        freightPaidBy: lr.freightPaidBy,
-        materialCategory: lr.materialCategory,
-        unit: lr.unit,
-        weight: lr.weight,
-        gstPercentage: lr.gstPercentage,
-      }));
+      console.log(formData);
       setCurrentInvoiceFormSection(0);
+      await submitInvoice(formData);
     } else {
       setCurrentInvoiceFormSection(3);
+      setIsAddInvoiceModalOpen(true);
     }
-    setIsAddInvoiceModalOpen(true); // Reset to first section when opening
   };
 
   const handleAddLRClick = () => {
@@ -1584,6 +1945,7 @@ export default function TripsDetail({ trip, onBack }) {
     getTransactions();
     getConsigners();
     getConsignees();
+    getMaterials();
     getLR();
     getLRAll();
     getInvoices();
@@ -1828,11 +2190,11 @@ export default function TripsDetail({ trip, onBack }) {
     }
   };
 
-  const submitInvoice = async () => {
+  const submitInvoice = async (formData) => {
     try {
       const response = await api.post(
         API_ENDPOINTS.invoices.create,
-        formDataInvoice,
+        formData || formDataInvoice,
         {
           headers: {
             "Content-Type": "application/json", // Explicitly set header
@@ -1846,7 +2208,8 @@ export default function TripsDetail({ trip, onBack }) {
       getInvoices();
       getInvoicesAll();
       const updatedRoutes = [...routesList];
-      updatedRoutes[routeIndex].invoiceNumber = response.data.id;
+      updatedRoutes[formData.routeIndex || routeIndex].invoiceNumber =
+        response.data.id;
       setRoutesList(updatedRoutes);
       const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
       console.log(tripToUpdate);
@@ -1860,11 +2223,14 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setRouteIndex(-1);
       notifySuccess("Invoice Created Successfully");
     } catch (error) {
       notifyError("Error creating Invoice");
+      console.log(error);
     }
     // Reset form
     // console.log(formData);
@@ -1900,6 +2266,8 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setRouteIndex(-1);
       notifySuccess("LR Created Successfully");
@@ -2012,6 +2380,8 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setIsAddRouteModalOpen(false);
     } catch (error) {
@@ -2031,6 +2401,8 @@ export default function TripsDetail({ trip, onBack }) {
     updatedRoutes[routeIndex].consigner = newRoute.consigner;
     updatedRoutes[routeIndex].consignee = newRoute.consignee;
     updatedRoutes[routeIndex].units = newRoute.units;
+    updatedRoutes[routeIndex].goodsInvoice = newRoute.goodsInvoice;
+    updatedRoutes[routeIndex].goodsValue = newRoute.goodsValue;
     console.log(updatedRoutes);
     setRoutesList(updatedRoutes);
     const tripToUpdate = { ...updatedTrip, routes: updatedRoutes };
@@ -2044,6 +2416,8 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setRouteIndex(-1);
       setIsEditRouteModalOpen(false);
@@ -2075,6 +2449,8 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setRouteIndex(-1);
       setIsDeleteRouteConfirmOpen(false);
@@ -2098,6 +2474,7 @@ export default function TripsDetail({ trip, onBack }) {
       gstPercentage: invoice.gstPercentage,
       consignee_id: invoice.consignee.id,
       consigner_id: invoice.consigner.id,
+      routeIndex: invoice.routeIndex,
     });
     setSelectedConsignee(invoice.consignee.id);
     setSelectedConsigner(invoice.consigner.id);
@@ -2121,6 +2498,7 @@ export default function TripsDetail({ trip, onBack }) {
       gstPercentage: LR.gstPercentage,
       consignee_id: LR.consignee.id,
       consigner_id: LR.consigner.id,
+      routeIndex: LR.routeIndex,
     });
     setSelectedConsignee(LR.consignee.id);
     setSelectedConsigner(LR.consigner.id);
@@ -2166,6 +2544,8 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setIsDeleteInvoiceConfirmOpen(false);
       setRouteIndex(-1);
@@ -2199,6 +2579,8 @@ export default function TripsDetail({ trip, onBack }) {
         units: "",
         lrNumber: "",
         invoiceNumber: "",
+        goodsInvoice: "",
+        goodsValue: "",
       });
       setRouteIndex(-1);
       getLR();
@@ -2278,6 +2660,41 @@ export default function TripsDetail({ trip, onBack }) {
   const AddInvoiceToggle = () => {
     setIsInvoiceListModalOpen(true);
     console.log(isInvoiceListModalOpen);
+  };
+
+  //Materials
+  const addMaterial = async (materialName) => {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.materials.create,
+        JSON.stringify(
+          { materialName },
+          {
+            headers: {
+              "Content-Type": "application/json", // Explicitly set header
+            },
+          }
+        )
+      );
+      if (isAddLRModalOpen) {
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          materialCategory: materialName,
+        }));
+      } else {
+        setFormDataInvoice((prevFormData) => ({
+          ...prevFormData,
+          materialCategory: materialName,
+        }));
+      }
+      getMaterials();
+      // You might want to update your locations list here
+      // setLocationOptions(prev => [...prev, newLocation]);
+      console.log("New material added:", materialName);
+    } catch (error) {
+      console.error("Error adding material:", error);
+      throw error;
+    }
   };
 
   const AddLRToggle = () => {
@@ -2804,7 +3221,7 @@ export default function TripsDetail({ trip, onBack }) {
         <label className="block text-sm font-medium mb-1 text-black">
           Material Category*
         </label>
-        <div className="relative">
+        {/* <div className="relative">
           <select
             value={formData.materialCategory}
             onChange={(e) =>
@@ -2821,7 +3238,22 @@ export default function TripsDetail({ trip, onBack }) {
             size={16}
             className="absolute right-3 top-3 text-black"
           />
-        </div>
+        </div> */}
+        <SelectWithSearch
+          name="materialCategory"
+          value={formData.materialCategory}
+          onChange={(e) =>
+            handleInputChange("materialCategory", e.target.value)
+          }
+          options={materialList}
+          displayKey="materialName"
+          valueKey="materialName"
+          allowAdd={true}
+          onAddNew={addMaterial}
+          addNewText="Add new material"
+          className={`w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
+          placeholder="Select Material..."
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -2834,7 +3266,16 @@ export default function TripsDetail({ trip, onBack }) {
             placeholder="Eg: 5"
             value={formData.weight}
             onChange={(e) => handleInputChange("weight", e.target.value)}
-            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+            disabled={
+              trip.partyBillingType !== "Per Kg" &&
+              trip.partyBillingType !== "Per Tonne"
+            }
+            className={`${
+              trip.partyBillingType !== "Per Kg" &&
+              trip.partyBillingType !== "Per Tonne"
+                ? "disabled"
+                : ""
+            } w-full border border-gray-300 text-black rounded px-3 py-2`}
           />
         </div>
 
@@ -2846,7 +3287,16 @@ export default function TripsDetail({ trip, onBack }) {
             <select
               value={formData.unit}
               onChange={(e) => handleInputChange("unit", e.target.value)}
-              className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+              disabled={
+                trip.partyBillingType !== "Per Kg" &&
+                trip.partyBillingType !== "Per Tonne"
+              }
+              className={`${
+                trip.partyBillingType !== "Per Kg" &&
+                trip.partyBillingType !== "Per Tonne"
+                  ? "disabled"
+                  : ""
+              } w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
             >
               <option value="Tonnes">Tonnes</option>
               <option value="Kg">Kg</option>
@@ -2868,10 +3318,19 @@ export default function TripsDetail({ trip, onBack }) {
           type="text"
           placeholder="Eg: 5"
           value={formData.numberOfPackages}
+          disabled={
+            trip.partyBillingType === "Per Kg" ||
+            trip.partyBillingType === "Per Tonne"
+          }
           onChange={(e) =>
             handleInputChange("numberOfPackages", e.target.value)
           }
-          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          className={`${
+            trip.partyBillingType === "Per Kg" ||
+            trip.partyBillingType === "Per Tonne"
+              ? "disabled"
+              : ""
+          } w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
         />
       </div>
 
@@ -3658,7 +4117,7 @@ export default function TripsDetail({ trip, onBack }) {
         <label className="block text-sm font-medium mb-1 text-black">
           Material Category*
         </label>
-        <div className="relative">
+        {/* <div className="relative">
           <select
             value={formDataInvoice.materialCategory}
             onChange={(e) =>
@@ -3675,7 +4134,22 @@ export default function TripsDetail({ trip, onBack }) {
             size={16}
             className="absolute right-3 top-3 text-black"
           />
-        </div>
+        </div> */}
+        <SelectWithSearch
+          name="materialCategory"
+          value={formDataInvoice.materialCategory}
+          onChange={(e) =>
+            handleInputChangeInvoice("materialCategory", e.target.value)
+          }
+          options={materialList}
+          displayKey="materialName"
+          valueKey="materialName"
+          allowAdd={true}
+          onAddNew={addMaterial}
+          addNewText="Add new material"
+          className={`w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
+          placeholder="Select Material..."
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -3683,12 +4157,28 @@ export default function TripsDetail({ trip, onBack }) {
           <label className="block text-sm font-medium mb-1 text-black">
             Weight
           </label>
-          <input
+          {/* <input
             type="text"
             placeholder="Eg: 5"
             value={formDataInvoice.weight}
             onChange={(e) => handleInputChangeInvoice("weight", e.target.value)}
             className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          /> */}
+          <input
+            type="text"
+            placeholder="Eg: 5"
+            value={formDataInvoice.weight}
+            onChange={(e) => handleInputChangeInvoice("weight", e.target.value)}
+            disabled={
+              trip.partyBillingType !== "Per Kg" &&
+              trip.partyBillingType !== "Per Tonne"
+            }
+            className={`${
+              trip.partyBillingType !== "Per Kg" &&
+              trip.partyBillingType !== "Per Tonne"
+                ? "disabled"
+                : ""
+            } w-full border border-gray-300 text-black rounded px-3 py-2`}
           />
         </div>
 
@@ -3700,7 +4190,16 @@ export default function TripsDetail({ trip, onBack }) {
             <select
               value={formDataInvoice.unit}
               onChange={(e) => handleInputChangeInvoice("unit", e.target.value)}
-              className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+              disabled={
+                trip.partyBillingType !== "Per Kg" &&
+                trip.partyBillingType !== "Per Tonne"
+              }
+              className={`${
+                trip.partyBillingType !== "Per Kg" &&
+                trip.partyBillingType !== "Per Tonne"
+                  ? "disabled"
+                  : ""
+              } w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
             >
               <option value="Tonnes">Tonnes</option>
               <option value="Kg">Kg</option>
@@ -3725,7 +4224,16 @@ export default function TripsDetail({ trip, onBack }) {
           onChange={(e) =>
             handleInputChangeInvoice("numberOfPackages", e.target.value)
           }
-          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          disabled={
+            trip.partyBillingType === "Per Kg" ||
+            trip.partyBillingType === "Per Tonne"
+          }
+          className={`${
+            trip.partyBillingType === "Per Kg" ||
+            trip.partyBillingType === "Per Tonne"
+              ? "disabled"
+              : ""
+          } w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
         />
       </div>
 
@@ -4405,6 +4913,8 @@ export default function TripsDetail({ trip, onBack }) {
                 units: "",
                 lrNumber: "",
                 invoiceNumber: "",
+                goodsInvoice: "",
+                goodsValue: "",
               });
               setRouteIndex(-1);
               setIsAddLRModalOpen(false);
@@ -4489,6 +4999,8 @@ export default function TripsDetail({ trip, onBack }) {
                 units: "",
                 lrNumber: "",
                 invoiceNumber: "",
+                goodsInvoice: "",
+                goodsValue: "",
               });
               setRouteIndex(-1);
               setIsEditLRModalOpen(false);
@@ -4650,6 +5162,8 @@ export default function TripsDetail({ trip, onBack }) {
                 units: "",
                 lrNumber: "",
                 invoiceNumber: "",
+                goodsInvoice: "",
+                goodsValue: "",
               });
               setRouteIndex(-1);
               setIsAddInvoiceModalOpen(false);
@@ -4734,6 +5248,8 @@ export default function TripsDetail({ trip, onBack }) {
                 units: "",
                 lrNumber: "",
                 invoiceNumber: "",
+                goodsInvoice: "",
+                goodsValue: "",
               });
               setRouteIndex(-1);
               setIsEditInvoiceModalOpen(false);
@@ -4930,9 +5446,30 @@ export default function TripsDetail({ trip, onBack }) {
                 </div>
                 <div className="col-span-1 bg-gray-50 p-4 rounded">
                   <p className="text-gray-500">From</p>
-                  <p>{trip.origin} - 15 Apr 2025</p>
+                  <p>
+                    {trip.origin} -{" "}
+                    {new Date(trip.startDate).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
                   <p className="text-gray-500 mt-2">To</p>
-                  <p>{trip.destination} - 18 Apr 2025</p>
+                  <p>
+                    {trip.destination} -{" "}
+                    {updatedTrip.tripEndDate
+                      ? new Date(updatedTrip.tripEndDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )
+                      : ""}
+                  </p>
                 </div>
                 <div className="col-span-1 bg-gray-50 p-4 rounded">
                   <p className="text-gray-500">Start KMs Reading</p>
@@ -5230,7 +5767,9 @@ export default function TripsDetail({ trip, onBack }) {
                     return sum + routeUnits;
                   }, 0);
 
-                  const isIncomplete = totalUnits != trip.noOfUnits;
+                  const isIncomplete =
+                    trip.partyBillingType !== "Fixed" &&
+                    totalUnits != trip.noOfUnits;
 
                   return (
                     <button
@@ -7028,6 +7567,28 @@ export default function TripsDetail({ trip, onBack }) {
                           {getSortDirectionIcon("consignee.name")}
                         </div>
                       </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("consignee.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Goods Invoice
+                          </span>
+                          {getSortDirectionIcon("consignee.name")}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-3 text-left cursor-pointer"
+                        //onClick={() => requestSort("consignee.name")}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                            Goods Value
+                          </span>
+                          {getSortDirectionIcon("consignee.name")}
+                        </div>
+                      </th>
                       <th className="px-6 py-3 text-right">
                         <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                           Actions
@@ -7072,15 +7633,27 @@ export default function TripsDetail({ trip, onBack }) {
                             {route.units}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {route.goodsInvoice || "-"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-base text-gray-900">
+                            {route.goodsValue || "-"}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
                             {route.invoiceNumber ? (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleRowClickInvoice(
+                                  handlePrintClickInvoice(route.invoiceNumber);
+                                  setCurrentInvoice(
                                     invoiceList.find(
-                                      (LR) => LR.id === route.invoiceNumber
+                                      (invoice) =>
+                                        invoice.id == route.invoiceNumber
                                     )
                                   );
                                 }}
@@ -7096,22 +7669,86 @@ export default function TripsDetail({ trip, onBack }) {
                                   setRouteIndex(index);
                                   setSelectedConsigner(route.consigner);
                                   setSelectedConsignee(route.consignee);
-                                  setFormDataInvoice({
-                                    invoiceDate: new Date()
-                                      .toISOString()
-                                      .split("T")[0],
-                                    invoiceNumber: nextInvoiceNumber,
-                                    consigner_id: route.consigner,
-                                    consignee_id: route.consignee,
-                                    materialCategory: "",
-                                    weight: "",
-                                    unit: "Tonnes",
-                                    numberOfPackages: route.units,
-                                    freightPaidBy: "Consigner",
-                                    gstPercentage: "",
-                                    trip_id: trip.id,
-                                  });
-                                  handleAddInvoiceClick(route);
+
+                                  // Create the form data object
+                                  let newFormData;
+                                  if (trip.partyBillingType === "Per Kg") {
+                                    newFormData = {
+                                      invoiceDate: new Date()
+                                        .toISOString()
+                                        .split("T")[0],
+                                      invoiceNumber: nextInvoiceNumber,
+                                      consigner_id: route.consigner,
+                                      consignee_id: route.consignee,
+                                      materialCategory: "",
+                                      weight: route.units,
+                                      unit: "Kg",
+                                      numberOfPackages: "",
+                                      freightPaidBy: "Consigner",
+                                      gstPercentage: "",
+                                      trip_id: trip.id,
+                                      routeIndex: String(index),
+                                    };
+                                  } else if (
+                                    trip.partyBillingType === "Per Tonne"
+                                  ) {
+                                    newFormData = {
+                                      invoiceDate: new Date()
+                                        .toISOString()
+                                        .split("T")[0],
+                                      invoiceNumber: nextInvoiceNumber,
+                                      consigner_id: route.consigner,
+                                      consignee_id: route.consignee,
+                                      materialCategory: "",
+                                      weight: route.units,
+                                      unit: "Tonnes",
+                                      numberOfPackages: "",
+                                      freightPaidBy: "Consigner",
+                                      gstPercentage: "",
+                                      trip_id: trip.id,
+                                      routeIndex: String(index),
+                                    };
+                                  } else {
+                                    newFormData = {
+                                      invoiceDate: new Date()
+                                        .toISOString()
+                                        .split("T")[0],
+                                      invoiceNumber: nextInvoiceNumber,
+                                      consigner_id: route.consigner,
+                                      consignee_id: route.consignee,
+                                      materialCategory: "",
+                                      weight: "",
+                                      unit: "Kg",
+                                      numberOfPackages: route.units,
+                                      freightPaidBy: "Consigner",
+                                      gstPercentage: "",
+                                      trip_id: trip.id,
+                                      routeIndex: String(index),
+                                    };
+                                  }
+
+                                  // Update with LR data if available
+                                  if (route.lrNumber != "") {
+                                    const lr = LRList.find(
+                                      (lr) => lr.id == route.lrNumber
+                                    );
+                                    if (lr) {
+                                      newFormData = {
+                                        ...newFormData,
+                                        freightPaidBy: lr.freightPaidBy,
+                                        materialCategory: lr.materialCategory,
+                                        unit: lr.unit,
+                                        weight: lr.weight,
+                                        gstPercentage: lr.gstPercentage,
+                                      };
+                                    }
+                                  }
+
+                                  // Set the state for UI purposes
+                                  setFormDataInvoice(newFormData);
+
+                                  // Pass the data directly to the handler
+                                  handleAddInvoiceClick(route, newFormData);
                                 }}
                                 className="border border-blue-600 text-blue-600 px-4 py-1 rounded hover:bg-blue-600 hover:text-white transition text-sm"
                               >
@@ -7123,10 +7760,9 @@ export default function TripsDetail({ trip, onBack }) {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleRowClick(
-                                    LRList.find(
-                                      (LR) => LR.id === route.lrNumber
-                                    )
+                                  handlePrintClick(route.lrNumber);
+                                  setCurrentLR(
+                                    LRList.find((lr) => lr.id == route.lrNumber)
                                   );
                                 }}
                                 className="border border-indigo-600 text-indigo-600 px-4 py-1 rounded hover:bg-indigo-600 hover:text-white transition text-sm"
@@ -7141,21 +7777,60 @@ export default function TripsDetail({ trip, onBack }) {
                                   setRouteIndex(index);
                                   setSelectedConsigner(route.consigner);
                                   setSelectedConsignee(route.consignee);
-                                  setFormData({
-                                    lrDate: new Date()
-                                      .toISOString()
-                                      .split("T")[0],
-                                    lrNumber: nextLrNumber,
-                                    consigner_id: route.consigner,
-                                    consignee_id: route.consignee,
-                                    materialCategory: "",
-                                    weight: "",
-                                    unit: "Tonnes",
-                                    numberOfPackages: route.units,
-                                    freightPaidBy: "Consigner",
-                                    gstPercentage: "",
-                                    trip_id: trip.id,
-                                  });
+                                  if (trip.partyBillingType === "Per Kg") {
+                                    setFormData({
+                                      lrDate: new Date()
+                                        .toISOString()
+                                        .split("T")[0],
+                                      lrNumber: nextLrNumber,
+                                      consigner_id: route.consigner,
+                                      consignee_id: route.consignee,
+                                      materialCategory: "",
+                                      weight: route.units,
+                                      unit: "Kg",
+                                      numberOfPackages: "",
+                                      freightPaidBy: "Consigner",
+                                      gstPercentage: "",
+                                      trip_id: trip.id,
+                                      routeIndex: String(index),
+                                    });
+                                  } else if (
+                                    trip.partyBillingType === "Per Tonne"
+                                  ) {
+                                    setFormData({
+                                      lrDate: new Date()
+                                        .toISOString()
+                                        .split("T")[0],
+                                      lrNumber: nextLrNumber,
+                                      consigner_id: route.consigner,
+                                      consignee_id: route.consignee,
+                                      materialCategory: "",
+                                      weight: route.units,
+                                      unit: "Tonnes",
+                                      numberOfPackages: "",
+                                      freightPaidBy: "Consigner",
+                                      gstPercentage: "",
+                                      trip_id: trip.id,
+                                      routeIndex: String(index),
+                                    });
+                                  } else {
+                                    setFormData({
+                                      lrDate: new Date()
+                                        .toISOString()
+                                        .split("T")[0],
+                                      lrNumber: nextLrNumber,
+                                      consigner_id: route.consigner,
+                                      consignee_id: route.consignee,
+                                      materialCategory: "",
+                                      weight: "",
+                                      unit: "Kg",
+                                      numberOfPackages: route.units,
+                                      freightPaidBy: "Consigner",
+                                      gstPercentage: "",
+                                      trip_id: trip.id,
+                                      routeIndex: String(index),
+                                    });
+                                  }
                                   handleAddLRClick();
                                 }}
                                 className="border border-green-600 text-green-600 px-4 py-1 rounded hover:bg-green-600 hover:text-white transition text-sm"
@@ -7506,7 +8181,7 @@ export default function TripsDetail({ trip, onBack }) {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
                             {/* New Print Button */}
-                            <button
+                            {/* <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handlePrintClick(LR.id);
@@ -7528,7 +8203,7 @@ export default function TripsDetail({ trip, onBack }) {
                                   d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
                                 />
                               </svg>
-                            </button>
+                            </button> */}
 
                             {/* <button
                               onClick={(e) => {
@@ -7543,7 +8218,8 @@ export default function TripsDetail({ trip, onBack }) {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRowClick(LR);
+                                handlePrintClick(LR.id);
+                                setCurrentLR(LR);
                               }}
                               className="text-primary hover:text-blue-700 transition-colors"
                               title="View LR"
@@ -7939,7 +8615,7 @@ export default function TripsDetail({ trip, onBack }) {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
                             {/* New Print Button */}
-                            <button
+                            {/* <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handlePrintClickInvoice(LR.id);
@@ -7971,12 +8647,13 @@ export default function TripsDetail({ trip, onBack }) {
                               className="text-blue-600 hover:text-blue-800 transition-colors"
                               title="Print LR"
                             >
-                              {/* SVG icon */}
-                            </button>
+                              {/* SVG icon 
+                            </button> */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRowClickInvoice(LR);
+                                handlePrintClickInvoice(LR.id);
+                                setCurrentInvoice(LR);
                               }}
                               className="text-primary hover:text-blue-700 transition-colors"
                               title="View LR"
@@ -9072,6 +9749,72 @@ export default function TripsDetail({ trip, onBack }) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {showLRPdfPopup && (
+        <div className="text-black fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 max-w-4xl max-h-[90vh] w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">PDF Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadPdf}
+                  className="bg-blue-500 hover:bg-blue-600 text-white mx-3 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => closeLRPdfPopup()}
+                  className="text-gray-500 hover:text-gray-700 text-xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="h-[70vh] overflow-auto">
+              <embed
+                src={`${currentLRPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                width="100%"
+                height="100%"
+                type="application/pdf"
+                title="PDF Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInvoicePdfPopup && (
+        <div className="text-black fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 max-w-4xl max-h-[90vh] w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">PDF Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadInvoicePdf}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 mx-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => closeInvoicePdfPopup()}
+                  className="text-gray-500 hover:text-gray-700 text-xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="h-[70vh] overflow-auto">
+              <embed
+                src={`${currentInvoicePdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                width="100%"
+                height="100%"
+                type="application/pdf"
+                title="PDF Preview"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -10456,7 +11199,7 @@ export default function TripsDetail({ trip, onBack }) {
                   </label>
                   <input
                     type="text"
-                    value={trip.partyFreightAmount}
+                    value={calculateBalance()}
                     readOnly
                     className="border rounded py-2 px-3 w-full"
                     placeholder="Amount"
@@ -10602,6 +11345,8 @@ export default function TripsDetail({ trip, onBack }) {
                     units: "",
                     lrNumber: "",
                     invoiceNumber: "",
+                    goodsInvoice: "",
+                    goodsValue: "",
                   });
                 }}
                 className="text-gray-400 hover:text-gray-500"
@@ -10747,6 +11492,32 @@ export default function TripsDetail({ trip, onBack }) {
                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Goods Invoice
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoute.goodsInvoice}
+                    name="goodsInvoice"
+                    onChange={handleNewRouteChange}
+                    placeholder="Enter number of units"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Goods Value
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoute.goodsValue}
+                    name="goodsValue"
+                    onChange={handleNewRouteChange}
+                    placeholder="Enter number of units"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 mt-8">
@@ -10760,6 +11531,8 @@ export default function TripsDetail({ trip, onBack }) {
                       units: "",
                       lrNumber: "",
                       invoiceNumber: "",
+                      goodsInvoice: "",
+                      goodsValue: "",
                     });
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
@@ -10794,6 +11567,8 @@ export default function TripsDetail({ trip, onBack }) {
                     units: "",
                     lrNumber: "",
                     invoiceNumber: "",
+                    goodsInvoice: "",
+                    goodsValue: "",
                   });
                   setRouteIndex(-1);
                 }}
@@ -10940,6 +11715,32 @@ export default function TripsDetail({ trip, onBack }) {
                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Goods Invoice
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoute.goodsInvoice}
+                    name="goodsInvoice"
+                    onChange={handleNewRouteChange}
+                    placeholder="Enter Goods Invoice No."
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Goods Value
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoute.goodsValue}
+                    name="goodsValue"
+                    onChange={handleNewRouteChange}
+                    placeholder="Enter value of goods"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 mt-8">
@@ -10953,6 +11754,8 @@ export default function TripsDetail({ trip, onBack }) {
                       units: "",
                       lrNumber: "",
                       invoiceNumber: "",
+                      goodsInvoice: "",
+                      goodsValue: "",
                     });
                     setRouteIndex(-1);
                   }}
@@ -11227,6 +12030,8 @@ export default function TripsDetail({ trip, onBack }) {
                     units: "",
                     lrNumber: "",
                     invoiceNumber: "",
+                    goodsInvoice: "",
+                    goodsValue: "",
                   });
                   setRouteIndex(-1);
                 }}
@@ -11273,6 +12078,8 @@ export default function TripsDetail({ trip, onBack }) {
                     units: "",
                     lrNumber: "",
                     invoiceNumber: "",
+                    goodsInvoice: "",
+                    goodsValue: "",
                   });
                   setRouteIndex(-1);
                 }}

@@ -51,8 +51,14 @@ from .views import (
     TripDeleteView,
     ConsginerCreateView,
     ConsignerListView,
+    ConsignerDetailView,
+    ConsignerUpdateView,
+    ConsignerDeleteView,
     ConsgineeCreateView,
     ConsigneeListView,
+    ConsigneeDetailView,
+    ConsigneeUpdateView,
+    ConsigneeDeleteView,
     LRCreateView,
     LRListView,
     LRUpdateView,
@@ -60,7 +66,17 @@ from .views import (
     InvoiceCreateView,
     InvoiceListView,
     InvoiceUpdateView,
-    InvoiceDeleteView
+    InvoiceDeleteView,
+    LocationCreateView,
+    LocationListView,
+    LocationDetailView,
+    LocationUpdateView,
+    LocationDeleteView,
+    MaterialCreateView,
+    MaterialListView,
+    MaterialDetailView,
+    MaterialUpdateView,
+    MaterialDeleteView
 )
 
 urlpatterns = [
@@ -93,12 +109,25 @@ urlpatterns = [
     path('api/trucks/<int:truck_id>/documents/<str:document_type>/',
          views.get_truck_document_info, name='truck-document-info'),
     path('api/trucks/<int:truck_id>/documents/<str:document_type>/notify/', views.send_document_reminder_notification, name="truck-document-notify"),
+    # New EMI reminder URL
+    path('api/trucks/<int:truck_id>/emi/<int:emi_id>/notify/', 
+         views.send_emi_reminder_notification, 
+         name="truck-emi-notify"),
+    
+    # Check all reminders (manual trigger)
+    path('api/reminders/check/', 
+         views.check_all_reminders, 
+         name="check-all-reminders"),
 
     #Expenses
     path('api/trucks/<int:truckId>/expenses', ExpenseListView.as_view(), name='expense_list'),
     path('api/trucks/<int:truckId>/expenses/create', ExpenseCreateView.as_view(), name='expense_create'),
     path('api/trucks/expenses/<int:id>/update', ExpenseUpdateView.as_view(), name='expense_update'),
     path('api/trucks/expenses/<int:id>/delete', ExpenseDeleteView.as_view(), name='expense_delete'),
+
+    #Location
+    path('api/locations/', LocationListView.as_view(), name='location_list'),
+    path('api/locations/create/', LocationCreateView.as_view(), name='location_create'),
 
     #Parties
     path('api/parties/', PartyListView.as_view(), name='party_list'),
@@ -121,10 +150,14 @@ urlpatterns = [
     #Consigner
     path('api/consigners/', ConsignerListView.as_view(), name='consigner_list'),
     path('api/consigners/create/', ConsginerCreateView.as_view(), name='consigner_create'),
+    path('api/consigners/<int:id>/update/', ConsignerUpdateView.as_view(), name='consigner_update'),
+    path('api/consigners/<int:id>/delete/', ConsignerDeleteView.as_view(), name='consigner_delete'),
 
     #Consignee
     path('api/consignees/', ConsigneeListView.as_view(), name='consignee_list'),
     path('api/consignees/create/', ConsgineeCreateView.as_view(), name='consignee_create'),
+    path('api/consignees/<int:id>/update/', ConsigneeUpdateView.as_view(), name='consignee_update'),
+    path('api/consignees/<int:id>/delete/', ConsigneeDeleteView.as_view(), name='consignee_delete'),
 
     #LR
     path('api/LR/', LRListView.as_view(), name='lr_list'),
@@ -134,6 +167,10 @@ urlpatterns = [
     path('api/LR/<int:id>/delete/', LRDeleteView.as_view(), name='lr_delete'),
     #Print LR
     path('api/lr/pdf/<int:id>/', views.generate_lr_pdf, name='generate_lr_pdf'),
+
+    #Material
+    path('api/materials/', MaterialListView.as_view(), name='material_list'),
+    path('api/materials/create/', MaterialCreateView.as_view(), name='material_create'),
 
     #Invoice
     path('api/invoices/', InvoiceListView.as_view(), name='invoice_list'),

@@ -1,7 +1,7 @@
 # drivers/serializers.py
 
 from rest_framework import serializers
-from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip, Consigner, Consignee, LR, Invoice
+from .models import Driver, Transactions, Truck, Expense, Party, Supplier, Trip, Consigner, Consignee, LR, Invoice, Location, Material
 
 class DriverSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()
@@ -289,7 +289,7 @@ class LRSerializer(serializers.ModelSerializer):
     class Meta:
         model = LR
         fields = [
-            'id', 'freightPaidBy', 'gstPercentage', 'lrDate', 'lrNumber', 'materialCategory', 'numberOfPackages', 'unit', 'weight', 'consigner', 'consignee', 'trip', 'consigner_id', 'consignee_id', 'trip_id'
+            'id', 'freightPaidBy', 'gstPercentage', 'lrDate', 'lrNumber', 'materialCategory', 'numberOfPackages', 'unit', 'weight', 'routeIndex', 'consigner', 'consignee', 'trip', 'consigner_id', 'consignee_id', 'trip_id'
         ]
         read_only_fields = ['id']
 
@@ -320,6 +320,18 @@ class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = [
-            'id', 'freightPaidBy', 'gstPercentage', 'invoiceDate', 'invoiceNumber', 'materialCategory', 'numberOfPackages', 'unit', 'weight', 'consigner', 'consignee', 'trip', 'consigner_id', 'consignee_id', 'trip_id'
+            'id', 'freightPaidBy', 'gstPercentage', 'invoiceDate', 'invoiceNumber', 'materialCategory', 'numberOfPackages', 'unit', 'weight', 'routeIndex', 'consigner', 'consignee', 'trip', 'consigner_id', 'consignee_id', 'trip_id'
         ]
+        read_only_fields = ['id']
+
+class LocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = ['id', 'locationName']
+        read_only_fields = ['id']
+
+class MaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Material
+        fields = ['id', 'materialName']
         read_only_fields = ['id']

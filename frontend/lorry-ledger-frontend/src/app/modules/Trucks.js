@@ -707,7 +707,7 @@ Policy No: ${selectedDocument.policyNo || "Not provided"}`;
         const updatedDocuments = { ...documents };
         delete updatedDocuments[documentKey];
         setDocuments(updatedDocuments);
-        //console.log(updatedDocuments);
+        console.log(updatedDocuments);
 
         const updatedDriverData = {
           ...selectedDriver,
@@ -726,14 +726,17 @@ Policy No: ${selectedDocument.policyNo || "Not provided"}`;
           console.log("Document deleted successfully");
           // toast.success(`${documentName} deleted successfully!`);
         }
+
+        fetchDrivers();
+        getSortedAndFilteredDrivers();
       } catch (error) {
         console.error("Error deleting document:", error);
 
         // Rollback on error
-        setDocuments((prev) => ({
-          ...prev,
-          [documentKey]: originalDocument,
-        }));
+        // setDocuments((prev) => ({
+        //   ...prev,
+        //   [documentKey]: originalDocument,
+        // }));
 
         // toast.error('Failed to delete document. Please try again.');
       }

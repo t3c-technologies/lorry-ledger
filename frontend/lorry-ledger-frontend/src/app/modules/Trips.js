@@ -38,6 +38,8 @@ export default function Trips({ onSelectTrip }) {
       units: "",
       lrNumber: "",
       invoiceNumber: "",
+      goodsInvoice: "",
+      goodsValue: "",
     },
   ]);
   const [validationErrors, setValidationErrors] = useState({});
@@ -126,6 +128,7 @@ export default function Trips({ onSelectTrip }) {
   const [partyList, setPartyList] = useState([]);
   const [truckList, setTruckList] = useState([]);
   const [driverList, setDriverList] = useState([]);
+  const [locationList, setLocationList] = useState([]);
 
   const [showDriverNameFilterDropdown, setShowDriverNameFilterDropdown] =
     useState(false);
@@ -146,6 +149,96 @@ export default function Trips({ onSelectTrip }) {
     driver_id: "",
   });
 
+  //Party
+  const [isAddPartyModalOpen, setIsAddPartyModalOpen] = useState(false);
+  const [partyErrors, setPartyErrors] = useState({
+    partyName: "",
+    openingBalance: "",
+    openingBalanceDate: "",
+    mobileNumber: "",
+  });
+  const [newParty, setNewParty] = useState({
+    partyName: "",
+    openingBalance: "",
+    openingBalanceDate: new Date().toISOString().split("T")[0],
+    mobileNumber: "",
+    gstNumber: "",
+    pan: "",
+    companyName: "",
+    address: "",
+    state: "",
+    pincode: "",
+  });
+
+  const resetNewPartyForm = () => {
+    setNewParty({
+      partyName: "",
+      openingBalance: "",
+      openingBalanceDate: new Date().toISOString().split("T")[0],
+      mobileNumber: "",
+      gstNumber: "",
+      pan: "",
+      companyName: "",
+      address: "",
+      state: "",
+      pincode: "",
+    });
+  };
+
+  //Truck
+  const [isAddTruckModalOpen, setIsAddTruckModalOpen] = useState(false);
+  const [truckErrors, setTruckErrors] = useState({
+    truckNo: "",
+  });
+  const [newTruck, setNewTruck] = useState({
+    truckNo: "",
+    truckType: "",
+    ownership: "",
+    truckStatus: "available",
+  });
+
+  const resetNewTruckForm = () => {
+    setNewTruck({
+      truckNo: "",
+      truckType: "",
+      ownership: "",
+      truckStatus: "available",
+    });
+  };
+
+  //Driver
+  const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
+  const [newFormDriver, setNewFormDriver] = useState({
+    name: "",
+    phone_number: "",
+    status: "available",
+    aadhar_number: "",
+    license_number: "",
+    license_expiry_date: new Date().toISOString().split("T")[0],
+    photo: null, // important
+    documents: null, // important
+  });
+
+  const resetNewFormDriverForm = () => {
+    setNewFormDriver({
+      name: "",
+      phone_number: "",
+      status: "available",
+      aadhar_number: "",
+      license_number: "",
+      license_expiry_date: new Date().toISOString().split("T")[0],
+      photo: null,
+      documents: null,
+    });
+  };
+  const [driverErrors, setDriverErrors] = useState({
+    name: "",
+    phone: "",
+    aadhar: "",
+    license: "",
+    license_expiry: "",
+  });
+
   const resetNewDriverForm = () => {
     setNewDriver({
       origin: "",
@@ -164,10 +257,15 @@ export default function Trips({ onSelectTrip }) {
     name,
     value,
     onChange,
-    options,
+    options = [],
     className,
     required,
     placeholder = "Select an option",
+    displayKey = null, // Key to display from object (e.g., 'locationName', 'name')
+    valueKey = "id", // Key to use as value (default: 'id')
+    allowAdd = false, // Whether to show "Add new" option
+    onAddNew = null, // Function to call when adding new item
+    addNewText = "Add new", // Text to show for add new option
   }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -175,10 +273,38 @@ export default function Trips({ onSelectTrip }) {
     const dropdownRef = useRef(null);
     const inputRef = useRef(null);
 
+    // Helper function to get display text from option
+    const getDisplayText = (option) => {
+      if (typeof option === "string") return option;
+      return displayKey ? option[displayKey] : option.toString();
+    };
+
+    // Helper function to get value from option
+    const getValue = (option) => {
+      if (typeof option === "string") return option;
+      return option[valueKey];
+    };
+
+    // Find selected option object
+    const selectedOption = options.find((option) => getValue(option) === value);
+    const selectedDisplayText = selectedOption
+      ? getDisplayText(selectedOption)
+      : "";
+
     // Filter options based on search term
     const filteredOptions = options.filter((option) =>
-      option.toLowerCase().includes(searchTerm.toLowerCase())
+      getDisplayText(option).toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Check if search term exactly matches any existing option
+    const exactMatch = filteredOptions.some(
+      (option) =>
+        getDisplayText(option).toLowerCase() === searchTerm.toLowerCase()
+    );
+
+    // Show "Add new" option if allowAdd is true, searchTerm is not empty, and no exact match
+    const showAddNew =
+      allowAdd && searchTerm.trim() !== "" && !exactMatch && onAddNew;
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -190,7 +316,7 @@ export default function Trips({ onSelectTrip }) {
           setIsOpen(false);
           setIsFocused(false);
           // Reset search term if no valid selection was made
-          if (!value || !options.includes(value)) {
+          if (!value || !selectedOption) {
             setSearchTerm("");
           }
         }
@@ -200,7 +326,7 @@ export default function Trips({ onSelectTrip }) {
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
       };
-    }, [value, options]);
+    }, [value, selectedOption]);
 
     // Handle input focus
     const handleFocus = () => {
@@ -216,18 +342,36 @@ export default function Trips({ onSelectTrip }) {
       setIsOpen(true);
 
       // Clear the selected value when typing
-      if (value && inputValue !== value) {
+      if (value && inputValue !== selectedDisplayText) {
         onChange({ target: { name, value: "" } });
       }
     };
 
     // Handle selection of an option
     const handleSelect = (option) => {
-      onChange({ target: { name, value: option } });
+      const optionValue = getValue(option);
+      onChange({ target: { name, value: optionValue } });
       setSearchTerm("");
       setIsOpen(false);
       setIsFocused(false);
       inputRef.current?.blur();
+    };
+
+    // Handle add new item
+    const handleAddNew = async () => {
+      if (onAddNew && searchTerm.trim()) {
+        try {
+          // Call the provided add new function with search term
+          await onAddNew(searchTerm.trim());
+          setSearchTerm("");
+          setIsOpen(false);
+          setIsFocused(false);
+          inputRef.current?.blur();
+        } catch (error) {
+          console.error("Error adding new item:", error);
+          // You might want to show an error message to the user here
+        }
+      }
     };
 
     // Handle input blur
@@ -238,7 +382,7 @@ export default function Trips({ onSelectTrip }) {
           setIsFocused(false);
           setIsOpen(false);
           // Reset search term if no valid selection
-          if (!value || !options.includes(value)) {
+          if (!value || !selectedOption) {
             setSearchTerm("");
           }
         }
@@ -258,7 +402,7 @@ export default function Trips({ onSelectTrip }) {
     };
 
     // Display value: show selected value or search term when focused
-    const displayValue = isFocused ? searchTerm : value || "";
+    const displayValue = isFocused ? searchTerm : selectedDisplayText || "";
     const showPlaceholder = !isFocused && !value;
 
     return (
@@ -302,26 +446,83 @@ export default function Trips({ onSelectTrip }) {
         {isOpen && (
           <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
             {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <div
-                  key={option}
-                  className={`px-4 py-3 cursor-pointer hover:bg-gray-50 text-black border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${
-                    value === option
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : ""
-                  }`}
-                  onMouseDown={(e) => {
-                    e.preventDefault(); // Prevent input blur
-                    handleSelect(option);
-                  }}
-                >
-                  {option}
-                </div>
-              ))
+              <>
+                {filteredOptions.map((option, index) => {
+                  const optionValue = getValue(option);
+                  const displayText = getDisplayText(option);
+                  return (
+                    <div
+                      key={`${optionValue}-${index}`}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 text-black border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${
+                        value === optionValue
+                          ? "bg-blue-50 text-blue-700 font-medium"
+                          : ""
+                      }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Prevent input blur
+                        handleSelect(option);
+                      }}
+                    >
+                      {displayText}
+                    </div>
+                  );
+                })}
+                {showAddNew && (
+                  <div
+                    className="px-4 py-3 cursor-pointer hover:bg-green-50 text-green-700 border-t border-gray-200 transition-colors duration-150 flex items-center"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent input blur
+                      handleAddNew();
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    {addNewText} "{searchTerm}"
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="px-4 py-3 text-gray-500 text-center">
-                No results found
-              </div>
+              <>
+                {showAddNew ? (
+                  <div
+                    className="px-4 py-3 cursor-pointer hover:bg-green-50 text-green-700 transition-colors duration-150 flex items-center"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent input blur
+                      handleAddNew();
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    {addNewText} "{searchTerm}"
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 text-gray-500 text-center">
+                    No results found
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -532,6 +733,65 @@ export default function Trips({ onSelectTrip }) {
     }
   };
 
+  const getLocations = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.locations.list);
+      setLocationList(response.data);
+    } catch (error) {
+      notifyError("Error fetching drivers");
+    }
+  };
+
+  const addLocationOrigin = async (locationName) => {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.locations.create,
+        JSON.stringify(
+          { locationName },
+          {
+            headers: {
+              "Content-Type": "application/json", // Explicitly set header
+            },
+          }
+        )
+      );
+      const newLocation = response.data;
+      setLocationList((prev) => [...prev, newLocation]);
+      setNewDriver((prev) => ({ ...prev, origin: newLocation.id }));
+      // You might want to update your locations list here
+      // setLocationOptions(prev => [...prev, newLocation]);
+      console.log("New location added:", newLocation);
+    } catch (error) {
+      console.error("Error adding location:", error);
+      throw error;
+    }
+  };
+
+  const addLocationDestination = async (locationName) => {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.locations.create,
+        JSON.stringify(
+          { locationName },
+          {
+            headers: {
+              "Content-Type": "application/json", // Explicitly set header
+            },
+          }
+        )
+      );
+      const newLocation = response.data;
+      setLocationList((prev) => [...prev, newLocation]);
+      setNewDriver((prev) => ({ ...prev, destination: newLocation.id }));
+      // You might want to update your locations list here
+      // setLocationOptions(prev => [...prev, newLocation]);
+      console.log("New location added:", newLocation);
+    } catch (error) {
+      console.error("Error adding location:", error);
+      throw error;
+    }
+  };
+
   const fetchDrivers = async () => {
     try {
       const response = await api.get(API_ENDPOINTS.trips.list, {
@@ -661,6 +921,7 @@ export default function Trips({ onSelectTrip }) {
       getParties();
       getTrucks();
       getDrivers();
+      getLocations();
     } catch (error) {
       console.log(error);
     }
@@ -1253,14 +1514,6 @@ export default function Trips({ onSelectTrip }) {
     setIsDeleteConfirmOpen(true);
   };
 
-  const validateTruckForm = () => {
-    let valid = true;
-    let newErrors = { truckNo: "" };
-
-    setErrors(newErrors);
-    return valid;
-  };
-
   const handleAddTripFormSubmit = (e) => {
     e.preventDefault(); // Prevent form submission if invalid
 
@@ -1273,6 +1526,293 @@ export default function Trips({ onSelectTrip }) {
     const { name, value } = e.target;
     setNewDriver((prev) => ({ ...prev, [name]: value }));
     console.log(newDriver);
+  };
+
+  //Party
+
+  const handlePartyChange = (e) => {
+    const { name, value } = e.target;
+    setNewParty((prev) => ({ ...prev, [name]: value }));
+    console.log(newParty);
+  };
+
+  const handleAddPartyClick = (partyName) => {
+    resetNewPartyForm();
+    setNewParty((prev) => ({ ...prev, partyName: partyName }));
+    setIsAddPartyModalOpen(true);
+  };
+
+  const handleAddParty = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+    formData.append("partyName", newParty.partyName);
+    formData.append("openingBalance", newParty.openingBalance);
+    formData.append("openingBalanceDate", newParty.openingBalanceDate);
+    formData.append("mobileNumber", newParty.mobileNumber); // Add more fields if needed
+
+    try {
+      const response = await api.post(API_ENDPOINTS.parties.create, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data", // Explicitly set header
+        },
+      });
+      notifySuccess("Party added successfully");
+      getParties();
+      setIsAddPartyModalOpen(false);
+      resetNewPartyForm();
+      setNewDriver((prev) => ({ ...prev, party_id: response.data.id }));
+    } catch (error) {
+      notifyError("Error adding party");
+    }
+  };
+
+  const validatePartyForm = () => {
+    let valid = true;
+    let newErrors = {
+      partyName: "",
+      openingBalance: "",
+      openingBalanceDate: "",
+      mobileNumber: "",
+    };
+
+    // Check if party name is empty
+    if (!newParty.partyName.trim()) {
+      newErrors.partyName = "Party name is required";
+      valid = false;
+    }
+
+    // Check if opening balance is empty
+    if (!newParty.openingBalance.trim()) {
+      newErrors.openingBalance = "Opening balance is required";
+      valid = false;
+    }
+
+    // Check if opening balance date is empty
+    if (!newParty.openingBalanceDate) {
+      newErrors.openingBalanceDate = "Date is required";
+      valid = false;
+    }
+
+    // Check if mobile number is empty
+    if (!newParty.mobileNumber.trim()) {
+      newErrors.mobileNumber = "Mobile number is required";
+      valid = false;
+    }
+
+    if (!/^\d{10}$/.test(newParty.mobileNumber)) {
+      newErrors.mobileNumber = "Mobile number should be exactly 10 digits";
+      valid = false;
+    }
+
+    setPartyErrors(newErrors);
+    return valid;
+  };
+
+  const handleAddPartyFormSubmit = (e) => {
+    e.preventDefault(); // Prevent form submission if invalid
+    if (validatePartyForm()) {
+      handleAddParty(e); // Call parent submit function if valid
+    }
+  };
+
+  //Truck
+  const handleTruckChange = (e) => {
+    const { name, value } = e.target;
+    setNewTruck((prev) => ({ ...prev, [name]: value }));
+    console.log(newDriver);
+  };
+
+  const handleAddTruckClick = (truckNo) => {
+    resetNewTruckForm();
+    setNewTruck((prev) => ({ ...prev, truckNo: truckNo }));
+    setIsAddTruckModalOpen(true);
+  };
+
+  const validateTruckForm = () => {
+    let valid = true;
+    let newErrors = {
+      truckNo: "",
+      truckType: "",
+      ownership: "",
+      truckStatus: "",
+    };
+
+    // Validate truck number
+    if (!newTruck.truckNo) {
+      newErrors.truckNo = "Truck Number is required.";
+      valid = false;
+    } else if (newTruck.truckNo.length !== 10) {
+      newErrors.truckNo = "Truck No must be exactly 10 digits.";
+      valid = false;
+    }
+
+    // Validate truck type
+    if (!newTruck.truckType) {
+      newErrors.truckType = "Please select a Truck Type.";
+      valid = false;
+    }
+
+    // Validate ownership
+    if (!newTruck.ownership) {
+      newErrors.ownership = "Please select an Ownership type.";
+      valid = false;
+    }
+
+    // Validate truck status
+    if (!newTruck.truckStatus) {
+      newErrors.truckStatus = "Please select a Status.";
+      valid = false;
+    }
+
+    setTruckErrors(newErrors);
+    return valid;
+  };
+
+  const handleAddTruckFormSubmit = (e) => {
+    e.preventDefault(); // Prevent form submission if invalid
+    if (validateTruckForm()) {
+      handleAddTruck(e); // Call parent submit function if valid
+    }
+  };
+
+  const handleAddTruck = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+    formData.append("truckNo", newTruck.truckNo);
+    formData.append("truckType", newTruck.truckType);
+    formData.append("ownership", newTruck.ownership);
+    formData.append("truckStatus", newTruck.truckStatus); // Add more fields if needed
+
+    try {
+      const response = await api.post(API_ENDPOINTS.trucks.create, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data", // Explicitly set header
+        },
+      });
+      notifySuccess("Truck added successfully");
+      getTrucks();
+      setIsAddTruckModalOpen(false);
+      setNewDriver((prev) => ({ ...prev, truck_id: response.data.id }));
+      resetNewTruckForm();
+    } catch (error) {
+      notifyError("Error adding truck");
+    }
+  };
+
+  //Drivers
+  const handleFormDriverInputChange = (e) => {
+    const { name, value } = e.target;
+
+    // Allow only numeric input and restrict the length
+    if (name === "aadhar_number" && /^\d{0,12}$/.test(value)) {
+      setDriverErrors((prev) => ({ ...prev, aadhar: "" }));
+      handleFormDriverChange(e);
+    }
+
+    if (name === "phone_number" && /^\d{0,10}$/.test(value)) {
+      setDriverErrors((prev) => ({ ...prev, phone: "" }));
+      handleFormDriverChange(e);
+    }
+  };
+  const handleFormDriverChange = (e) => {
+    const { name, value } = e.target;
+    setNewFormDriver((prev) => ({ ...prev, [name]: value }));
+    console.log(newDriver);
+  };
+  const handleAddDriverClick = (driverName) => {
+    resetNewFormDriverForm();
+    setNewFormDriver((prev) => ({ ...prev, name: driverName }));
+    setIsAddDriverModalOpen(true);
+  };
+
+  const validateDriverForm = () => {
+    let valid = true;
+    let newErrors = {
+      name: "",
+      phone: "",
+      aadhar: "",
+      license: "",
+      license_expiry: "",
+    };
+
+    // Check for empty fields
+    if (!newFormDriver.name.trim()) {
+      newErrors.name = "Driver Name is required.";
+      valid = false;
+    }
+
+    if (!newFormDriver.phone_number.trim()) {
+      newErrors.phone = "Phone Number is required.";
+      valid = false;
+    } else if (!/^\d{10}$/.test(newFormDriver.phone_number)) {
+      newErrors.phone = "Phone Number must be exactly 10 digits.";
+      valid = false;
+    }
+
+    if (!newFormDriver.aadhar_number.trim()) {
+      newErrors.aadhar = "Aadhar Number is required.";
+      valid = false;
+    } else if (!/^\d{12}$/.test(newFormDriver.aadhar_number)) {
+      newErrors.aadhar = "Aadhar Number must be exactly 12 digits.";
+      valid = false;
+    }
+
+    if (!newFormDriver.license_number.trim()) {
+      newErrors.license = "License Number is required.";
+      valid = false;
+    }
+
+    if (!newFormDriver.license_expiry_date) {
+      newErrors.license_expiry = "License Expiry Date is required.";
+      valid = false;
+    }
+
+    setDriverErrors(newErrors);
+    return valid;
+  };
+
+  const handleAddDriverFormSubmit = (e) => {
+    e.preventDefault(); // Prevent form submission if invalid
+    if (validateDriverForm()) {
+      handleAddDriver(e); // Call parent submit function if valid
+    }
+  };
+
+  const handleAddDriver = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+    formData.append("name", newFormDriver.name);
+    formData.append("phone_number", newFormDriver.phone_number);
+    formData.append("status", newFormDriver.status);
+    formData.append("aadhar_number", newFormDriver.aadhar_number); // Add more fields if needed
+    formData.append("license_number", newFormDriver.license_number);
+    formData.append("license_expiry_date", newFormDriver.license_expiry_date);
+
+    // Append files only if they exist
+    if (newFormDriver.photo) {
+      formData.append("photo", newFormDriver.photo);
+    }
+    if (newFormDriver.documents) {
+      formData.append("documents", newFormDriver.documents);
+    }
+
+    try {
+      const response = await api.post(API_ENDPOINTS.drivers.create, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data", // Explicitly set header
+        },
+      });
+      notifySuccess("Driver added successfully");
+      getDrivers();
+      setIsAddDriverModalOpen(false);
+      setNewDriver((prev) => ({ ...prev, driver_id: response.data.id }));
+      resetNewFormDriverForm();
+    } catch (error) {
+      notifyError("Error adding driver");
+    }
   };
 
   const totalAmount = useMemo(() => {
@@ -1424,6 +1964,8 @@ export default function Trips({ onSelectTrip }) {
           units: "",
           lrNumber: "",
           invoiceNumber: "",
+          goodsInvoice: "",
+          goodsValue: "",
         },
       ]);
       setTripType("Single Route");
@@ -1486,7 +2028,7 @@ export default function Trips({ onSelectTrip }) {
   };
   const handleEditTripFormSubmit = async (e, fromViewModal = false) => {
     if (e) e.preventDefault();
-    if (validateTruckForm()) {
+    if (validateForm()) {
       handleEditTrip(e, fromViewModal); // Call parent submit function if valid
     }
   };
@@ -1778,7 +2320,7 @@ export default function Trips({ onSelectTrip }) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-base text-gray-900">
-                        {trip.origin}
+                        {trip.origin}&rarr;{trip.destination}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -2269,6 +2811,8 @@ export default function Trips({ onSelectTrip }) {
                         units: "",
                         lrNumber: "",
                         invoiceNumber: "",
+                        goodsInvoice: "",
+                        goodsValue: "",
                       },
                     ]);
                     setCalculationFields({
@@ -2314,7 +2858,12 @@ export default function Trips({ onSelectTrip }) {
                             name="origin"
                             value={newDriver.origin}
                             onChange={handleDriverChange}
-                            options={originList}
+                            options={locationList}
+                            displayKey="locationName"
+                            valueKey="locationName"
+                            allowAdd={true}
+                            onAddNew={addLocationOrigin}
+                            addNewText="Add new location"
                             className={`appearance-none block w-full px-3 py-2 border ${
                               validationErrors.origin
                                 ? "border-red-500"
@@ -2368,7 +2917,12 @@ export default function Trips({ onSelectTrip }) {
                             name="destination"
                             value={newDriver.destination}
                             onChange={handleDriverChange}
-                            options={originList}
+                            options={locationList}
+                            displayKey="locationName"
+                            valueKey="locationName"
+                            allowAdd={true}
+                            onAddNew={addLocationDestination}
+                            addNewText="Add new location"
                             className={`appearance-none block w-full px-3 py-2 border ${
                               validationErrors.destination
                                 ? "border-red-500"
@@ -2437,6 +2991,8 @@ export default function Trips({ onSelectTrip }) {
                                   units: "",
                                   lrNumber: "",
                                   invoiceNumber: "",
+                                  goodsInvoice: "",
+                                  goodsValue: "",
                                 },
                               ]);
                               setTripType(e.target.value);
@@ -2469,7 +3025,7 @@ export default function Trips({ onSelectTrip }) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Select Party <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <select
                           name="party_id"
                           value={newDriver.party_id}
@@ -2502,7 +3058,24 @@ export default function Trips({ onSelectTrip }) {
                             />
                           </svg>
                         </div>
-                      </div>
+                      </div> */}
+                      <SelectWithSearch
+                        name="party_id"
+                        value={newDriver.party_id}
+                        onChange={handleDriverChange}
+                        options={partyList}
+                        displayKey="partyName"
+                        valueKey="id"
+                        allowAdd={true}
+                        onAddNew={handleAddPartyClick}
+                        addNewText="Add new party"
+                        className={`appearance-none block w-full px-3 py-2 border ${
+                          validationErrors.party_id
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                        placeholder="Select Party..."
+                      />
                       {validationErrors.party_id && (
                         <p className="text-red-500 text-sm mt-1">
                           {validationErrors.party_id}
@@ -2515,7 +3088,7 @@ export default function Trips({ onSelectTrip }) {
                         Truck Registration No.{" "}
                         <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <select
                           name="truck_id"
                           value={newDriver.truck_id}
@@ -2548,7 +3121,24 @@ export default function Trips({ onSelectTrip }) {
                             />
                           </svg>
                         </div>
-                      </div>
+                      </div> */}
+                      <SelectWithSearch
+                        name="truck_id"
+                        value={newDriver.truck_id}
+                        onChange={handleDriverChange}
+                        options={truckList}
+                        displayKey="truckNo"
+                        valueKey="id"
+                        allowAdd={true}
+                        onAddNew={handleAddTruckClick}
+                        addNewText="Add new truck"
+                        className={`appearance-none block w-full px-3 py-2 border ${
+                          validationErrors.truck_id
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                        placeholder="Select Truck..."
+                      />
                       {validationErrors.truck_id && (
                         <p className="text-red-500 text-sm mt-1">
                           {validationErrors.truck_id}
@@ -2559,7 +3149,7 @@ export default function Trips({ onSelectTrip }) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Driver Name <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <select
                           name="driver_id"
                           value={newDriver.driver_id}
@@ -2592,7 +3182,24 @@ export default function Trips({ onSelectTrip }) {
                             />
                           </svg>
                         </div>
-                      </div>
+                      </div> */}
+                      <SelectWithSearch
+                        name="driver_id"
+                        value={newDriver.driver_id}
+                        onChange={handleDriverChange}
+                        options={driverList}
+                        displayKey="name"
+                        valueKey="id"
+                        allowAdd={true}
+                        onAddNew={handleAddDriverClick}
+                        addNewText="Add new driver"
+                        className={`appearance-none block w-full px-3 py-2 border ${
+                          validationErrors.driver_id
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                        placeholder="Select Driver..."
+                      />
                       {validationErrors.driver_id && (
                         <p className="text-red-500 text-sm mt-1">
                           {validationErrors.driver_id}
@@ -2619,6 +3226,8 @@ export default function Trips({ onSelectTrip }) {
                                 units: "",
                                 lrNumber: "",
                                 invoiceNumber: "",
+                                goodsInvoice: "",
+                                goodsValue: "",
                               },
                             ])
                           }
@@ -2800,6 +3409,38 @@ export default function Trips({ onSelectTrip }) {
                             </p>
                           )}
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Goods Invoice
+                          </label>
+                          <input
+                            type="text"
+                            value={routes[0].goodsInvoice || ""}
+                            onChange={(e) => {
+                              const updatedRoutes = [...routes];
+                              updatedRoutes[0].goodsInvoice = e.target.value;
+                              setRoutes(updatedRoutes);
+                            }}
+                            placeholder="Enter Goods Invoice No."
+                            className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Goods Value
+                          </label>
+                          <input
+                            type="text"
+                            value={routes[0].goodsValue || ""}
+                            onChange={(e) => {
+                              const updatedRoutes = [...routes];
+                              updatedRoutes[0].goodsValue = e.target.value;
+                              setRoutes(updatedRoutes);
+                            }}
+                            placeholder="Enter value of goods"
+                            className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -2978,6 +3619,40 @@ export default function Trips({ onSelectTrip }) {
                                   {validationErrors[`route_${index}_consignee`]}
                                 </p>
                               )}
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Goods Invoice
+                              </label>
+                              <input
+                                type="text"
+                                value={route.goodsInvoice || ""}
+                                onChange={(e) => {
+                                  const updatedRoutes = [...routes];
+                                  updatedRoutes[index].goodsInvoice =
+                                    e.target.value;
+                                  setRoutes(updatedRoutes);
+                                }}
+                                placeholder="Enter Goods Invoice No."
+                                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Goods Value
+                              </label>
+                              <input
+                                type="text"
+                                value={route.goodsValue || ""}
+                                onChange={(e) => {
+                                  const updatedRoutes = [...routes];
+                                  updatedRoutes[index].goodsValue =
+                                    e.target.value;
+                                  setRoutes(updatedRoutes);
+                                }}
+                                placeholder="Enter value of goods"
+                                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                              />
                             </div>
 
                             {routes.length > 1 && (
@@ -3305,12 +3980,15 @@ export default function Trips({ onSelectTrip }) {
                         units: "",
                         lrNumber: "",
                         invoiceNumber: "",
+                        goodsInvoice: "",
+                        goodsValue: "",
                       },
                     ]);
                     setCalculationFields({
                       rate: "",
                       units: "",
                     });
+                    setValidationErrors({});
                     setPaymentMode("Fixed");
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50"
@@ -3345,10 +4023,17 @@ export default function Trips({ onSelectTrip }) {
                         units: "",
                         lrNumber: "",
                         invoiceNumber: "",
+                        goodsInvoice: "",
+                        goodsValue: "",
                       },
                     ]);
+                    setCalculationFields({
+                      rate: "",
+                      units: "",
+                    });
                     setisEditTripModalOpen(false);
                     setPaymentMode("Fixed");
+                    setValidationErrors({});
                   }}
                   className="text-gray-400 hover:text-gray-500"
                 >
@@ -3381,17 +4066,38 @@ export default function Trips({ onSelectTrip }) {
                           Origin <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <select
+                          <SelectWithSearch
                             name="origin"
                             value={newDriver.origin}
                             onChange={handleDriverChange}
-                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                            options={locationList}
+                            displayKey="locationName"
+                            valueKey="locationName"
+                            allowAdd={true}
+                            onAddNew={addLocationOrigin}
+                            addNewText="Add new location"
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors.origin
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                            placeholder="Select Origin..."
+                          />
+                          {/* <select
+                            name="origin"
+                            value={newDriver.origin}
+                            onChange={handleDriverChange}
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors.origin
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                           >
-                            <option value={null}>Select Origin...</option>
+                            <option value="">Select Origin...</option>
                             <option value={"Mumbai"}>Mumbai</option>
                             <option value={"Bangalore"}>Bangalore</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                          </select> */}
+                          {/* <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                             <svg
                               className="h-4 w-4"
                               fill="none"
@@ -3405,7 +4111,7 @@ export default function Trips({ onSelectTrip }) {
                                 d="M19 9l-7 7-7-7"
                               />
                             </svg>
-                          </div>
+                          </div> */}
                         </div>
                         {validationErrors.origin && (
                           <p className="text-red-500 text-sm mt-1">
@@ -3419,13 +4125,34 @@ export default function Trips({ onSelectTrip }) {
                           Destination <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <select
+                          <SelectWithSearch
                             name="destination"
                             value={newDriver.destination}
                             onChange={handleDriverChange}
-                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                            options={locationList}
+                            displayKey="locationName"
+                            valueKey="locationName"
+                            allowAdd={true}
+                            onAddNew={addLocationDestination}
+                            addNewText="Add new location"
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors.destination
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                            placeholder="Select Destination..."
+                          />
+                          {/* <select
+                            name="destination"
+                            value={newDriver.destination}
+                            onChange={handleDriverChange}
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors.destination
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                           >
-                            <option value={null}>Select Destination...</option>
+                            <option value="">Select Destination...</option>
                             <option value={"Chennai"}>Chennai</option>
                             <option value={"Delhi"}>Delhi</option>
                           </select>
@@ -3443,8 +4170,13 @@ export default function Trips({ onSelectTrip }) {
                                 d="M19 9l-7 7-7-7"
                               />
                             </svg>
-                          </div>
+                          </div> */}
                         </div>
+                        {validationErrors.destination && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {validationErrors.destination}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3471,6 +4203,8 @@ export default function Trips({ onSelectTrip }) {
                                   units: "",
                                   lrNumber: "",
                                   invoiceNumber: "",
+                                  goodsInvoice: "",
+                                  goodsValue: "",
                                 },
                               ]);
                               setTripType(e.target.value);
@@ -3493,19 +4227,28 @@ export default function Trips({ onSelectTrip }) {
                           </span>
                         </label>
                       </div>
+                      {validationErrors.tripType && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {validationErrors.tripType}
+                        </p>
+                      )}
                     </div>
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Select Party <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <select
                           name="party_id"
                           value={newDriver.party_id}
                           onChange={handleDriverChange}
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            validationErrors.party_id
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                         >
-                          <option value={null}>Select a Party...</option>
+                          <option value="">Select a Party...</option>
                           {partyList.map((party) => (
                             <option key={party.id} value={party.id}>
                               {party.partyName}
@@ -3527,7 +4270,29 @@ export default function Trips({ onSelectTrip }) {
                             />
                           </svg>
                         </div>
-                      </div>
+                      </div> */}
+                      <SelectWithSearch
+                        name="party_id"
+                        value={newDriver.party_id}
+                        onChange={handleDriverChange}
+                        options={partyList}
+                        displayKey="partyName"
+                        valueKey="id"
+                        allowAdd={true}
+                        onAddNew={handleAddPartyClick}
+                        addNewText="Add new party"
+                        className={`appearance-none block w-full px-3 py-2 border ${
+                          validationErrors.party_id
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                        placeholder="Select Party..."
+                      />
+                      {validationErrors.party_id && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {validationErrors.party_id}
+                        </p>
+                      )}
                     </div>
 
                     <div className="mb-4">
@@ -3535,14 +4300,18 @@ export default function Trips({ onSelectTrip }) {
                         Truck Registration No.{" "}
                         <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <select
                           name="truck_id"
                           value={newDriver.truck_id}
                           onChange={handleDriverChange}
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            validationErrors.truck_id
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                         >
-                          <option value={null}>Select a Truck...</option>
+                          <option value="">Select a Truck...</option>
                           {truckList.map((truck) => (
                             <option key={truck.id} value={truck.id}>
                               {truck.truckNo}
@@ -3564,20 +4333,46 @@ export default function Trips({ onSelectTrip }) {
                             />
                           </svg>
                         </div>
-                      </div>
+                      </div> */}
+                      <SelectWithSearch
+                        name="truck_id"
+                        value={newDriver.truck_id}
+                        onChange={handleDriverChange}
+                        options={truckList}
+                        displayKey="truckNo"
+                        valueKey="id"
+                        allowAdd={true}
+                        onAddNew={handleAddTruckClick}
+                        addNewText="Add new truck"
+                        className={`appearance-none block w-full px-3 py-2 border ${
+                          validationErrors.truck_id
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                        placeholder="Select Truck..."
+                      />
+                      {validationErrors.truck_id && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {validationErrors.truck_id}
+                        </p>
+                      )}
                     </div>
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Driver Name <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <select
                           name="driver_id"
                           value={newDriver.driver_id}
                           onChange={handleDriverChange}
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            validationErrors.driver_id
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                         >
-                          <option value={null}>Select a Driver...</option>
+                          <option value="">Select a Driver...</option>
                           {driverList.map((driver) => (
                             <option key={driver.id} value={driver.id}>
                               {driver.name}
@@ -3599,7 +4394,29 @@ export default function Trips({ onSelectTrip }) {
                             />
                           </svg>
                         </div>
-                      </div>
+                      </div> */}
+                      <SelectWithSearch
+                        name="driver_id"
+                        value={newDriver.driver_id}
+                        onChange={handleDriverChange}
+                        options={driverList}
+                        displayKey="name"
+                        valueKey="id"
+                        allowAdd={true}
+                        onAddNew={handleAddDriverClick}
+                        addNewText="Add new driver"
+                        className={`appearance-none block w-full px-3 py-2 border ${
+                          validationErrors.driver_id
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                        placeholder="Select Driver..."
+                      />
+                      {validationErrors.driver_id && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {validationErrors.driver_id}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -3621,6 +4438,8 @@ export default function Trips({ onSelectTrip }) {
                                 units: "",
                                 lrNumber: "",
                                 invoiceNumber: "",
+                                goodsInvoice: "",
+                                goodsValue: "",
                               },
                             ])
                           }
@@ -3653,13 +4472,21 @@ export default function Trips({ onSelectTrip }) {
                           </label>
                           <div className="relative flex">
                             <select
+                              disabled={
+                                routes[0].lrNumber != "" ||
+                                routes[0].invoiceNumber != ""
+                              }
                               value={routes[0].consigner}
                               onChange={(e) => {
                                 const updatedRoutes = [...routes];
                                 updatedRoutes[0].consigner = e.target.value;
                                 setRoutes(updatedRoutes);
                               }}
-                              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                              className={`appearance-none block w-full px-3 py-2 border ${
+                                validationErrors[`route_0_consigner`]
+                                  ? "border-red-500"
+                                  : "border-gray-300"
+                              } rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                             >
                               <option value="">-- Select a consigner --</option>
                               {consignersList.map((consigner) => (
@@ -3702,6 +4529,11 @@ export default function Trips({ onSelectTrip }) {
                               </svg>
                             </div>
                           </div>
+                          {validationErrors[`route_0_consigner`] && (
+                            <p className="text-red-500 text-sm mt-1">
+                              {validationErrors[`route_0_consigner`]}
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -3710,13 +4542,21 @@ export default function Trips({ onSelectTrip }) {
                           </label>
                           <div className="relative flex">
                             <select
+                              disabled={
+                                routes[0].lrNumber != "" ||
+                                routes[0].invoiceNumber != ""
+                              }
                               value={routes[0].consignee}
                               onChange={(e) => {
                                 const updatedRoutes = [...routes];
                                 updatedRoutes[0].consignee = e.target.value;
                                 setRoutes(updatedRoutes);
                               }}
-                              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                              className={`appearance-none block w-full px-3 py-2 border ${
+                                validationErrors[`route_0_consignee`]
+                                  ? "border-red-500"
+                                  : "border-gray-300"
+                              } rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                             >
                               <option value="">-- Select a consignee --</option>
                               {consigneesList.map((consignee) => (
@@ -3759,6 +4599,11 @@ export default function Trips({ onSelectTrip }) {
                               </svg>
                             </div>
                           </div>
+                          {validationErrors[`route_0_consignee`] && (
+                            <p className="text-red-500 text-sm mt-1">
+                              {validationErrors[`route_0_consignee`]}
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -3767,12 +4612,65 @@ export default function Trips({ onSelectTrip }) {
                           </label>
                           <input
                             type="text"
+                            disabled={
+                              routes[0].lrNumber != "" ||
+                              routes[0].invoiceNumber != ""
+                            }
                             value={routes[0].units || ""}
                             onChange={(e) =>
                               handleRouteUnitChange(0, e.target.value)
                             }
                             placeholder="Enter number of units"
-                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                            className={`appearance-none block w-full px-3 py-2 border ${
+                              validationErrors[`route_0_units`]
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                          />
+                          {validationErrors[`route_0_units`] && (
+                            <p className="text-red-500 text-sm mt-1">
+                              {validationErrors[`route_0_units`]}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Goods Invoice
+                          </label>
+                          <input
+                            type="text"
+                            disabled={
+                              routes[0].lrNumber != "" ||
+                              routes[0].invoiceNumber != ""
+                            }
+                            value={routes[0].goodsInvoice || ""}
+                            onChange={(e) => {
+                              const updatedRoutes = [...routes];
+                              updatedRoutes[0].goodsInvoice = e.target.value;
+                              setRoutes(updatedRoutes);
+                            }}
+                            placeholder="Enter Goods Invoice No."
+                            className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Goods Value
+                          </label>
+                          <input
+                            type="text"
+                            disabled={
+                              routes[0].lrNumber != "" ||
+                              routes[0].invoiceNumber != ""
+                            }
+                            value={routes[0].goodsValue || ""}
+                            onChange={(e) => {
+                              const updatedRoutes = [...routes];
+                              updatedRoutes[0].goodsValue = e.target.value;
+                              setRoutes(updatedRoutes);
+                            }}
+                            placeholder="Enter value of goods"
+                            className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                           />
                         </div>
                       </div>
@@ -3790,6 +4688,10 @@ export default function Trips({ onSelectTrip }) {
                               </label>
                               <div className="relative flex">
                                 <select
+                                  disabled={
+                                    route.lrNumber != "" ||
+                                    route.invoiceNumber != ""
+                                  }
                                   value={route.consigner}
                                   onChange={(e) => {
                                     const updatedRoutes = [...routes];
@@ -3797,7 +4699,11 @@ export default function Trips({ onSelectTrip }) {
                                       e.target.value;
                                     setRoutes(updatedRoutes);
                                   }}
-                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                                  className={`appearance-none block w-full px-3 py-2 border ${
+                                    validationErrors[`route_${index}_consigner`]
+                                      ? "border-red-500"
+                                      : "border-gray-300"
+                                  } rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                                 >
                                   <option value="">
                                     -- Select a consigner --
@@ -3846,6 +4752,11 @@ export default function Trips({ onSelectTrip }) {
                                   </svg>
                                 </div>
                               </div>
+                              {validationErrors[`route_${index}_consigner`] && (
+                                <p className="text-red-500 text-sm mt-1">
+                                  {validationErrors[`route_${index}_consigner`]}
+                                </p>
+                              )}
                             </div>
 
                             <div>
@@ -3855,6 +4766,10 @@ export default function Trips({ onSelectTrip }) {
                               </label>
                               <div className="relative flex">
                                 <select
+                                  disabled={
+                                    route.lrNumber != "" ||
+                                    route.invoiceNumber != ""
+                                  }
                                   value={route.consignee}
                                   onChange={(e) => {
                                     const updatedRoutes = [...routes];
@@ -3862,7 +4777,11 @@ export default function Trips({ onSelectTrip }) {
                                       e.target.value;
                                     setRoutes(updatedRoutes);
                                   }}
-                                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                                  className={`appearance-none block w-full px-3 py-2 border ${
+                                    validationErrors[`route_${index}_consignee`]
+                                      ? "border-red-500"
+                                      : "border-gray-300"
+                                  } rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                                 >
                                   <option value="">
                                     -- Select a consignee --
@@ -3911,6 +4830,11 @@ export default function Trips({ onSelectTrip }) {
                                   </svg>
                                 </div>
                               </div>
+                              {validationErrors[`route_${index}_consignee`] && (
+                                <p className="text-red-500 text-sm mt-1">
+                                  {validationErrors[`route_${index}_consignee`]}
+                                </p>
+                              )}
                             </div>
 
                             <div>
@@ -3919,12 +4843,67 @@ export default function Trips({ onSelectTrip }) {
                               </label>
                               <input
                                 type="text"
+                                disabled={
+                                  route.lrNumber != "" ||
+                                  route.invoiceNumber != ""
+                                }
                                 value={route.units || ""}
                                 onChange={(e) =>
                                   handleRouteUnitChange(index, e.target.value)
                                 }
                                 placeholder="Enter number of units"
-                                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                                className={`appearance-none block w-full px-3 py-2 border ${
+                                  validationErrors[`route_${index}_units`]
+                                    ? "border-red-500"
+                                    : "border-gray-300"
+                                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                              />
+                              {validationErrors[`route_${index}_units`] && (
+                                <p className="text-red-500 text-sm mt-1">
+                                  {validationErrors[`route_${index}_consignee`]}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Goods Invoice
+                              </label>
+                              <input
+                                type="text"
+                                disabled={
+                                  route.lrNumber != "" ||
+                                  route.invoiceNumber != ""
+                                }
+                                value={route.goodsInvoice || ""}
+                                onChange={(e) => {
+                                  const updatedRoutes = [...routes];
+                                  updatedRoutes[index].goodsInvoice =
+                                    e.target.value;
+                                  setRoutes(updatedRoutes);
+                                }}
+                                placeholder="Enter Goods Invoice No."
+                                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Goods Value
+                              </label>
+                              <input
+                                type="text"
+                                disabled={
+                                  route.lrNumber != "" ||
+                                  route.invoiceNumber != ""
+                                }
+                                value={route.goodsValue || ""}
+                                onChange={(e) => {
+                                  const updatedRoutes = [...routes];
+                                  updatedRoutes[index].goodsValue =
+                                    e.target.value;
+                                  setRoutes(updatedRoutes);
+                                }}
+                                placeholder="Enter value of goods"
+                                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                               />
                             </div>
 
@@ -4171,12 +5150,18 @@ export default function Trips({ onSelectTrip }) {
                           }}
                           type="text"
                           className={`pl-7 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black ${
-                            paymentMode !== "Fixed" ? "bg-gray-50" : ""
+                            validationErrors.partyFreightAmount
+                              ? "border-red-500"
+                              : "border-gray-300"
                           }`}
                           placeholder="Eg: 45,000"
-                          readOnly={paymentMode === "Fixed"}
                         />
                       </div>
+                      {validationErrors.partyFreightAmount && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {validationErrors.partyFreightAmount}
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4190,9 +5175,18 @@ export default function Trips({ onSelectTrip }) {
                             onChange={handleDriverChange}
                             type="date"
                             name="startDate"
-                            className="w-full border rounded-md p-2 text-black"
+                            className={`${
+                              validationErrors.startDate
+                                ? "border-red-500"
+                                : "border-gray-300"
+                            } w-full border rounded-md p-2 text-black`}
                           />
                         </div>
+                        {validationErrors.startDate && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {validationErrors.startDate}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -4209,9 +5203,18 @@ export default function Trips({ onSelectTrip }) {
                           value={newDriver.startKmsReading}
                           onChange={handleDriverChange}
                           type="text"
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+                          className={`${
+                            validationErrors.startKmsReading
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          } block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black`}
                           placeholder="Start readings"
                         />
+                        {validationErrors.startKmsReading && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {validationErrors.startKmsReading}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -4223,6 +5226,22 @@ export default function Trips({ onSelectTrip }) {
                   onClick={() => {
                     setisEditTripModalOpen(false);
                     setPaymentMode("Fixed");
+                    setRoutes([
+                      {
+                        consigner: "",
+                        consignee: "",
+                        units: "",
+                        lrNumber: "",
+                        invoiceNumber: "",
+                        goodsInvoice: "",
+                        goodsValue: "",
+                      },
+                    ]);
+                    setCalculationFields({
+                      rate: "",
+                      units: "",
+                    });
+                    setValidationErrors({});
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50"
                 >
@@ -4304,18 +5323,32 @@ export default function Trips({ onSelectTrip }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block mb-1 font-medium">State</label>
-                  <select
+                  {/* <select
                     name="state"
                     value={newConsigner.state}
                     onChange={handleInputConsignerChange}
                     className="w-full p-2 border border-gray-300 rounded-md"
+                    style={{
+                      maxHeight: "200px",
+                      overflowY: "auto",
+                    }}
+                    size="1"
                   >
-                    <option value="Maharashtra">Maharashtra</option>
-                    <option value="Gujarat">Gujarat</option>
-                    <option value="Karnataka">Karnataka</option>
-                    <option value="Tamil Nadu">Tamil Nadu</option>
-                    <option value="Delhi">Delhi</option>
-                  </select>
+                    {/* <option value="">Select a state</option>
+                    {statesList.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select> */}
+                  <SelectWithSearch
+                    name="state"
+                    value={newConsigner.state}
+                    onChange={handleInputConsignerChange}
+                    options={statesList}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                    placeholder="Select a state"
+                  />
                 </div>
 
                 <div>
@@ -4423,18 +5456,32 @@ export default function Trips({ onSelectTrip }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block mb-1 font-medium">State</label>
-                  <select
+                  {/* <select
                     name="state"
                     value={newConsignee.state}
                     onChange={handleInputConsigneeChange}
                     className="w-full p-2 border border-gray-300 rounded-md"
+                    style={{
+                      maxHeight: "200px",
+                      overflowY: "auto",
+                    }}
+                    size="1"
                   >
-                    <option value="Maharashtra">Maharashtra</option>
-                    <option value="Gujarat">Gujarat</option>
-                    <option value="Karnataka">Karnataka</option>
-                    <option value="Tamil Nadu">Tamil Nadu</option>
-                    <option value="Delhi">Delhi</option>
-                  </select>
+                    {/* <option value="">Select a state</option>
+                    {statesList.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select> */}
+                  <SelectWithSearch
+                    name="state"
+                    value={newConsignee.state}
+                    onChange={handleInputConsigneeChange}
+                    options={statesList}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
+                    placeholder="Select a state"
+                  />
                 </div>
 
                 <div>
@@ -4475,6 +5522,557 @@ export default function Trips({ onSelectTrip }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isAddPartyModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Add New Party
+              </h2>
+              <button
+                onClick={() => {
+                  setPartyErrors({
+                    partyName: "",
+                    openingBalance: "",
+                    openingBalanceDate: "",
+                    mobileNumber: "",
+                  });
+                  resetNewPartyForm();
+                  setIsAddPartyModalOpen(false);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleAddPartyFormSubmit}>
+              <div className="gap-x-6 gap-y-4">
+                {/* Left column */}
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Party Name*
+                    </label>
+                    <input
+                      type="text"
+                      name="partyName"
+                      value={newParty.partyName}
+                      onChange={handlePartyChange}
+                      className={`w-full p-2 border ${
+                        partyErrors.partyName
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    />
+                    {partyErrors.partyName && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {partyErrors.partyName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Opening Balance*
+                    </label>
+                    <input
+                      type="text"
+                      name="openingBalance"
+                      value={newParty.openingBalance}
+                      onChange={handlePartyChange}
+                      className={`w-full p-2 border ${
+                        partyErrors.openingBalance
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    />
+                    {partyErrors.openingBalance && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {partyErrors.openingBalance}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-black mb-1">
+                      Expense Date*
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="openingBalanceDate"
+                        value={newParty.openingBalanceDate}
+                        onChange={handlePartyChange}
+                        className={`w-full border ${
+                          partyErrors.openingBalanceDate
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        } rounded-md p-2 text-black`}
+                      />
+                      {partyErrors.openingBalanceDate && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {partyErrors.openingBalanceDate}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Mobile Number*
+                    </label>
+                    <input
+                      type="text"
+                      name="mobileNumber"
+                      value={newParty.mobileNumber}
+                      onChange={handlePartyChange}
+                      className={`w-full p-2 border ${
+                        partyErrors.mobileNumber
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    />
+                    {partyErrors.mobileNumber && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {partyErrors.mobileNumber}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right column */}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPartyErrors({
+                      partyName: "",
+                      openingBalance: "",
+                      openingBalanceDate: "",
+                      mobileNumber: "",
+                    });
+                    resetNewPartyForm();
+                    setIsAddPartyModalOpen(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isAddTruckModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Add New Truck
+              </h2>
+              <button
+                onClick={() => {
+                  resetNewTruckForm();
+                  setTruckErrors({
+                    truckNo: "",
+                    truckType: "",
+                    ownership: "",
+                    truckStatus: "",
+                  });
+                  setIsAddTruckModalOpen(false);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleAddTruckFormSubmit}>
+              <div className="gap-x-6 gap-y-4">
+                {/* Left column */}
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Truck Number
+                    </label>
+                    <input
+                      type="text"
+                      name="truckNo"
+                      value={newTruck.truckNo}
+                      onChange={handleTruckChange}
+                      className={`${
+                        truckErrors.truckNo
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    />
+                    {truckErrors.truckNo && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {truckErrors.truckNo}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Truck Type
+                    </label>
+                    <select
+                      name="truckType"
+                      value={newTruck.truckType}
+                      onChange={handleTruckChange}
+                      className={`${
+                        truckErrors.truckType
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    >
+                      <option value="">Select Truck Type</option>
+                      <option value="Mini Truck / LCV">Mini Truck / LCV</option>
+                      <option value="Open Body Truck">Open Body Truck</option>
+                      <option value="Closed Container">Closed Container</option>
+                      <option value="Trailer">Trailer</option>
+                      <option value="Tanker">Tanker</option>
+                      <option value="Tipper">Tipper</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {truckErrors.truckType && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {truckErrors.truckType}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Ownership
+                    </label>
+                    <select
+                      name="ownership"
+                      value={newTruck.ownership}
+                      onChange={handleTruckChange}
+                      className={`${
+                        truckErrors.ownership
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    >
+                      <option value="">Select Ownership</option>
+                      <option value="Market Truck">Market Truck</option>
+                      <option value="My Truck">My Truck</option>
+                    </select>
+                    {truckErrors.ownership && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {truckErrors.ownership}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      name="truckStatus"
+                      value={newTruck.truckStatus}
+                      onChange={handleTruckChange}
+                      className={`${
+                        truckErrors.truckStatus
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black`}
+                    >
+                      <option value="">Select Status</option>
+                      <option value="available">Available</option>
+                      <option value="on_trip">On Trip</option>
+                      <option value="off_duty">Off Duty</option>
+                    </select>
+                    {truckErrors.truckStatus && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {truckErrors.truckStatus}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right column */}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetNewTruckForm();
+                    setTruckErrors({
+                      truckNo: "",
+                      truckType: "",
+                      ownership: "",
+                      truckStatus: "",
+                    });
+                    setIsAddTruckModalOpen(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isAddDriverModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Add New Driver
+              </h2>
+              <button
+                onClick={() => {
+                  setDriverErrors({
+                    name: "",
+                    phone: "",
+                    aadhar: "",
+                    license: "",
+                    license_expiry: "",
+                  });
+                  setIsAddDriverModalOpen(false);
+                  resetNewFormDriverForm();
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  className="h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleAddDriverFormSubmit}>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                {/* Left column */}
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Driver Name
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={newFormDriver.name}
+                      onChange={handleFormDriverChange}
+                      className={`w-full p-2 border ${
+                        driverErrors.name ? "border-red-500" : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 ${
+                        driverErrors.name
+                          ? "focus:ring-red-500 focus:border-red-500"
+                          : "focus:ring-primary focus:border-primary"
+                      } text-black`}
+                    />
+                    {driverErrors.name && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {driverErrors.name}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="text"
+                      name="phone_number"
+                      value={newFormDriver.phone_number}
+                      onChange={handleFormDriverInputChange}
+                      className={`w-full p-2 border ${
+                        driverErrors.phone
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 ${
+                        driverErrors.phone
+                          ? "focus:ring-red-500 focus:border-red-500"
+                          : "focus:ring-primary focus:border-primary"
+                      } text-black`}
+                    />
+                    {driverErrors.phone && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {driverErrors.phone}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      value={newFormDriver.status}
+                      onChange={handleFormDriverChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary appearance-none text-black"
+                    >
+                      <option value="available">Available</option>
+                      <option value="on_trip">On Trip</option>
+                      <option value="off_duty">Off Duty</option>
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Aadhar Number
+                    </label>
+                    <input
+                      type="text"
+                      name="aadhar_number"
+                      value={newFormDriver.aadhar_number}
+                      onChange={handleFormDriverInputChange}
+                      className={`w-full p-2 border ${
+                        driverErrors.aadhar
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 ${
+                        driverErrors.aadhar
+                          ? "focus:ring-red-500 focus:border-red-500"
+                          : "focus:ring-primary focus:border-primary"
+                      } text-black`}
+                    />
+                    {driverErrors.aadhar && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {driverErrors.aadhar}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right column */}
+                <div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      License Number
+                    </label>
+                    <input
+                      type="text"
+                      name="license_number"
+                      value={newFormDriver.license_number}
+                      onChange={handleFormDriverChange}
+                      className={`w-full p-2 border ${
+                        driverErrors.license
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 ${
+                        driverErrors.license
+                          ? "focus:ring-red-500 focus:border-red-500"
+                          : "focus:ring-primary focus:border-primary"
+                      } text-black`}
+                    />
+                    {driverErrors.license && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {driverErrors.license}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      License Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      name="license_expiry_date"
+                      value={newFormDriver.license_expiry_date}
+                      onChange={handleFormDriverChange}
+                      className={`w-full p-2 border ${
+                        driverErrors.license_expiry
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-1 ${
+                        driverErrors.license_expiry
+                          ? "focus:ring-red-500 focus:border-red-500"
+                          : "focus:ring-primary focus:border-primary"
+                      } text-black`}
+                    />
+                    {driverErrors.license_expiry && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {driverErrors.license_expiry}
+                      </p>
+                    )}
+                  </div>
+                  {/* Commented code for photo and documents upload remains unchanged */}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDriverErrors({
+                      name: "",
+                      phone: "",
+                      aadhar: "",
+                      license: "",
+                      license_expiry: "",
+                    });
+                    setIsAddDriverModalOpen(false);
+                    resetNewFormDriverForm();
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

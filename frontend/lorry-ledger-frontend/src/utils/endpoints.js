@@ -64,14 +64,25 @@ export const API_ENDPOINTS = {
     delete: (id) => `trips/${id}/delete/`,
   },
 
+  locations: {
+    list: `locations/`,
+    create: `locations/create/`,
+  },
+
   consigners: {
     list: `consigners/`,
     create: `consigners/create/`,
+    detail: (id) => `consigners/${id}/`,
+    update: (id) => `consigners/${id}/update/`,
+    delete: (id) => `consigners/${id}/delete/`,
   },
 
   consignees: {
     list: `consignees/`,
     create: `consignees/create/`,
+    detail: (id) => `consignees/${id}/`,
+    update: (id) => `consignees/${id}/update/`,
+    delete: (id) => `consignees/${id}/delete/`,
   },
 
   LR: {
@@ -81,6 +92,11 @@ export const API_ENDPOINTS = {
     update: (id) => `LR/${id}/update/`,
     delete: (id) => `LR/${id}/delete/`,
     print: (id) => `lr/pdf/${id}/`,
+  },
+
+  materials: {
+    list: `materials/`,
+    create: `materials/create/`,
   },
 
   invoices: {

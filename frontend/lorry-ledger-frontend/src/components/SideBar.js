@@ -14,6 +14,7 @@ const Sidebar = ({ activeItem, setActiveItem }) => {
     { id: "suppliers", label: "Suppliers", icon: User },
     { id: "lorryReceipts", label: "Lorry Receipts", icon: User },
     { id: "invoice", label: "Invoice", icon: User },
+    { id: "customers", label: "Customers", icon: Users },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 

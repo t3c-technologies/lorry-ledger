@@ -38,9 +38,14 @@ export default function Invoice() {
   const [currentDriver, setCurrentDriver] = useState(null);
   const [LRList, setLRList] = useState([]);
   const [lorryReceiptList, setLorryReceiptList] = useState([]);
+  const [materialList, setMaterialList] = useState([]);
 
   const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE);
   const [totalPages, setTotalPages] = useState(0);
+
+  //Invoice print Popup
+  const [showInvoicePdfPopup, setShowInvoicePdfPopup] = useState(false);
+  const [currentInvoicePdfUrl, setCurrentInvoicePdfUrl] = useState("");
 
   const [IsViewSupplierModalOpen, setIsViewSupplierModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -63,8 +68,51 @@ export default function Invoice() {
   const [showEditTransactionModal, setShowEditTransactionModal] =
     useState(false);
 
+  const handlePrintClickInvoice = async (invoiceId) => {
+    // Open the PDF in a new window/tab
+    // const url = process.env.NEXT_PUBLIC_API_URL;
+    // window.open(`${url}/invoices/pdf/${invoiceId}/`, "_blank");
+
+    const url = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      const response = await fetch(`${url}/invoices/pdf/${invoiceId}/`);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setCurrentInvoicePdfUrl(blobUrl);
+      setShowInvoicePdfPopup(true);
+    } catch (error) {
+      console.error("Error fetching Invoice PDF:", error);
+    }
+  };
+
+  const handleDownloadInvoicePdf = async () => {
+    if (!currentInvoicePdfUrl) return;
+
+    try {
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement("a");
+      link.href = currentInvoicePdfUrl;
+      link.download = `Invoice_${currentLR.invoiceNumber || "document"}.pdf`; // Use LR ID in filename
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+    }
+  };
+  const closeInvoicePdfPopup = () => {
+    if (currentInvoicePdfUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(currentInvoicePdfUrl);
+    }
+    setShowInvoicePdfPopup(false);
+    setCurrentInvoicePdfUrl("");
+  };
+
   const handleRowClick = (LR) => {
     setCurrentLR(LR);
+    const route = trips.find((trip) => trip.id == LR.trip.id).routes[
+      LR.routeIndex
+    ];
     setFormData({
       trip_id: LR.trip.id,
       invoiceDate: LR.invoiceDate,
@@ -77,12 +125,15 @@ export default function Invoice() {
       gstPercentage: LR.gstPercentage,
       consignee_id: LR.consignee.id,
       consigner_id: LR.consigner.id,
+      goodsInvoice: route.goodsInvoice || "",
+      goodsValue: route.goodsValue || "",
     });
     getConsigners();
     getConsignees();
     setSelectedConsignee(LR.consignee.id);
     setSelectedConsigner(LR.consigner.id);
     setSelectedTrip(LR.trip.id);
+    setSelectedRoute(LR.routeIndex);
     console.log(formData);
     console.log(currentLR);
     setCurrentFormSection(0);
@@ -127,19 +178,54 @@ export default function Invoice() {
     name,
     value,
     onChange,
-    options,
+    options = [],
     className,
     required,
     placeholder = "Select an option",
+    displayKey = null, // Key to display from object (e.g., 'locationName', 'name')
+    valueKey = "id", // Key to use as value (default: 'id')
+    allowAdd = false, // Whether to show "Add new" option
+    onAddNew = null, // Function to call when adding new item
+    addNewText = "Add new", // Text to show for add new option
   }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isFocused, setIsFocused] = useState(false);
     const dropdownRef = useRef(null);
+    const inputRef = useRef(null);
+
+    // Helper function to get display text from option
+    const getDisplayText = (option) => {
+      if (typeof option === "string") return option;
+      return displayKey ? option[displayKey] : option.toString();
+    };
+
+    // Helper function to get value from option
+    const getValue = (option) => {
+      if (typeof option === "string") return option;
+      return option[valueKey];
+    };
+
+    // Find selected option object
+    const selectedOption = options.find((option) => getValue(option) === value);
+    const selectedDisplayText = selectedOption
+      ? getDisplayText(selectedOption)
+      : "";
 
     // Filter options based on search term
     const filteredOptions = options.filter((option) =>
-      option.toLowerCase().includes(searchTerm.toLowerCase())
+      getDisplayText(option).toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Check if search term exactly matches any existing option
+    const exactMatch = filteredOptions.some(
+      (option) =>
+        getDisplayText(option).toLowerCase() === searchTerm.toLowerCase()
+    );
+
+    // Show "Add new" option if allowAdd is true, searchTerm is not empty, and no exact match
+    const showAddNew =
+      allowAdd && searchTerm.trim() !== "" && !exactMatch && onAddNew;
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -149,6 +235,11 @@ export default function Invoice() {
           !dropdownRef.current.contains(event.target)
         ) {
           setIsOpen(false);
+          setIsFocused(false);
+          // Reset search term if no valid selection was made
+          if (!value || !selectedOption) {
+            setSearchTerm("");
+          }
         }
       }
 
@@ -156,93 +247,206 @@ export default function Invoice() {
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
       };
-    }, []);
+    }, [value, selectedOption]);
 
-    // Handle selection of an option
-    const handleSelect = (option) => {
-      onChange({ target: { name, value: option } });
-      setIsOpen(false);
+    // Handle input focus
+    const handleFocus = () => {
+      setIsFocused(true);
+      setIsOpen(true);
       setSearchTerm("");
     };
 
+    // Handle input change (typing)
+    const handleInputChange = (e) => {
+      const inputValue = e.target.value;
+      setSearchTerm(inputValue);
+      setIsOpen(true);
+
+      // Clear the selected value when typing
+      if (value && inputValue !== selectedDisplayText) {
+        onChange({ target: { name, value: "" } });
+      }
+    };
+
+    // Handle selection of an option
+    const handleSelect = (option) => {
+      const optionValue = getValue(option);
+      onChange({ target: { name, value: optionValue } });
+      setSearchTerm("");
+      setIsOpen(false);
+      setIsFocused(false);
+      inputRef.current?.blur();
+    };
+
+    // Handle add new item
+    const handleAddNew = async () => {
+      if (onAddNew && searchTerm.trim()) {
+        try {
+          // Call the provided add new function with search term
+          await onAddNew(searchTerm.trim());
+          setSearchTerm("");
+          setIsOpen(false);
+          setIsFocused(false);
+          inputRef.current?.blur();
+        } catch (error) {
+          console.error("Error adding new item:", error);
+          // You might want to show an error message to the user here
+        }
+      }
+    };
+
+    // Handle input blur
+    const handleBlur = () => {
+      // Small delay to allow for option selection
+      setTimeout(() => {
+        if (!dropdownRef.current?.contains(document.activeElement)) {
+          setIsFocused(false);
+          setIsOpen(false);
+          // Reset search term if no valid selection
+          if (!value || !selectedOption) {
+            setSearchTerm("");
+          }
+        }
+      }, 150);
+    };
+
+    // Handle keyboard navigation
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setIsOpen(true);
+      } else if (e.key === "Escape") {
+        setIsOpen(false);
+        setIsFocused(false);
+        inputRef.current?.blur();
+      }
+    };
+
+    // Display value: show selected value or search term when focused
+    const displayValue = isFocused ? searchTerm : selectedDisplayText || "";
+    const showPlaceholder = !isFocused && !value;
+
     return (
       <div className="relative" ref={dropdownRef}>
-        {/* Dropdown trigger */}
-        <div
-          className={className}
-          onClick={() => setIsOpen(!isOpen)}
-          style={{
-            cursor: "pointer",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>{value || placeholder}</span>
-          <svg
-            className="h-5 w-5 text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
+        {/* Main input field */}
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            name={name}
+            value={displayValue}
+            onChange={handleInputChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder={showPlaceholder ? placeholder : ""}
+            className={`${className} pr-10`}
+            autoComplete="off"
+            required={required}
+          />
+
+          {/* Dropdown arrow */}
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+            <svg
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                isOpen ? "rotate-180" : ""
+              }`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
         </div>
 
         {/* Dropdown content */}
         {isOpen && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            {/* Search box */}
-            <div className="sticky top-0 p-2 bg-white border-b border-gray-200">
-              <input
-                type="text"
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-black"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            {/* Options */}
-            <div>
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            {filteredOptions.length > 0 ? (
+              <>
+                {filteredOptions.map((option, index) => {
+                  const optionValue = getValue(option);
+                  const displayText = getDisplayText(option);
+                  return (
+                    <div
+                      key={`${optionValue}-${index}`}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 text-black border-b border-gray-100 last:border-b-0 transition-colors duration-150 ${
+                        value === optionValue
+                          ? "bg-blue-50 text-blue-700 font-medium"
+                          : ""
+                      }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Prevent input blur
+                        handleSelect(option);
+                      }}
+                    >
+                      {displayText}
+                    </div>
+                  );
+                })}
+                {showAddNew && (
                   <div
-                    key={option}
-                    className={`px-4 py-2 cursor-pointer hover:bg-gray-100 text-black ${
-                      value === option ? "bg-blue-50 text-blue-700" : ""
-                    }`}
-                    onClick={() => handleSelect(option)}
+                    className="px-4 py-3 cursor-pointer hover:bg-green-50 text-green-700 border-t border-gray-200 transition-colors duration-150 flex items-center"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent input blur
+                      handleAddNew();
+                    }}
                   >
-                    {option}
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    {addNewText} "{searchTerm}"
                   </div>
-                ))
-              ) : (
-                <div className="px-4 py-2 text-gray-500">No results found</div>
-              )}
-            </div>
+                )}
+              </>
+            ) : (
+              <>
+                {showAddNew ? (
+                  <div
+                    className="px-4 py-3 cursor-pointer hover:bg-green-50 text-green-700 transition-colors duration-150 flex items-center"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent input blur
+                      handleAddNew();
+                    }}
+                  >
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    {addNewText} "{searchTerm}"
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 text-gray-500 text-center">
+                    No results found
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
-
-        {/* Hidden select for form validation */}
-        <select
-          name={name}
-          value={value}
-          onChange={onChange}
-          required={required}
-          className="sr-only"
-        >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
       </div>
     );
   };
@@ -253,9 +457,11 @@ export default function Invoice() {
     invoiceNumber: nextInvoiceNumber,
     consigner_id: "",
     consignee_id: "",
+    goodsInvoice: "",
+    goodsValue: "",
     materialCategory: "",
     weight: "",
-    unit: "Tonnes",
+    unit: "Kg",
     numberOfPackages: "",
     freightPaidBy: "Consigner",
     gstPercentage: "",
@@ -267,9 +473,11 @@ export default function Invoice() {
       invoiceNumber: nextInvoiceNumber,
       consigner_id: "",
       consignee_id: "",
+      goodsInvoice: "",
+      goodsValue: "",
       materialCategory: "",
       weight: "",
-      unit: "Tonnes",
+      unit: "Kg",
       numberOfPackages: "",
       freightPaidBy: "Consigner",
       gstPercentage: "",
@@ -477,6 +685,43 @@ export default function Invoice() {
     }
   };
 
+  const getMaterials = async () => {
+    try {
+      const response = await api.get(API_ENDPOINTS.materials.list);
+      setMaterialList(response.data);
+      console.log(response.data);
+    } catch (error) {
+      notifyError("Error fetching drivers");
+    }
+  };
+
+  const addMaterial = async (materialName) => {
+    try {
+      const response = await api.post(
+        API_ENDPOINTS.materials.create,
+        JSON.stringify(
+          { materialName },
+          {
+            headers: {
+              "Content-Type": "application/json", // Explicitly set header
+            },
+          }
+        )
+      );
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        materialCategory: materialName,
+      }));
+      getMaterials();
+      // You might want to update your locations list here
+      // setLocationOptions(prev => [...prev, newLocation]);
+      console.log("New material added:", materialName);
+    } catch (error) {
+      console.error("Error adding material:", error);
+      throw error;
+    }
+  };
+
   // Previous page
   const prevPageClick = async () => {
     try {
@@ -620,6 +865,9 @@ export default function Invoice() {
     getLR();
     getTrips();
     getLorryReceipts();
+    getMaterials();
+    getConsigners();
+    getConsignees();
   }, []);
 
   // Sort function for table columns
@@ -694,6 +942,11 @@ export default function Invoice() {
   // Open "Edit Driver" modal
   const handleEditClick = (LR) => {
     setCurrentLR(LR);
+    const route = trips.find((trip) => trip.id == LR.trip.id).routes[
+      LR.routeIndex
+    ];
+    console.log(LR);
+
     setFormData({
       trip_id: LR.trip.id,
       invoiceDate: LR.invoiceDate,
@@ -706,10 +959,13 @@ export default function Invoice() {
       gstPercentage: LR.gstPercentage,
       consignee_id: LR.consignee.id,
       consigner_id: LR.consigner.id,
+      goodsInvoice: route.goodsInvoice || "",
+      goodsValue: route.goodsValue || "",
     });
     setSelectedConsignee(LR.consignee.id);
     setSelectedConsigner(LR.consigner.id);
     setSelectedTrip(LR.trip.id);
+    setSelectedRoute(LR.routeIndex);
     console.log(formData);
     console.log(currentLR);
     getConsigners();
@@ -759,6 +1015,7 @@ export default function Invoice() {
     formData.consignee_id = selectedConsignee;
     formData.consigner_id = selectedConsigner;
     formData.trip_id = selectedTrip;
+    formData.routeIndex = selectedRoute;
     console.log(formData);
     submitLR();
   };
@@ -767,12 +1024,15 @@ export default function Invoice() {
     formData.consignee_id = selectedConsignee;
     formData.consigner_id = selectedConsigner;
     formData.trip_id = selectedTrip;
+    formData.routeIndex = selectedRoute;
     console.log(formData);
     updateLR();
   };
 
   const submitLR = async () => {
     try {
+      console.log(formData);
+
       const response = await api.post(API_ENDPOINTS.invoices.create, formData, {
         headers: {
           "Content-Type": "application/json", // Explicitly set header
@@ -782,14 +1042,28 @@ export default function Invoice() {
       if (selectedRoute && selectedRoute != "") {
         tripToUpdate.routes[selectedRoute].invoiceNumber = response.data.id;
       } else {
-        const newRoute = {
-          consigner: selectedConsigner,
-          consignee: selectedConsignee,
-          units: formData.numberOfPackages,
-          lrNumber: "",
-          invoiceNumber: response.data.id,
-        };
-        tripToUpdate.routes = [...(tripToUpdate.routes || []), newRoute];
+        if (
+          tripToUpdate.partyBillingType == "Per Kg" ||
+          tripToUpdate.partyBillingType == "Per Tonne"
+        ) {
+          const newRoute = {
+            consigner: selectedConsigner,
+            consignee: selectedConsignee,
+            units: formData.weight,
+            lrNumber: "",
+            invoiceNumber: response.data.id,
+          };
+          tripToUpdate.routes = [...(tripToUpdate.routes || []), newRoute];
+        } else {
+          const newRoute = {
+            consigner: selectedConsigner,
+            consignee: selectedConsignee,
+            units: formData.numberOfPackages,
+            lrNumber: "",
+            invoiceNumber: response.data.id,
+          };
+          tripToUpdate.routes = [...(tripToUpdate.routes || []), newRoute];
+        }
       }
       await api.put(API_ENDPOINTS.trips.update(selectedTrip), tripToUpdate);
       setIsAddLRModalOpen(false);
@@ -896,16 +1170,52 @@ export default function Invoice() {
   };
 
   const handleRouteChange = (e) => {
-    const route = trips.find((trip) => trip.id == selectedTrip).routes[
-      e.target.value
-    ];
-    setSelectedRoute(e.target.value);
-    if (e.target.value != "") {
+    if (
+      e.target.value <
+      trips.find((trip) => trip.id == selectedTrip).routes.length
+    ) {
+      resetAddLR();
+      const route = trips.find((trip) => trip.id == selectedTrip).routes[
+        e.target.value
+      ];
+      setSelectedRoute(e.target.value);
       setSelectedConsigner(route.consigner);
       setSelectedConsignee(route.consignee);
       setFormData((prevFormData) => ({
         ...prevFormData,
-        numberOfPackages: route.units,
+        weight: "",
+        unit: "Kg",
+        numberOfPackages: "",
+      }));
+      if (
+        trips.find((trip) => trip.id == selectedTrip).partyBillingType ===
+        "Per Kg"
+      ) {
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          weight: route.units,
+          unit: "Kg",
+        }));
+      } else if (
+        trips.find((trip) => trip.id == selectedTrip).partyBillingType ===
+        "Per Tonne"
+      ) {
+        console.log(route.units);
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          weight: route.units,
+          unit: "Tonnes",
+        }));
+      } else {
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          numberOfPackages: route.units,
+        }));
+      }
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        goodsInvoice: route.goodsInvoice,
+        goodsValue: route.goodsValue,
       }));
       if (route.lrNumber != "") {
         const newLR = lorryReceiptList.find((c) => c.id == route.lrNumber);
@@ -917,23 +1227,21 @@ export default function Invoice() {
           freightPaidBy: newLR.freightPaidBy,
           gstPercentage: newLR.gstPercentage,
         }));
-      } else {
-        setFormData((prevFormData) => ({
-          ...prevFormData,
-          materialCategory: "",
-          weight: "",
-          unit: "",
-          freightPaidBy: "",
-          gstPercentage: "",
-        }));
       }
     } else {
+      const ind = trips.find((trip) => trip.id == selectedTrip).routes.length;
+      console.log(ind);
+      setSelectedRoute(String(ind));
       setSelectedConsigner("");
       setSelectedConsignee("");
-      setFormData((prevFormData) => ({
-        ...prevFormData,
-        numberOfPackages: "",
-      }));
+      resetAddLR();
+      // setFormData((prevFormData) => ({
+      //   ...prevFormData,
+      //   numberOfPackages: "",
+      //   weight: "",
+      //   goodsInvoice: "",
+      //   goodsValue: "",
+      // }));
     }
   };
 
@@ -1048,6 +1356,7 @@ export default function Invoice() {
     "Trip Details",
     "Consigner",
     "Consignee",
+    "Goods Details",
     "Load Details",
   ];
 
@@ -1135,6 +1444,7 @@ export default function Invoice() {
           <div className="mt-4">
             <div className="text-sm text-gray-500 mb-2">Select Route</div>
             <select
+              disabled={isEditLRModalOpen == true}
               className="w-full p-2 border border-gray-300 rounded-md bg-white"
               value={selectedRoute || ""}
               onChange={(e) => {
@@ -1142,7 +1452,13 @@ export default function Invoice() {
               }}
             >
               <option value={null}>Choose a route...</option>
-              <option value="">New Route</option>
+              <option
+                value={
+                  trips.find((trip) => trip.id == selectedTrip).routes.length
+                }
+              >
+                New Route
+              </option>
               {trips
                 .find((trip) => trip.id == selectedTrip)
                 .routes?.map((route, index) => (
@@ -1203,6 +1519,30 @@ export default function Invoice() {
                         trips.find((trip) => trip.id == selectedTrip).routes[
                           selectedRoute
                         ].lrNumber
+                      }
+                    </div>
+                  )}
+                  {trips.find((trip) => trip.id == selectedTrip).routes[
+                    selectedRoute
+                  ].goodsInvoice && (
+                    <div>
+                      <span className="text-gray-500">Goods Invoice No.:</span>{" "}
+                      {
+                        trips.find((trip) => trip.id == selectedTrip).routes[
+                          selectedRoute
+                        ].goodsInvoice
+                      }
+                    </div>
+                  )}
+                  {trips.find((trip) => trip.id == selectedTrip).routes[
+                    selectedRoute
+                  ].goodsValue && (
+                    <div>
+                      <span className="text-gray-500">Goods Value:</span>{" "}
+                      {
+                        trips.find((trip) => trip.id == selectedTrip).routes[
+                          selectedRoute
+                        ].goodsValue
                       }
                     </div>
                   )}
@@ -1292,6 +1632,11 @@ export default function Invoice() {
           <select
             className="w-full p-2 border border-gray-300 rounded-md"
             value={selectedConsigner}
+            disabled={
+              isEditLRModalOpen == true ||
+              selectedRoute !=
+                trips.find((trip) => trip.id == selectedTrip).routes.length
+            }
             onChange={(e) => setSelectedConsigner(e.target.value)}
           >
             <option value="">-- Select a consigner --</option>
@@ -1480,6 +1825,11 @@ export default function Invoice() {
           <select
             className="w-full p-2 border border-gray-300 rounded-md"
             value={selectedConsignee}
+            disabled={
+              isEditLRModalOpen == true ||
+              selectedRoute !=
+                trips.find((trip) => trip.id == selectedTrip).routes.length
+            }
             onChange={(e) => setSelectedConsignee(e.target.value)}
           >
             <option value="">-- Select a consignee --</option>
@@ -1648,13 +1998,54 @@ export default function Invoice() {
     </div>
   );
 
+  const renderGoodsSection = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Goods Invoice
+          </label>
+          <input
+            type="text"
+            placeholder="Enter the Goods Invoice No."
+            disabled={
+              isEditLRModalOpen == true ||
+              selectedRoute !=
+                trips.find((trip) => trip.id == selectedTrip).routes.length
+            }
+            value={formData.goodsInvoice}
+            onChange={(e) => handleInputChange("goodsInvoice", e.target.value)}
+            className={`w-full border border-gray-300 text-black rounded px-3 py-2`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Goods Value
+          </label>
+          <input
+            type="text"
+            placeholder="Enter the value of goods"
+            disabled={
+              isEditLRModalOpen == true ||
+              selectedRoute !=
+                trips.find((trip) => trip.id == selectedTrip).routes.length
+            }
+            value={formData.goodsValue}
+            onChange={(e) => handleInputChange("goodsValue", e.target.value)}
+            className={`w-full border border-gray-300 text-black rounded px-3 py-2`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   const renderLoadDetailsSection = () => (
     <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1 text-black">
           Material Category*
         </label>
-        <div className="relative">
+        {/* <div className="relative">
           <select
             value={formData.materialCategory}
             onChange={(e) =>
@@ -1671,7 +2062,22 @@ export default function Invoice() {
             size={16}
             className="absolute right-3 top-3 text-black"
           />
-        </div>
+        </div> */}
+        <SelectWithSearch
+          name="materialCategory"
+          value={formData.materialCategory}
+          onChange={(e) =>
+            handleInputChange("materialCategory", e.target.value)
+          }
+          options={materialList}
+          displayKey="materialName"
+          valueKey="materialName"
+          allowAdd={true}
+          onAddNew={addMaterial}
+          addNewText="Add new material"
+          className={`w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
+          placeholder="Select Material..."
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -1682,9 +2088,22 @@ export default function Invoice() {
           <input
             type="text"
             placeholder="Eg: 5"
+            disabled={
+              trips.find((trip) => trip.id == selectedTrip).partyBillingType !==
+                "Per Kg" &&
+              trips.find((trip) => trip.id == selectedTrip).partyBillingType !==
+                "Per Tonne"
+            }
             value={formData.weight}
             onChange={(e) => handleInputChange("weight", e.target.value)}
-            className="w-full border border-gray-300 text-black rounded px-3 py-2"
+            className={`${
+              trips.find((trip) => trip.id == selectedTrip).partyBillingType !==
+                "Per Kg" &&
+              trips.find((trip) => trip.id == selectedTrip).partyBillingType !==
+                "Per Tonne"
+                ? "disabled"
+                : ""
+            } w-full border border-gray-300 text-black rounded px-3 py-2`}
           />
         </div>
 
@@ -1695,8 +2114,21 @@ export default function Invoice() {
           <div className="relative">
             <select
               value={formData.unit}
+              disabled={
+                trips.find((trip) => trip.id == selectedTrip)
+                  .partyBillingType !== "Per Kg" &&
+                trips.find((trip) => trip.id == selectedTrip)
+                  .partyBillingType !== "Per Tonne"
+              }
               onChange={(e) => handleInputChange("unit", e.target.value)}
-              className="w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none"
+              className={`${
+                trips.find((trip) => trip.id == selectedTrip)
+                  .partyBillingType !== "Per Kg" &&
+                trips.find((trip) => trip.id == selectedTrip)
+                  .partyBillingType !== "Per Tonne"
+                  ? "disabled"
+                  : ""
+              } w-full border border-gray-300 text-black rounded px-3 py-2 appearance-none`}
             >
               <option value="Tonnes">Tonnes</option>
               <option value="Kg">Kg</option>
@@ -1718,10 +2150,23 @@ export default function Invoice() {
           type="text"
           placeholder="Eg: 5"
           value={formData.numberOfPackages}
+          disabled={
+            trips.find((trip) => trip.id == selectedTrip).partyBillingType ===
+              "Per Kg" ||
+            trips.find((trip) => trip.id == selectedTrip).partyBillingType ===
+              "Per Tonne"
+          }
           onChange={(e) =>
             handleInputChange("numberOfPackages", e.target.value)
           }
-          className="w-full border border-gray-300 text-black rounded px-3 py-2"
+          className={`${
+            trips.find((trip) => trip.id == selectedTrip).partyBillingType ===
+              "Per Kg" ||
+            trips.find((trip) => trip.id == selectedTrip).partyBillingType ===
+              "Per Tonne"
+              ? "disabled"
+              : ""
+          } w-full border border-gray-300 text-black rounded px-3 py-2`}
         />
       </div>
 
@@ -1799,6 +2244,8 @@ export default function Invoice() {
       case 2:
         return renderConsigneeSection();
       case 3:
+        return renderGoodsSection();
+      case 4:
         return renderLoadDetailsSection();
       default:
         return renderTripDetailsSection();
@@ -2058,6 +2505,25 @@ export default function Invoice() {
     </div>
   );
 
+  const renderGoodsSectionView = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Goods Invoice
+          </label>
+          <span className="text-black">{formData.goodsInvoice || "-"}</span>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-black">
+            Goods Value
+          </label>
+          <span className="text-black">{formData.goodsValue || "-"}</span>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderLoadDetailsSectionView = () => (
     <div className="space-y-4">
       <div>
@@ -2074,7 +2540,7 @@ export default function Invoice() {
           <label className="block text-sm font-medium mb-1 text-black">
             Weight
           </label>
-          <span className="text-black">{formData.weight}</span>
+          <span className="text-black">{formData.weight || "-"}</span>
         </div>
 
         <div>
@@ -2091,7 +2557,7 @@ export default function Invoice() {
         <label className="block text-sm font-medium mb-1 text-black">
           No. of Bags / Box / Shipments
         </label>
-        <span className="text-black">{formData.numberOfPackages}</span>
+        <span className="text-black">{formData.numberOfPackages || "-"}</span>
       </div>
 
       <div>
@@ -2155,6 +2621,8 @@ export default function Invoice() {
       case 2:
         return renderConsigneeSectionView();
       case 3:
+        return renderGoodsSectionView();
+      case 4:
         return renderLoadDetailsSectionView();
       default:
         return renderTripDetailsSectionView();
@@ -2198,7 +2666,7 @@ export default function Invoice() {
 
   const AddLRFormModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-lg shadow-lg relative flex flex-col">
+      <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-lg shadow-lg relative flex flex-col">
         {/* Form Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-800">
@@ -2284,7 +2752,7 @@ export default function Invoice() {
 
   const EditLRFormModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+      <div className="bg-white w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
         {/* Form Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-800">Edit Invoice</h2>
@@ -2361,7 +2829,7 @@ export default function Invoice() {
 
   const ViewLRFormModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
+      <div className="bg-white w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg relative">
         {/* Form Header */}
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold text-gray-800">
@@ -2533,24 +3001,35 @@ export default function Invoice() {
                   </th>
                   <th
                     className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("consigner.name")}
+                    //onClick={() => requestSort("consigner.name")}
                   >
                     <div className="flex items-center space-x-1">
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                        Consigner Name
+                        Customer Name
                       </span>
                       {getSortDirectionIcon("consigner.name")}
                     </div>
                   </th>
                   <th
                     className="px-6 py-3 text-left cursor-pointer"
-                    onClick={() => requestSort("consignee.name")}
+                    onClick={() => requestSort("trip.truck.truckNo")}
                   >
                     <div className="flex items-center space-x-1">
                       <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                        Consignee Name
+                        Truck No
                       </span>
-                      {getSortDirectionIcon("consignee.name")}
+                      {getSortDirectionIcon("trip.truck.truckNo")}
+                    </div>
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left cursor-pointer"
+                    onClick={() => requestSort("trip.origin")}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                        Route
+                      </span>
+                      {getSortDirectionIcon("trip.origin")}
                     </div>
                   </th>
                   <th className="px-6 py-3 text-right">
@@ -2578,12 +3057,22 @@ export default function Invoice() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-base text-gray-900">
-                        {LR.consigner.name}
+                        {LR.freightPaidBy === "Consigner"
+                          ? LR.consigner.name
+                          : LR.freightPaidBy === "Consignee"
+                          ? LR.consignee.name
+                          : "-"}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-base text-gray-900">
+                        {LR.trip.truck.truckNo}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-base text-gray-900">
-                        {LR.consignee.name}
+                        {LR.trip.origin}&rarr;{LR.trip.destination}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -2591,7 +3080,8 @@ export default function Invoice() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleRowClick(LR);
+                            handlePrintClickInvoice(LR.id);
+                            setCurrentLR(LR);
                           }}
                           className="text-primary hover:text-blue-700 transition-colors"
                         >
@@ -2796,6 +3286,39 @@ export default function Invoice() {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInvoicePdfPopup && (
+        <div className="text-black fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 max-w-4xl max-h-[90vh] w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">PDF Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadInvoicePdf}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 mx-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => closeInvoicePdfPopup()}
+                  className="text-gray-500 hover:text-gray-700 text-xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="h-[70vh] overflow-auto">
+              <embed
+                src={`${currentInvoicePdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                width="100%"
+                height="100%"
+                type="application/pdf"
+                title="PDF Preview"
+              />
             </div>
           </div>
         </div>
